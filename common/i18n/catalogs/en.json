@@ -1069,8 +1069,27 @@
     "one": "1 game, {held:n} in your library",
     "other": "{count:n} games, {held:n} in your library"
   },
-  "manager.discovery.tab.games": "Games",
+  "manager.discovery.tab.home": "Home",
+  "manager.discovery.tab.browse": "Browse",
   "manager.discovery.tab.releases": "Releases",
+  "manager.discovery.new_in": "New In",
+  "manager.discovery.new_view": "New in the {window}",
+  "manager.discovery.counted": "{name} {count:n}",
+  "manager.discovery.chip.all": "All",
+  "manager.discovery.chip.yours": "Your Games",
+  "manager.discovery.see_all": "See All",
+  "manager.discovery.mod": "Mod",
+  "manager.discovery.version_was": "{version}, was {was}",
+  "manager.discovery.authors": "Authors You Collect",
+  "manager.discovery.authors.held": "{count:n} in your library",
+  "manager.discovery.authors.new": "{count:n} new",
+  "manager.discovery.missing_from": "Missing from Your Games",
+  "manager.discovery.lacking.on_vps": "{count:n} on VPS",
+  "manager.discovery.views": "Your Views",
+  "manager.discovery.views.count": {
+    "one": "1 game",
+    "other": "{count:n} games"
+  },
   "manager.discovery.releases.summary": {
     "one": "1 release",
     "other": "{count:n} releases"
@@ -1085,14 +1104,10 @@
   "manager.discovery.releases.features.help": "The features VPS tags the release with",
   "manager.discovery.releases.mod.help": "A release VPS tags as a mod or links to another release",
   "manager.view.releases_everything.help": "Every release VPS lists, newest first",
-  "manager.discovery.unmatched": {
-    "one": "1 of your games isn't matched to VPS",
-    "other": "{count:n} of your games aren't matched to VPS"
-  },
   "manager.discovery.unnamed_file": "Unnamed file",
   "manager.discovery.link_broken": "VPS marks this link as no longer working",
   "manager.discovery.page_hint": "Open this file's page on {site}",
-  "manager.view.with_gaps.help": "Games in your library that VPS lists more files for than you have",
+  "manager.view.missing_games.help": "Games in your library that VPS lists more files for than you have",
   "manager.backups.take_now": "Back Up Now...",
   "manager.backups.taken": "Created",
   "manager.backups.taken.help": "When the copy was made, in your time - hover a cell for UTC",
@@ -3704,7 +3719,7 @@
   "manager.view.collections_needs_attention.help": "Collections with games removed, hidden or missing",
   "manager.view.everything": "Everything",
   "manager.view.not_held": "Not in Library",
-  "manager.view.with_gaps": "Missing Files",
+  "manager.view.missing_games": "Missing from Your Games",
   "manager.view.features.help": "What each table's script uses",
   "manager.view.game_assets.help": "Which supporting files each game holds",
   "manager.view.no_tables": "No Tables",

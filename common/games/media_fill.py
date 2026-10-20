@@ -317,6 +317,54 @@ def plan(game_ids: Iterable[str] | None = None) -> dict[str, Any]:
                       for kind in kinds]}
 
 
+def _offered() -> dict[str, dict[str, tuple[str, int]]]:
+    """Per kind the library keeps, the games with no file for it that an enabled source has
+    one for: game id to its VPS id and how many files the sources offer.
+
+    Fetches nothing. A backglass the game's own file could draw is not offered by a source,
+    and a game with no VPS match has nothing a source can be asked for. The index is the one
+    the fill reads, held once per process; with no source reachable the answer is empty.
+    """
+    from common.games import media_lens
+    from common.online import sources
+
+    scope = _scope(None)
+    kept = fillable_kinds()
+    variant = MediaConfig.from_config(get_ini_config()).playfield_variant
+    live = tuple(source.id for source in sources.catalogs(sources.enabled_ids())
+                 if source.reachable())
+    if not live or not scope:
+        return {}
+    out: dict[str, dict[str, tuple[str, int]]] = {}
+    matched: dict[str, str] = {}
+    for row in media_lens.library_rows():
+        game = scope.get(row["game_id"])
+        if game is None or row["kind"] not in kept or not is_gap(row):
+            continue
+        if row["game_id"] not in matched:
+            matched[row["game_id"]] = effective_vps_id(normalize_meta(game.meta_config or {}))
+        vps_id = matched[row["game_id"]]
+        asked = _asked_as(row["kind"], variant)
+        if not vps_id or not asked:
+            continue
+        if offers := sources.offers(asked, vps_id, live):
+            out.setdefault(row["kind"], {})[row["game_id"]] = (vps_id, len(offers))
+    return out
+
+
+def offered_gaps() -> dict[str, dict[str, int]]:
+    """`_offered` by VPS entry: per kind, the entries a game of the library has an empty
+    slot for that a source has a file for, with how many files the sources offer. One entry
+    held by two games is one entry."""
+    return {kind: {vps_id: count for vps_id, count in games.values()}
+            for kind, games in _offered().items()}
+
+
+def offered_games() -> dict[str, list[str]]:
+    """`_offered` by game: per kind, the ids of the games a source can fill the slot of."""
+    return {kind: sorted(games) for kind, games in _offered().items()}
+
+
 def start(game_ids: Iterable[str] | None = None, kinds: Iterable[str] | None = None,
           slots: Iterable[tuple[str, str]] = ()) -> jobs.Job:
     """Get missing art as a job: these games' gaps of `kinds`, or exactly `slots`.

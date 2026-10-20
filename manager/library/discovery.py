@@ -17,7 +17,7 @@ import time
 from collections.abc import Awaitable, Callable, Collection
 from typing import Any
 
-from nicegui import ui
+from nicegui import run, ui
 
 from common import icons
 from common.failures import why
@@ -42,6 +42,7 @@ from manager.kit.on_page import on_page
 from manager.library import (
     discovery_ask,
     discovery_get,
+    discovery_home,
     discovery_releases,
     import_dialog,
 )
@@ -49,11 +50,13 @@ from manager.library import (
 logger = logging.getLogger("vpinfe.manager.library.discovery")
 
 SCOPE = "discovery"
-GAMES_ADDRESS = "/manager?" + deeplink.query({"view": "games"})
 OWN_ADDRESS = "/manager?" + deeplink.query({"view": "discovery"})
 
+HOME = "home"
 BROWSE = "browse"
 RELEASES = discovery_releases.TAB
+# The grids whose saved views this page reads and writes.
+VIEW_SCOPES = (SCOPE, discovery_releases.SCOPE)
 
 HAVE = "have"
 MISSING = "missing"
@@ -153,10 +156,10 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         columns=("name", "in_library", *_KIND_FIELDS), sort=_BY_NAME,
         filters={"in_library": {"values": [NO]}},
         help=t("manager.view.not_held.help")),
-    "manager.view.with_gaps": views.Preset(
+    "manager.view.missing_games": views.Preset(
         columns=("name", *_KIND_FIELDS, "gap"), sort=_BY_NAME,
         filters={"in_library": {"values": [YES]}, "gap": {"values": [MISSING]}},
-        help=t("manager.view.with_gaps.help")),
+        help=t("manager.view.missing_games.help")),
 }
 
 
@@ -225,20 +228,27 @@ def summary(shown: list[dict[str, Any]], counted: bool) -> str:
              held=sum(1 for one in shown if one["is_in_library"]))
 
 
-def unmatched_games(library: Library) -> int:
-    return sum(1 for game in library.game_rows() if game.get("vps_unmatched"))
-
-
 def tab_of(state: dict[str, Any]) -> str:
-    """The tab chosen, and Browse where the address named a subject."""
+    """The tab chosen; Browse where the address named a subject or a game, else Home."""
     if state.get("subject"):
         return BROWSE
-    return RELEASES if state.get("discovery_tab") == RELEASES else BROWSE
+    chosen = state.get("discovery_tab")
+    if chosen in (HOME, BROWSE, RELEASES):
+        return str(chosen)
+    return BROWSE if state.get("entry") else HOME
+
+
+async def _warm_views(library: Library) -> None:
+    """Read the saved views before anything asks for them. A write made over an unread
+    cache would replace the views that are saved."""
+    await run.io_bound(library.warm, *(scope + views.VIEWS_SUFFIX for scope in VIEW_SCOPES))
 
 
 def build(library: Library, state: dict[str, Any], on_select: Callable[[Any], Any],
           rerender: Callable[[], None]) -> None:
     tab = tab_of(state)
+    if not state.get("subject"):
+        state["discovery_tab"] = tab
 
     def switch(event: Any) -> None:
         state["discovery_tab"] = event.value
@@ -247,15 +257,78 @@ def build(library: Library, state: dict[str, Any], on_select: Callable[[Any], An
         rerender()
 
     with ui.row().classes("w-full items-center px-3 pt-2 pb-1 shrink-0"):
-        panel.segmented({BROWSE: t("manager.discovery.tab.games"),
+        panel.segmented({HOME: t("manager.discovery.tab.home"),
+                         BROWSE: t("manager.discovery.tab.browse"),
                          RELEASES: t("manager.discovery.tab.releases")}, tab, switch)
     body = ui.column().classes("w-full grow min-h-0 gap-0")
-    fill = _fill_releases if tab == RELEASES else _fill
+    fill = {HOME: _fill_home, RELEASES: _fill_releases}.get(tab, _fill)
     busy.fill(body, lambda: fill(library, body, state, on_select, rerender))
+
+
+async def _fill_home(library: Library, body: Any, state: dict[str, Any],
+                     on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
+    """Home: every shelf from one read that asks no site, so it draws before the catalog is
+    in memory. The search box and the counts on Your Views wait for the catalog."""
+    await _warm_views(library)
+    try:
+        home = await offload.io(library.discovery_home, discovery_home.remembered_days())
+    except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
+        with body:
+            panel.facts(ui, [panel.intro(t("manager.discovery.read_failed"), hint=why(exc))])
+        return
+    people: list[dict[str, Any]] = []
+
+    async def catalog() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        found = await _read(library)
+        people[:] = found.get("people") or []
+        return people, rows(found, kept_listings(library))
+
+    async def reread(days: int) -> dict[str, Any]:
+        return await offload.io(library.discovery_home, days)
+
+    @on_page
+    async def to_view(view_id: str) -> None:
+        custom, _active = views.stored(library, SCOPE)
+        await run.io_bound(views.remember, library, SCOPE, custom, view_id)
+        discovery_ask.drop_opening(state, BROWSE)
+        state["discovery_tab"] = BROWSE
+        deeplink.sync(state)
+        rerender()
+
+    def see_new(days: int, chip: str) -> None:
+        name = t("manager.discovery.new_view", window=t(discovery_home.WINDOWS[days]))
+        open_page(state, people, rerender, None, tab=RELEASES, opening={
+            "name": name, "filters": discovery_home.new_filters(
+                days, chip, kept_listings(library), counted=bool(home["counted"]))})
+
+    def see_missing(listing: str) -> None:
+        field = next(field for listed_as, field, _word in KINDS if listed_as == listing)
+        open_page(state, people, rerender, None, tab=BROWSE, opening={
+            "name": t("manager.discovery.missing_from"),
+            "filters": {"in_library": {"values": [YES]}, field: {"values": [MISSING]}}})
+
+    def go_to(subject: dict[str, str]) -> None:
+        open_page(state, people, rerender, subject)
+
+    @on_page
+    async def redraw_home() -> None:
+        library.forget_catalog()
+        rerender()
+
+    state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
+    state["redraw_discovery"] = redraw_home
+    discovery_home.fill(
+        body, home, library=library, scope=SCOPE, view_presets=VIEWS, catalog=catalog,
+        reread=reread, on_select=on_select, see_new=see_new, see_missing=see_missing,
+        open_view=to_view, open_subject=go_to)
+    if not home["counted"]:
+        with body:
+            comparing_line(library, rerender)
 
 
 async def _fill_releases(library: Library, body: Any, state: dict[str, Any],
                          on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
+    await _warm_views(library)
     try:
         found = await _read(library)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
@@ -365,15 +438,6 @@ async def _read(library: Library) -> dict[str, Any]:
     return await offload.io(library.load_catalog)
 
 
-def _unmatched_line(count: int, show: Callable[[], Awaitable[Any]] | None) -> None:
-    with ui.row().classes("w-full items-center gap-2 px-3 pb-2 shrink-0"):
-        text = t("manager.discovery.unmatched", count=count)
-        if show is None:
-            ui.label(text).classes("text-xs manager-label")
-        else:
-            panel.link(text, to=GAMES_ADDRESS, on_click=show)()
-
-
 def comparing_line(library: Library, rerender: Callable[[], None]) -> ui.label:
     """Says the library is being compared with VPS while that job runs, and draws the page
     again when one ends after this line was drawn. It never starts one: the sources watch
@@ -415,6 +479,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
     # Imported here: `games` imports modules that import this one.
     from manager.library.games import view_control
 
+    await _warm_views(library)
     try:
         found = await _read(library)
     except Exception as exc:  # noqa: BLE001 - this page says why, never 500s
@@ -464,8 +529,6 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
     columns = grid_columns(library, built)
     by_id = {row["id"]: row for row in built}
     on_screen: dict[str, Any] = {"ids": [row["id"] for row in built], "selected": 0}
-    unmatched = await offload.io(unmatched_games, library)
-    show_unmatched = state.get("show_unmatched")
     fields = [one["field"] for one in columns]
     arrival = discovery_ask.opening_on(state, BROWSE)
     opened = views.opened(views.builtins(VIEWS)[0], arrival["name"], arrival["filters"],
@@ -503,8 +566,6 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
 
         if not built:
             panel.facts(ui, [panel.intro(t("manager.discovery.empty"))])
-        if unmatched:
-            _unmatched_line(unmatched, show_unmatched if callable(show_unmatched) else None)
         if not counted:
             comparing_line(library, rerender)
 

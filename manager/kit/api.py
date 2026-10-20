@@ -520,6 +520,10 @@ class ApiClient:
         """Every catalog entry against what the last count found the library holding."""
         return dict(self._get("/library/discovery"))
 
+    def discovery_home(self, days: int) -> dict:
+        """Discovery's front page, every shelf in one read."""
+        return dict(self._get(f"/discovery/home?days={int(days)}"))
+
     def vps_details(self, game_id: str) -> list[dict]:
         """Which of the game's details disagree with its entry - empty for a game
         nobody has re-matched, which is nearly all of them."""
@@ -1575,6 +1579,10 @@ class ApiClient:
     def missing_media(self, game_ids: list[str] | None = None) -> dict:
         """Per kept kind, how many of these games have no file and how many can get one."""
         return self._post("/library/media/missing", {"game_ids": game_ids})
+
+    def fillable_media(self) -> dict:
+        """Per media kind, the ids of the games a source has a file for the empty slot of."""
+        return self._get("/library/media/offered")
 
     def fill_media(self, game_ids: list[str] | None = None, kinds: list[str] | None = None,
                    slots: tuple[tuple[str, str], ...] = ()) -> dict:

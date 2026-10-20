@@ -41,6 +41,16 @@ class MediaFillRouteTests(unittest.TestCase):
         plan.assert_called_once_with(["g1", "g2"])
         filled.assert_not_called()
 
+    def test_offered_names_the_games_a_source_can_fill_by_kind(self) -> None:
+        with patch("common.games.media_fill.offered_games",
+                   return_value={"playfield": ["g1"]}), \
+                patch("common.games.media_fill._fill_games") as filled:
+            response = self.client.get("/library/media/offered")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"kinds": {"playfield": ["g1"]}})
+        filled.assert_not_called()
+
     def test_fill_accepts_and_hands_back_a_job_to_watch(self) -> None:
         counts = {"games": 1, "filled": 1, "unmatched": 0, "failed": 0}
         with patch("common.games.media_fill._fill_games", return_value=counts) as filled:

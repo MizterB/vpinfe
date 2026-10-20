@@ -320,6 +320,14 @@ def _library_rows(variant: str, sets: dict[str, str] | None) -> list[dict]:
     return found
 
 
+def library_rows() -> list[dict]:
+    """`listing` for the whole library, in the order the games were read: for a caller that
+    filters the rows and has no use for the sort that makes a page."""
+    variant, sets = media_service.media_settings()
+    with _LOCK:
+        return _library_rows(variant, sets)
+
+
 def read_ahead() -> None:
     """Read the library's media on a thread of its own, so the first page to ask is not
     the one that waits."""

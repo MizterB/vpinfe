@@ -124,6 +124,8 @@ def arrival_filters(question: Mapping[str, Any], *, counted: bool) -> dict[str, 
     Have and In Library are left out before the library has been counted: the columns hold
     nothing then, and a filter on them would empty the grid."""
     out: dict[str, Any] = {}
+    if question.get("since"):
+        out["added"] = {"days": int(question["since"])}
     if question.get("by"):
         out["authors"] = {"values": list(question["by"])}
     if question.get("kind"):

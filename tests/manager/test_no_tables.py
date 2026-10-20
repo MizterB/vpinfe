@@ -25,6 +25,9 @@ class Library:
         self.games = list(games_)
         self._hidden = set(hidden)
 
+    def fillable_media(self):
+        return getattr(self, "offered", {})
+
     def hidden_checks(self):
         return self._hidden
 

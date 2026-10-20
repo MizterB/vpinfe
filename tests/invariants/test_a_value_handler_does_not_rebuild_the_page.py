@@ -69,7 +69,7 @@ PENDING: dict[tuple[str, str], str] = {
 # changed what the page lists, so rows come and go. Each stays, with the reason.
 NAVIGATION: dict[tuple[str, str], str] = {
     ("library/discovery.py", "build"):
-        "The Games and Releases tabs are two views of Discovery: switching is navigation.",
+        "Home, Browse and Releases are three views of Discovery: switching is navigation.",
     ("workbench/tag.py", "_tag_details"):
         "A renamed tag is another tag: its games, color and address all follow the name, "
         "so the panel follows it. Description and color are saved in place.",

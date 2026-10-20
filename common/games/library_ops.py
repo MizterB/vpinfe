@@ -23,6 +23,7 @@ from common.games import (
     game_service,
     library_folders,
     library_vps_state,
+    media_fill,
     standalone_scripts,
     tag_registry,
 )
@@ -39,6 +40,7 @@ from common.games.game_metadata import (
 )
 from common.games.tables import table_entries
 from common.i18n import t
+from common.online import vps_home
 from common.runtime import job_details
 from common.runtime import jobs as job_registry
 
@@ -266,6 +268,12 @@ def vps_rollup() -> dict[str, Any]:
 def vps_discovery() -> dict[str, Any]:
     """The catalog against the library, as the last count found it. Never live."""
     return library_vps_state.discovery()
+
+
+def discovery_home(days: int) -> dict[str, Any]:
+    """Discovery's front page from the last comparison, asking no site."""
+    return vps_home.home(library_vps_state.discovery(), library_vps_state.kept_listings(), days,
+                         media=media_fill.offered_gaps())
 
 
 def info_maintenance() -> dict[str, Any]:

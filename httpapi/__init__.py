@@ -24,6 +24,7 @@ from . import (
     config,
     core_capabilities,
     devices,
+    discovery,
     dof,
     encrypted,
     events,
@@ -127,6 +128,7 @@ def create_api_app() -> FastAPI:
     api.include_router(collections.router)
     api.include_router(jobs.router)
     api.include_router(library.router)
+    api.include_router(discovery.router)
     api.include_router(devices.router)
     api.include_router(actions.router)
     api.include_router(logs.router)

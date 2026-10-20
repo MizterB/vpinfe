@@ -288,6 +288,45 @@ class AskedTests(_Library):
         self.assertEqual(found["unreachable"], [])
         self.downloads.assert_not_called()
 
+    def test_the_gaps_a_source_can_fill_are_named_by_entry(self) -> None:
+        gaps = media_fill.offered_gaps()
+
+        self.assertEqual(gaps["wheel"], {"fathom": 1, "eightball": 1})
+        self.assertEqual(gaps["backglass"], {"fathom": 1})
+        self.assertNotIn("flyer", gaps)
+        self.downloads.assert_not_called()
+
+    def test_the_games_a_source_can_fill_are_named_by_id(self) -> None:
+        games = media_fill.offered_games()
+
+        self.assertEqual(len(games["wheel"]), 2)
+        self.assertEqual(len(games["backglass"]), 1)
+        self.assertEqual(games["wheel"], sorted(games["wheel"]))
+        self.assertTrue(set(games["backglass"]) <= set(games["wheel"]))
+        self.assertNotIn(self.id_of(self.loose), games["wheel"])
+
+    def test_a_game_with_no_match_has_no_gap_a_source_can_fill(self) -> None:
+        self.assertNotIn("", media_fill.offered_gaps()["wheel"])
+
+    def test_a_slot_with_a_file_is_not_a_gap_to_fill(self) -> None:
+        self.games.clear()
+        self.game("Held", "fathom", **{"wheel.png": b"mine"})
+
+        gaps = media_fill.offered_gaps()
+
+        self.assertNotIn("wheel", gaps)
+        self.assertIn("backglass", gaps)
+
+    def test_a_hidden_kind_is_not_offered(self) -> None:
+        self.policy.set("hidden_media_kinds", ["wheel"])
+
+        self.assertNotIn("wheel", media_fill.offered_gaps())
+
+    def test_no_source_reached_offers_nothing(self) -> None:
+        with patch.object(vpinmediadb, "_MANIFEST", None), \
+                patch("common.online.vpsdb_cache.VPinMediaDatabase.load", return_value=None):
+            self.assertEqual(media_fill.offered_gaps(), {})
+
     def test_a_source_that_cannot_be_reached_is_named_and_offers_nothing(self) -> None:
         with patch.object(vpinmediadb, "_MANIFEST", None), \
                 patch("common.online.vpsdb_cache.VPinMediaDatabase.load",

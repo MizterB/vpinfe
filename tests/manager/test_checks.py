@@ -31,6 +31,9 @@ class FakeLibrary:
     def table_rows(self):
         return self._rows
 
+    def fillable_media(self):
+        return getattr(self, "offered", {})
+
     def hidden_checks(self):
         return self._hidden
 
@@ -108,6 +111,34 @@ class FindingsTests(unittest.TestCase):
                           media={"g1": {"backglass": {"present": True}}})
         self.assertEqual(["g1"], [g["id"] for g in sections.findings(lib)["no_media"]])
 
+    def test_a_game_a_source_can_fill_is_left_to_discovery(self):
+        """Missing from Your Games lists it, so the check does not: a game is on one list."""
+        lib = FakeLibrary([game("g1"), game("g2")], [])
+        lib.offered = {"playfield": {"g1"}}
+        found = sections.findings(lib)
+
+        self.assertEqual(["g2"], [g["id"] for g in found["no_playfield"]])
+        self.assertEqual(["g1", "g2"], [g["id"] for g in found["no_backglass"]])
+
+    def test_a_game_with_another_slot_offered_is_still_missing_this_one(self):
+        lib = FakeLibrary([game("g1")], [])
+        lib.offered = {"backglass": {"g1"}}
+
+        self.assertEqual(["g1"], [g["id"] for g in sections.findings(lib)["no_playfield"]])
+        self.assertEqual([], sections.findings(lib)["no_backglass"])
+
+    def test_no_media_keeps_a_game_only_while_no_kind_it_collects_is_offered(self):
+        lib = FakeLibrary([game("g1"), game("g2"), game("g3")], [])
+        lib.offered = {"backglass": {"g1"}, "wheel": {"g2"}}
+
+        self.assertEqual(["g2", "g3"], [g["id"] for g in sections.findings(lib)["no_media"]])
+
+    def test_a_check_that_was_turned_off_stays_off_whatever_is_offered(self):
+        lib = FakeLibrary([game("g1")], [], hidden=["no_playfield"])
+        lib.offered = {"playfield": {"g1"}}
+
+        self.assertNotIn("no_playfield", sections.findings(lib))
+
     def test_every_check_gets_the_third_argument(self):
         """The signature changed for one check; the others must still run."""
         lib = FakeLibrary([game("g1", year="")], [table("g1", True)])
@@ -116,8 +147,9 @@ class FindingsTests(unittest.TestCase):
 
 
 class _Client:
-    def __init__(self, policy=None):
+    def __init__(self, policy=None, offered=None):
         self.policy = policy
+        self.offered = offered
         self.reads = {"tables": 0, "media": 0, "policy": 0}
 
     def games(self):
@@ -147,6 +179,12 @@ class _Client:
     def library_game_collections(self):
         return {}
 
+    def fillable_media(self):
+        self.reads["offered"] = self.reads.get("offered", 0) + 1
+        if self.offered is None:
+            raise OSError("unreachable")
+        return {"kinds": self.offered}
+
 
 class OverviewReadTests(unittest.TestCase):
     """Everything the Overview counts is read before it draws."""
@@ -165,6 +203,21 @@ class OverviewReadTests(unittest.TestCase):
         self.assertTrue(library.has_overview())
         self.assertEqual({"no_year"}, library.hidden_checks())
         self.assertEqual(["g1"], [g["id"] for g in sections.findings(library)["rom_missing"]])
+
+    def test_it_reads_which_games_a_source_can_fill_and_the_checks_leave_them(self):
+        library = self._library(_Client({}, {"playfield": ["g1"]}))
+        library.load_overview()
+
+        self.assertEqual({"playfield": {"g1"}}, library.fillable_media())
+        self.assertEqual(["g2"], [g["id"] for g in sections.findings(library)["no_playfield"]])
+
+    def test_an_unreadable_answer_leaves_every_gap_counted(self):
+        library = self._library(_Client({}))
+        library.load_overview()
+
+        self.assertEqual({}, library.fillable_media())
+        self.assertEqual(["g1", "g2"],
+                         [g["id"] for g in sections.findings(library)["no_playfield"]])
 
     def test_the_draw_reads_nothing(self):
         client = _Client({"hidden_checks": []})

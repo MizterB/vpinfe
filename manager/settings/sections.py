@@ -55,6 +55,15 @@ CHECKS: tuple[tuple[str, str, str, Callable[[dict, dict, dict], bool]], ...] = (
 FILLS = {"no_playfield": "playfield", "no_backglass": "backglass"}
 
 
+def _a_source_fills(key: str, fillable: Collection[str], collected: Collection[str]) -> bool:
+    """Whether a source has a file for a slot this check calls a gap. Discovery lists such a
+    game under Missing from Your Games, so the check leaves it there. `no_media` is filled
+    when any kind the library collects can be."""
+    if key in FILLS:
+        return FILLS[key] in fillable
+    return key == "no_media" and any(kind in collected for kind in fillable)
+
+
 def rollups(library: Library) -> dict[str, dict[str, Any]]:
     """Per-game facts a check needs that the game payload does not carry.
 
@@ -94,11 +103,15 @@ def findings(library: Library) -> dict[str, list[dict[str, Any]]]:
                   if one[0] not in FILLS or FILLS[one[0]] in collected)
     out: dict[str, list[dict[str, Any]]] = {key: [] for key, _, _, _ in asked}
     extra = rollups(library)
+    offered = library.fillable_media()
     for game in library.games:
         entries = library.media.get(game["id"], {})
         facts = {"collected": collected, **extra.get(game["id"], {})}
+        fillable = {kind for kind, ids in offered.items() if game["id"] in ids}
         for key, _, _, predicate in asked:
             try:
+                if _a_source_fills(key, fillable, collected):
+                    continue
                 if predicate(game, entries, facts):
                     out[key].append(game)
             except Exception:

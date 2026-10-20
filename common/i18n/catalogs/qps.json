@@ -1069,8 +1069,27 @@
     "one": "1 ĝàɱè, {held:n} îñ ýöûř ŀîƀřàřý",
     "other": "{count:n} ĝàɱèš, {held:n} îñ ýöûř ŀîƀřàřý"
   },
-  "manager.discovery.tab.games": "Ĝàɱèš",
+  "manager.discovery.tab.home": "Ĥöɱè",
+  "manager.discovery.tab.browse": "Ɓřöŵšè",
   "manager.discovery.tab.releases": "Řèŀèàšèš",
+  "manager.discovery.new_in": "Ñèŵ Îñ",
+  "manager.discovery.new_view": "Ñèŵ îñ ţĥè {window}",
+  "manager.discovery.counted": "{name} {count:n}",
+  "manager.discovery.chip.all": "Àŀŀ",
+  "manager.discovery.chip.yours": "Ýöûř Ĝàɱèš",
+  "manager.discovery.see_all": "Šèè Àŀŀ",
+  "manager.discovery.mod": "Ḿöđ",
+  "manager.discovery.version_was": "{version}, ŵàš {was}",
+  "manager.discovery.authors": "Àûţĥöřš Ýöû Çöŀŀèçţ",
+  "manager.discovery.authors.held": "{count:n} îñ ýöûř ŀîƀřàřý",
+  "manager.discovery.authors.new": "{count:n} ñèŵ",
+  "manager.discovery.missing_from": "Ḿîššîñĝ ƒřöɱ Ýöûř Ĝàɱèš",
+  "manager.discovery.lacking.on_vps": "{count:n} öñ ṼÞŠ",
+  "manager.discovery.views": "Ýöûř Ṽîèŵš",
+  "manager.discovery.views.count": {
+    "one": "1 ĝàɱè",
+    "other": "{count:n} ĝàɱèš"
+  },
   "manager.discovery.releases.summary": {
     "one": "1 řèŀèàšè",
     "other": "{count:n} řèŀèàšèš"
@@ -1085,14 +1104,10 @@
   "manager.discovery.releases.features.help": "Ţĥè ƒèàţûřèš ṼÞŠ ţàĝš ţĥè řèŀèàšè ŵîţĥ",
   "manager.discovery.releases.mod.help": "À řèŀèàšè ṼÞŠ ţàĝš àš à ɱöđ öř ŀîñķš ţö àñöţĥèř řèŀèàšè",
   "manager.view.releases_everything.help": "Èṽèřý řèŀèàšè ṼÞŠ ŀîšţš, ñèŵèšţ ƒîřšţ",
-  "manager.discovery.unmatched": {
-    "one": "1 öƒ ýöûř ĝàɱèš îšñ'ţ ɱàţçĥèđ ţö ṼÞŠ",
-    "other": "{count:n} öƒ ýöûř ĝàɱèš àřèñ'ţ ɱàţçĥèđ ţö ṼÞŠ"
-  },
   "manager.discovery.unnamed_file": "Ûññàɱèđ ƒîŀè",
   "manager.discovery.link_broken": "ṼÞŠ ɱàřķš ţĥîš ŀîñķ àš ñö ŀöñĝèř ŵöřķîñĝ",
   "manager.discovery.page_hint": "Öþèñ ţĥîš ƒîŀè'š þàĝè öñ {site}",
-  "manager.view.with_gaps.help": "Ĝàɱèš îñ ýöûř ŀîƀřàřý ţĥàţ ṼÞŠ ŀîšţš ɱöřè ƒîŀèš ƒöř ţĥàñ ýöû ĥàṽè",
+  "manager.view.missing_games.help": "Ĝàɱèš îñ ýöûř ŀîƀřàřý ţĥàţ ṼÞŠ ŀîšţš ɱöřè ƒîŀèš ƒöř ţĥàñ ýöû ĥàṽè",
   "manager.backups.take_now": "Ɓàçķ Ûþ Ñöŵ...",
   "manager.backups.taken": "Çřèàţèđ",
   "manager.backups.taken.help": "Ŵĥèñ ţĥè çöþý ŵàš ɱàđè, îñ ýöûř ţîɱè - ĥöṽèř à çèŀŀ ƒöř ÛŢÇ",
@@ -3704,7 +3719,7 @@
   "manager.view.collections_needs_attention.help": "Çöŀŀèçţîöñš ŵîţĥ ĝàɱèš řèɱöṽèđ, ĥîđđèñ öř ɱîššîñĝ",
   "manager.view.everything": "Èṽèřýţĥîñĝ",
   "manager.view.not_held": "Ñöţ îñ Ŀîƀřàřý",
-  "manager.view.with_gaps": "Ḿîššîñĝ Ƒîŀèš",
+  "manager.view.missing_games": "Ḿîššîñĝ ƒřöɱ Ýöûř Ĝàɱèš",
   "manager.view.features.help": "Ŵĥàţ èàçĥ ţàƀŀè'š šçřîþţ ûšèš",
   "manager.view.game_assets.help": "Ŵĥîçĥ šûþþöřţîñĝ ƒîŀèš èàçĥ ĝàɱè ĥöŀđš",
   "manager.view.no_tables": "Ñö Ţàƀŀèš",

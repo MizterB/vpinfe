@@ -4540,3 +4540,42 @@ svg.manager-cell-noart {
 .manager-wall-picture img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .manager-wall-name { font-size: var(--fs-caption); color: var(--ink); }
 .manager-wall-note { font-size: 11px; color: var(--ink-3); }
+
+/* Discovery's front page: a row of tiles that scrolls sideways rather than wrapping, so a
+   shelf of any length takes one line and the next shelf stays in view. */
+.manager-shelf {
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.manager-shelf-tile {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 260px;
+  height: 104px;
+  overflow: hidden;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-1);
+  cursor: pointer;
+}
+.manager-shelf-tile:hover, .manager-shelf-tile:focus-visible { border-color: var(--accent); }
+.manager-shelf-tile--plain {
+  height: auto;
+  min-height: 64px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+}
+.manager-shelf-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

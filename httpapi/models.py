@@ -3398,6 +3398,14 @@ class MissingMedia(ApiModel):
     kinds: list[MissingMediaKind] = []
 
 
+class OfferedMedia(ApiModel):
+    """The games whose slot for a kind is empty and an enabled source has a file for it,
+    by media kind. A kind nothing can be fetched for is left out, and so is every kind when
+    no source can be reached."""
+
+    kinds: dict[str, list[str]] = {}
+
+
 class GameKind(ApiModel):
     game_id: str
     kind: str
@@ -3910,13 +3918,15 @@ class DiscoveryPerson(ApiModel):
 class DiscoveryRelease(ApiModel):
     """One release VPS lists. `by` is positions in the response's `people`, `added` is when
     VPS added it (empty where it does not say), `format` is a table's program and empty on
-    other kinds, and `held` says a file the library holds is bound to it."""
+    other kinds, `version` is the one VPS lists, and `held` says a file the library holds is
+    bound to it."""
 
     id: str
     by: list[int] = []
     mod: bool = False
     features: list[str] = []
     format: str = ""
+    version: str = ""
     added: str = ""
     held: bool = False
 
@@ -3945,6 +3955,72 @@ class LibraryDiscovery(ApiModel):
     counted: str = ""
     people: list[DiscoveryPerson] = []
     rows: list[DiscoveryRow] = []
+
+
+class HomeRelease(ApiModel):
+    """A release on the New shelf. `was` is the version it held before VPS last changed it,
+    which is what a release VPS dated again says it was; empty for one that never changed."""
+
+    vps_id: str
+    game: str
+    img_url: str = ""
+    in_library: bool = False
+    listing: str
+    id: str
+    added: str = ""
+    version: str = ""
+    was: str = ""
+    held: bool = False
+    mod: bool = False
+    authors: list[str] = []
+
+
+class HomeNew(ApiModel):
+    """How many releases a chip holds, and the newest of them."""
+
+    count: int = 0
+    releases: list[HomeRelease] = []
+
+
+class HomeAuthor(ApiModel):
+    """An author whose work the library holds: how many of their releases it holds, and how
+    many of theirs are on the New shelf."""
+
+    name: str
+    held: int = 0
+    new: int = 0
+
+
+class HomeGap(ApiModel):
+    """A game the library holds, and how many releases VPS lists, or files a source offers,
+    of the kind it lacks."""
+
+    vps_id: str
+    name: str
+    img_url: str = ""
+    available: int = 0
+
+
+class HomeGaps(ApiModel):
+    count: int = 0
+    games: list[HomeGap] = []
+
+
+class DiscoveryHome(ApiModel):
+    """Every shelf of Discovery's front page, from the last comparison.
+
+    `new` is keyed by chip: `all`, `yours` (games in the library) and each VPS kind with a
+    release in the window. `missing` is keyed by what a game can lack: a VPS kind, or a media
+    kind (`playfield`, `backglass`) that an enabled source has a file for. `counted`
+    empty means the library has never been compared, so no release reads as held and no game
+    as lacking."""
+
+    counted: str = ""
+    days: int
+    since: str
+    new: dict[str, HomeNew] = {}
+    authors: list[HomeAuthor] = []
+    missing: dict[str, HomeGaps] = {}
 
 
 class VpsFieldDiff(ApiModel):

@@ -1251,7 +1251,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         go("media")
 
     state["show_recorded"] = _show_recorded
-    state["show_unmatched"] = _show_unmatched
 
     @on_page
     async def _open_on(opens: needs.Opens) -> None:
@@ -2115,6 +2114,7 @@ def leave_for(state: dict[str, Any], view: str) -> None:
         state["sets"] = None
         state.pop("discovery_tab", None)
         state.pop("opening", None)
+        state["subject"] = None
         state.pop("slot", None)
         if state.get("section") in OWN_SUBJECT_SECTIONS:
             state.pop("section", None)

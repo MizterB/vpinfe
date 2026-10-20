@@ -10,6 +10,7 @@ version arrives switched on.
 from __future__ import annotations
 
 import threading
+from collections.abc import Mapping
 from typing import Any
 
 from common.config.config_store import ConfigStore
@@ -55,6 +56,26 @@ class LibraryPolicy:
             config.set_value(SECTION, key, _as_list(value))
             config.save()
             return self.get(key)
+
+
+def kept_kinds(values: Mapping[str, Any] | None = None) -> dict[str, set[str]]:
+    """Which kinds of file a library collects: what to enumerate, never what exists.
+
+    What this build knows less what is hidden, the direction that survives an upgrade: a
+    kind added later is in nobody's hidden list, so it arrives switched on. `values` is
+    the policy as the API answers it, and this install's own where left out. Assets are
+    named both ways: the registry's kinds and the lens's `alt_color` and `alt_sound`.
+    """
+    # Imported here: the asset registry reads settings, which read this.
+    from common.games.asset_registry import ASSET_SPECS, lens_kind
+    from common.media.media_specs import media_label_map
+
+    held = values if values is not None else get_library_policy().values()
+    assets = {spec.kind for spec in ASSET_SPECS} - set(_as_list(held.get("hidden_asset_kinds")))
+    return {
+        "media": set(media_label_map()) - set(_as_list(held.get("hidden_media_kinds"))),
+        "asset": assets | {lens_kind(kind) for kind in assets},
+    }
 
 
 _policy: LibraryPolicy | None = None

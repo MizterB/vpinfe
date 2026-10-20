@@ -10,11 +10,10 @@ from typing import Any
 
 from common.config.labels import field_label
 from common.extensions import host
-from common.games import ties
-from common.games.asset_registry import ASSET_SPECS, lens_kind
+from common.games import library_policy, ties
 from common.i18n import t
 from common.media import folder_browse
-from common.media.media_specs import MEDIA_SPECS, media_family, media_label_map
+from common.media.media_specs import MEDIA_SPECS, media_family
 from common.online import sources as source_registry
 from common.runtime.jobs import KIND_MEDIA_FILL
 from manager.kit import art, game_tables, media_ownership, need_keys, thumbnails, when
@@ -114,19 +113,7 @@ def _replaced(rows: list[dict[str, Any]], game_id: str,
 
 
 def _kept_of(policy: dict) -> dict[str, set[str]]:
-    """Which kinds of file a library collects: what to enumerate, never what exists.
-
-    What this build knows less what is hidden, the direction that survives an upgrade:
-    a kind added later is in nobody's hidden list, so it arrives switched on.
-
-    Assets are named both ways: the registry's kinds and the games resource's
-    `alt_color` and `alt_sound`.
-    """
-    assets = {spec.kind for spec in ASSET_SPECS} - _listed(policy, "hidden_asset_kinds")
-    return {
-        "media": set(media_label_map()) - _listed(policy, "hidden_media_kinds"),
-        "asset": assets | {lens_kind(kind) for kind in assets},
-    }
+    return library_policy.kept_kinds(policy)
 
 
 def tag_source(said: dict[str, Any]) -> str:
@@ -1298,6 +1285,12 @@ class Library:
         last media fill job, `unread` the reads that failed. Already read - this asks nothing."""
         return self._watched or {}
 
+    def fillable_media(self) -> dict[str, set[str]]:
+        """Per media kind, the games a source has a file for the empty slot of: Discovery
+        lists those, so Overview does not. Already read - this asks nothing, and an
+        unread answer is none offered."""
+        return (self._watched or {}).get("offered") or {}
+
     def _read_watched(self) -> dict[str, Any]:
         """Each read stands alone: an install with no network has no update to report,
         and that must not take the recordings or the jobs down with it. `unread` names
@@ -1344,6 +1337,11 @@ class Library:
         except Exception:  # noqa: BLE001 - what waits to be accepted is not Overview's to fail on
             logger.debug("manager: could not read what waits to be accepted", exc_info=True)
             out["unread"].append("unaccepted")
+        try:
+            out["offered"] = {kind: set(ids) for kind, ids in
+                              (self._client.fillable_media().get("kinds") or {}).items()}
+        except Exception:  # noqa: BLE001 - without it a gap is counted whether or not a source could fill it
+            logger.debug("manager: could not read which media a source can fill", exc_info=True)
         try:
             out["asked"] = self._client.asks()
         except Exception:  # noqa: BLE001 - a Manager not allowed to see them has none to show
@@ -2091,6 +2089,10 @@ class Library:
 
     def forget_catalog(self) -> None:
         self._catalog = None
+
+    def discovery_home(self, days: int) -> dict[str, Any]:
+        """Discovery's front page for a window of `days`. Off the loop."""
+        return self._client.discovery_home(days)
 
     def new_game_destination(self) -> dict:
         return self._client.new_game_destination()

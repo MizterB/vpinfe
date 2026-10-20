@@ -44,6 +44,9 @@ class FakeLibrary:
     def table_rows(self):
         return self._tables
 
+    def fillable_media(self):
+        return getattr(self, "offered", {})
+
     def hidden_checks(self):
         return self._hidden
 
@@ -89,6 +92,24 @@ class DrawsOnlyWhatHasSomethingToSay(unittest.TestCase):
     def test_a_kind_nobody_collects_is_not_a_row(self):
         lib = FakeLibrary([game("g1", **present("playfield"))], collected=("playfield",))
         self.assertEqual([], needs.collect(lib, {}))
+
+
+class WhatASourceCanFillIsDiscoverys(unittest.TestCase):
+    def test_a_game_a_source_can_fill_is_not_a_row_of_its_own(self):
+        lib = FakeLibrary([game("g1"), game("g2")])
+        lib.offered = {"playfield": {"g1", "g2"}, "backglass": {"g1"}}
+        rows = {one.key: one for one in needs.collect(lib, {})}
+
+        self.assertNotIn("no_playfield", rows)
+        self.assertEqual(("g2",), rows["no_backglass"].ids)
+        self.assertNotIn("no_media", rows)
+
+    def test_the_games_nothing_can_fill_keep_their_rows(self):
+        lib = FakeLibrary([game("g1")])
+        rows = {one.key: one for one in needs.collect(lib, {})}
+
+        self.assertEqual(("g1",), rows["no_playfield"].ids)
+        self.assertEqual(("g1",), rows["no_media"].ids)
 
 
 class CountsKeepTheirOwnUnit(unittest.TestCase):

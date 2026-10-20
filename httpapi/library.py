@@ -158,6 +158,14 @@ def missing_media(payload: models.MissingMediaRequest) -> models.MissingMedia:
     return models.MissingMedia(**media_fill.plan(payload.game_ids))
 
 
+@router.get("/media/offered", summary="Which games a source can fill a media slot for",
+            dependencies=[requires(scopes.GAMES_READ)])
+def fillable_media() -> models.OfferedMedia:
+    """The games the fill would find a file for, by kind: Overview leaves these out of the
+    games it lists as lacking that kind, since Discovery offers them."""
+    return models.OfferedMedia(kinds=media_fill.offered_games())
+
+
 @router.post("/media/fill", summary="Get missing media", status_code=202,
              dependencies=[requires(scopes.GAMES_WRITE)])
 def fill_media(response: Response, payload: models.MediaFillRequest) -> models.JobResource:

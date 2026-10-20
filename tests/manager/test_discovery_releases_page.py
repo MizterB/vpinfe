@@ -224,8 +224,8 @@ class ArrivalFilters(unittest.TestCase):
 
 
 class Tab(unittest.TestCase):
-    def test_a_page_opens_on_games_unless_releases_was_chosen(self) -> None:
-        self.assertEqual(discovery.BROWSE, discovery.tab_of({}))
+    def test_a_page_opens_on_the_tab_chosen(self) -> None:
+        self.assertEqual(discovery.BROWSE, discovery.tab_of({"discovery_tab": discovery.BROWSE}))
         self.assertEqual(discovery.RELEASES,
                          discovery.tab_of({"discovery_tab": discovery.RELEASES}))
 

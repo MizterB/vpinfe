@@ -28,6 +28,7 @@ from common.games import (
     game_lens,
     game_repository,
     game_service,
+    library_policy,
     media_service,
 )
 from common.games.game import Game
@@ -316,6 +317,15 @@ def discovery() -> dict[str, Any]:
         })
     return {"counted": str(counted.get("computed") or ""),
             "people": built["people"], "rows": rows}
+
+
+def kept_listings() -> list[str]:
+    """The VPS kinds this library collects, the table first. The table has no switch."""
+    kept = library_policy.kept_kinds()
+    switchable = {kind.listed_as: kind for kind in vps_kinds.KINDS}
+    return [listed for listed in (TABLES, *switchable)
+            if listed not in switchable
+            or set(switchable[listed].ours) & kept[switchable[listed].held_in]]
 
 
 def note_in_library(vps_id: str) -> None:
