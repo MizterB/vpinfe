@@ -121,8 +121,8 @@ def _kind_column(listed_as: str, field: str, word: str) -> dict[str, Any]:
                               help=t("manager.discovery.kind.help", kind=label), **options)
 
 
-def _held_kind_column(listed_as: str, field: str, _word: str) -> dict[str, Any]:
-    kind = t(discovery_ask.KIND_MANY[listed_as])
+def _held_kind_column(_listed_as: str, field: str, word: str) -> dict[str, Any]:
+    kind = t(word)
     return grid_module.column(held_field(field), t("manager.discovery.held_kind", kind=kind),
                               help=t("manager.discovery.held_kind.help", kind=kind),
                               **grid_module.choice_filter(_yes_no()))

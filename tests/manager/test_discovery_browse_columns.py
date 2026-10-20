@@ -155,9 +155,14 @@ class HeldKindColumns(unittest.TestCase):
     def test_each_kind_has_a_column_named_for_it(self) -> None:
         by_field = {one["field"]: one for one in discovery.COLUMNS}
 
-        self.assertEqual("Held Tables", by_field["held_table"]["headerName"].replace("\n", " "))
-        self.assertEqual("Held Backglasses",
+        self.assertEqual("Held Table", by_field["held_table"]["headerName"].replace("\n", " "))
+        self.assertEqual("Held Backglass",
                          by_field["held_backglass"]["headerName"].replace("\n", " "))
+        for _listed, field, _word in discovery.KINDS:
+            with self.subTest(field):
+                kind = by_field[field]["headerName"].replace("\n", " ")
+                self.assertEqual(f"Held {kind}", by_field[discovery.held_field(field)][
+                    "headerName"].replace("\n", " "))
         self.assertEqual(len(discovery.KINDS), len(discovery._HELD_KIND_FIELDS))
         for field in discovery._HELD_KIND_FIELDS:
             with self.subTest(field):
