@@ -15,6 +15,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable, Collection, Mapping
+from dataclasses import replace
 from typing import Any, cast
 
 from nicegui import run, ui
@@ -31,6 +32,7 @@ from common.online import (
     vps_kinds,
     vps_marks,
     vps_question,
+    vps_releases,
 )
 from common.runtime.jobs import KIND_VPS_ROLLUP
 from manager.kit import (
@@ -116,6 +118,8 @@ def _kind_column(listed_as: str, field: str, word: str) -> dict[str, Any]:
 
 CATALOG_FACET_CEILING = 300
 TABLE_AUTHORS = "table_authors"
+PLAYABLE = "playable"
+HELD = "held"
 
 COLUMNS = [
     grid_module.identifier("name", t("word.game"), 260, pinned="left",
@@ -135,6 +139,12 @@ COLUMNS = [
                        **{":cellClass": _cell_class(),
                           **grid_module.choice_filter(
                               [{"value": MISSING, "label": t("manager.view.missing")}])}),
+    grid_module.column(PLAYABLE, t("manager.discovery.playable"),
+                       help=t("manager.discovery.playable.help"),
+                       **grid_module.choice_filter(_yes_no())),
+    grid_module.column(HELD, t("manager.discovery.held"),
+                       help=t("manager.discovery.held.help"),
+                       **grid_module.choice_filter(_yes_no())),
     grid_module.column(TABLE_AUTHORS, t("manager.discovery.table_authors"),
                        help=t("manager.discovery.table_authors.help"),
                        **grid_module.NUMBER_COLUMN),
@@ -151,8 +161,9 @@ _KIND_FIELDS = [field for _listed, field, _word in KINDS]
 # column picker for sorting and filtering, and no view turns them on.
 _PICKED = ("manufacturer", "year", "game_type", "themes")
 # Table Authors is the Games You Don't Have view's own column: it opens it and Everything
-# leaves it to the column picker.
-_NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS)
+# leaves it to the column picker. Playable and Held are the filters an Open in Grid from a
+# page sets, which an opened view shows because it shows every column it filters.
+_NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS, PLAYABLE, HELD)
 _ALL = [definition["field"] for definition in COLUMNS]
 _BY_NAME = ({"colId": "name", "sort": "asc", "sortIndex": 0},)
 
@@ -165,6 +176,21 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         filters={"in_library": {"values": [YES]}, "gap": {"values": [MISSING]}},
         help=t("manager.view.missing_games.help")),
 }
+
+
+_COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, *_KIND_FIELDS})
+
+
+def presets_for(*, counted: bool) -> dict[str, list[str] | views.Preset]:
+    """`VIEWS` as Browse can apply them. Before the library has been counted the columns a
+    filter on in-library, a gap or a kind reads are blank, so a view that filters on them
+    would open an empty grid: it opens with those filters left off until the count."""
+    if counted:
+        return VIEWS
+    return {key: replace(view, filters={name: model for name, model in view.filters.items()
+                                        if name not in _COUNTED_FIELDS})
+            if isinstance(view, views.Preset) else view
+            for key, view in VIEWS.items()}
 
 
 def dont_have_opening(*, counted: bool) -> dict[str, Any]:
@@ -187,6 +213,19 @@ def _state(listed: bool, counted: bool, in_library: bool, held: bool) -> str:
     return HAVE if in_library and held else MISSING
 
 
+def _playable(releases: Mapping[str, Any], formats: Collection[str]) -> str:
+    """Yes where the game has a table the apps in use play: one filed under none of the
+    formats fits any app, and no formats means every app plays all."""
+    return YES if any(vps_formats.fits(one.get("format"), formats)
+                      for one in releases.get(vps_releases.TABLES) or []) else NO
+
+
+def _held(releases: Mapping[str, Any], kept: Collection[str] | None) -> str:
+    """Yes where the library holds at least one release of the game, of a kind it collects."""
+    return YES if any(one.get("held") for listing, found in releases.items()
+                      if kept is None or listing in kept for one in found) else NO
+
+
 def rows(found: dict[str, Any], kept: Collection[str] | None = None,
          marks: vps_marks.Marks | None = None,
          formats: Collection[str] = ()) -> list[dict[str, Any]]:
@@ -194,8 +233,8 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
 
     `kept` is the VPS kinds the library collects; a kind outside it is blank on every row
     and counts toward no gap. None keeps them all. `marks` says which entries are Wanted or
-    Ignored. `formats` is the table formats the library plays, which Table Authors counts;
-    empty counts every one."""
+    Ignored. `formats` is the table formats the launchers play, which Table Authors counts and
+    Playable is read against; empty counts every one."""
     counted = bool(found.get("counted"))
     marks = marks or vps_marks.Marks()
     out = []
@@ -205,6 +244,7 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
         listed = set(entry.get("listed") or [])
         held = set(entry.get("held") or [])
         in_library = bool(entry.get("in_library"))
+        releases = entry.get("releases") or {}
         row: dict[str, Any] = {
             "id": entry["vps_id"],
             "name": entry.get("name") or "",
@@ -219,6 +259,9 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
             "listed": sorted(listed),
             TABLE_AUTHORS: vps_home.table_authors(entry, formats),
             discovery_marks.FIELD: marks.state(vps_marks.GAME, str(entry["vps_id"])),
+            PLAYABLE: "" if kept is not None and vps_releases.TABLES not in kept
+            else _playable(releases, formats),
+            HELD: _held(releases, kept) if counted else "",
         }
         states = []
         for listed_as, field, _word in KINDS:
@@ -232,7 +275,7 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
 
 
 def rows_of(library: Library, found: dict[str, Any]) -> list[dict[str, Any]]:
-    """`rows` for what the library keeps and what is marked now."""
+    """`rows` for what the library keeps, what is marked and what the launchers play now."""
     return rows(found, kept_listings(library), discovery_marks.read(library),
                 launchers.playable_formats(launchers.get_launcher_store().launchers()))
 
@@ -534,7 +577,7 @@ def _filter_on(definition: dict[str, Any] | None, value: str) -> dict[str, Any]:
 def browse_filters(subject: dict[str, str], question: dict[str, Any],
                    columns: list[dict[str, Any]], *, counted: bool) -> dict[str, Any]:
     """What a maker's or a theme's page asks, as filters on Browse's columns. In Library,
-    Have and Missing are left out before the library has been counted: the columns hold
+    Held, Have and Missing are left out before the library has been counted: the columns hold
     nothing then, and a filter on them would empty the grid."""
     by_field = {one["field"]: one for one in columns}
     out: dict[str, Any] = {}
@@ -542,6 +585,8 @@ def browse_filters(subject: dict[str, str], question: dict[str, Any],
         out["manufacturer"] = _filter_on(by_field.get("manufacturer"), subject["name"])
     else:
         out["themes"] = {"values": [subject["name"]]}
+    if question.get("format"):
+        out[PLAYABLE] = {"values": [YES]}
     if not counted:
         return out
     if question.get("owned"):
@@ -551,7 +596,7 @@ def browse_filters(subject: dict[str, str], question: dict[str, Any],
     if field:
         out[field] = {"values": [HAVE, MISSING]}
     if question.get("held") == "missing":
-        out[field or "gap"] = {"values": [MISSING]}
+        out[HELD] = {"values": [NO]}
     elif question.get("held") == "have" and field:
         out[field] = {"values": [HAVE]}
     return out
@@ -711,7 +756,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
                 "manager-panel manager-grid-bar manager-grid-bar--flow"):
             bar = panel.grid_bar()
             wire_views, _picker, showing, describe = view_control(
-                library, SCOPE, VIEWS, fields, columns, bar=bar,
+                library, SCOPE, presets_for(counted=counted), fields, columns, bar=bar,
                 art_in_lists=True, opened=opened,
                 left_opened=lambda: discovery_ask.drop_opening(state, BROWSE))
             describe()

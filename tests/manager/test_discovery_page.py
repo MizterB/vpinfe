@@ -398,15 +398,17 @@ class OpenInGrid(unittest.TestCase):
 
         self.assertEqual({"manufacturer": {"values": ["Bally"]},
                           "in_library": {"values": ["yes"]},
-                          "kind_backglass": {"values": ["missing"]}}, opening["filters"])
+                          "kind_backglass": {"values": ["have", "missing"]},
+                          "held": {"values": ["no"]}}, opening["filters"])
         self.assertEqual("Bally Backglasses", opening["name"])
 
-    def test_missing_without_a_kind_is_the_anything_missing_column(self) -> None:
+    def test_missing_without_a_kind_is_the_held_column(self) -> None:
         _tab, opening = discovery.opening_for(
             BALLY, {"maker": "Bally", "held": "missing"}, _browse_columns(),
             counted=True)
 
-        self.assertEqual({"values": ["missing"]}, opening["filters"]["gap"])
+        self.assertEqual({"values": ["no"]}, opening["filters"]["held"])
+        self.assertNotIn("gap", opening["filters"])
 
     def test_a_kind_alone_filters_to_the_games_that_list_it(self) -> None:
         _tab, opening = discovery.opening_for(
