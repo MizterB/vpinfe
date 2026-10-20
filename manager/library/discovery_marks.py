@@ -37,6 +37,7 @@ OWN = "own_mark"
 NEW = "new"
 MISSING = "missing"
 WANT = "wanted"
+DONT_HAVE = "dont_have"
 
 After = Callable[[], Awaitable[None]]
 
@@ -349,13 +350,17 @@ class Marking:
     def wanted_release(self, release_id: str) -> bool:
         return read(self.library).wanted(vps_marks.RELEASE, release_id)
 
+    def wanted_game(self, vps_id: str) -> bool:
+        return read(self.library).wanted(vps_marks.GAME, vps_id)
+
     def title(self, shelf: str, item: Mapping[str, Any]) -> str:
         return str(item["name"] if shelf == MISSING else item["game"])
 
     def verbs(self, shelf: str, item: Mapping[str, Any], listing: str,
               kind_word: str) -> list[panel.Verb]:
         """The entries of a tile. A New or Wanted tile is a release (a Wanted one may be a
-        game); a Missing tile is a game that lacks `listing`."""
+        game); a Missing tile is a game that lacks `listing`; a Games You Don't Have tile is a
+        game."""
         found = read(self.library)
         game_id, game = str(item["vps_id"]), self.title(shelf, item)
         whole = [Subject(vps_marks.GAME, game_id, game, found.state(vps_marks.GAME, game_id))]
@@ -364,7 +369,7 @@ class Marking:
                              found.ignored(vps_marks.GAP, game_id, listing), self.after),
                     *_ignoring(self.library, whole, self.after,
                                t("manager.discovery.mark.ignore.game"))]
-        if shelf == WANT and item["scope"] == vps_marks.GAME:
+        if shelf == DONT_HAVE or (shelf == WANT and item["scope"] == vps_marks.GAME):
             return [*_wanting(self.library, whole, self.after),
                     *_ignoring(self.library, whole, self.after,
                                t("manager.discovery.mark.ignore.game"))]

@@ -55,7 +55,7 @@ def delete_mark(scope: str = Query(...), vps_id: str = Query(..., alias="id"),
             dependencies=[requires(scopes.GAMES_READ)])
 def discovery_home(days: int = Query(7, ge=1, le=MOST_DAYS)) -> models.DiscoveryHome:
     """New in the last `days`, the authors whose work the library holds, and the games that
-    lack a kind VPS lists, minus whatever is ignored, and what is wanted. Never compared
-    here: `counted` empty means the library has not been, and nothing then reads as held or
-    lacking."""
+    lack a kind VPS lists, the games it has none of, minus whatever is ignored, and what is
+    wanted. Never compared here: `counted` empty means the library has not been, and nothing
+    then reads as held or lacking."""
     return models.DiscoveryHome.model_validate(library_ops.discovery_home(days))

@@ -1136,6 +1136,12 @@
   "manager.discovery.missing_from": "Ḿîššîñĝ ƒřöɱ Ýöûř Ĝàɱèš",
   "manager.discovery.lacking.on_vps": "{count:n} öñ ṼÞŠ",
   "manager.discovery.lacking.from_source": "{count:n} ƒřöɱ à šöûřçè",
+  "manager.discovery.dont_have": "Ĝàɱèš Ýöû Đöñ'ţ Ĥàṽè",
+  "manager.discovery.dont_have.order": "Ḿöšţ àûţĥöřš ƒîřšţ",
+  "manager.discovery.dont_have.authors": {
+    "one": "Ţàƀŀèš ƀý {count:n} àûţĥöř",
+    "other": "Ţàƀŀèš ƀý {count:n} àûţĥöřš"
+  },
   "manager.discovery.gap.playfield": "Þŀàýƒîèŀđš",
   "manager.discovery.gap.playfield_fss": "Ƒûŀŀ-Šçřèèñ Þŀàýƒîèŀđ",
   "manager.discovery.gap.playfield_video": "Þŀàýƒîèŀđ Ṽîđèö",

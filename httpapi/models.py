@@ -4130,6 +4130,25 @@ class HomeWanted(ApiModel):
     items: list[HomeWantedItem] = []
 
 
+class HomeGame(ApiModel):
+    """A game on the Games You Don't Have shelf. `authors` is how many people made a table for
+    it, counted by the author each release names first."""
+
+    vps_id: str
+    game: str
+    img_url: str = ""
+    manufacturer: str = ""
+    year: str = ""
+    authors: int = 0
+
+
+class HomeGames(ApiModel):
+    """`count` games, the ones with the most `authors` first, and `games` the first twelve."""
+
+    count: int = 0
+    games: list[HomeGame] = []
+
+
 class DiscoveryHome(ApiModel):
     """Every shelf of Discovery's front page: the VPS shelves from the last comparison, the
     media a source can fill from the library as it is now and the index already held.
@@ -4137,9 +4156,10 @@ class DiscoveryHome(ApiModel):
     `new` is keyed by chip: `all`, `yours` (games in the library) and each VPS kind with a
     release in the window. `missing` is keyed by what a game can lack: a VPS kind, which also
     holds the games an enabled source has a file for of the matching media kind, or a media kind
-    (`playfield`) with no VPS kind of its own. `counted`
-    empty means the library has never been compared, so no release reads as held and no game
-    as lacking."""
+    (`playfield`) with no VPS kind of its own. `dont_have` is the games VPS lists that the
+    library has none of, the ones the most people made a table for first. `counted` empty means
+    the library has never been compared, so no release reads as held, no game as lacking and
+    none as one you do not have."""
 
     counted: str = ""
     days: int
@@ -4148,6 +4168,7 @@ class DiscoveryHome(ApiModel):
     authors: list[HomeAuthor] = []
     missing: dict[str, HomeGaps] = {}
     wanted: HomeWanted = HomeWanted()
+    dont_have: HomeGames = HomeGames()
 
 
 class DiscoveryMark(ApiModel):

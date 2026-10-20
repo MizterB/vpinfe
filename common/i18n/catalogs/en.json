@@ -1136,6 +1136,12 @@
   "manager.discovery.missing_from": "Missing from Your Games",
   "manager.discovery.lacking.on_vps": "{count:n} on VPS",
   "manager.discovery.lacking.from_source": "{count:n} from a source",
+  "manager.discovery.dont_have": "Games You Don't Have",
+  "manager.discovery.dont_have.order": "Most authors first",
+  "manager.discovery.dont_have.authors": {
+    "one": "Tables by {count:n} author",
+    "other": "Tables by {count:n} authors"
+  },
   "manager.discovery.gap.playfield": "Playfields",
   "manager.discovery.gap.playfield_fss": "Full-Screen Playfield",
   "manager.discovery.gap.playfield_video": "Playfield Video",

@@ -1,5 +1,6 @@
 """Discovery's front page, answered in one read: what VPS added lately, whose work the
-library holds, and which of its games lack a kind VPS lists.
+library holds, which of its games lack a kind VPS lists, and which games VPS lists that it
+has none of.
 
 Drawn from the answer `library_vps_state.discovery` gives, so Home and the grid never
 disagree about what is held. The VPS side is stored state; the media gaps a source can fill
@@ -13,7 +14,7 @@ from collections.abc import Collection, Iterable, Mapping
 from datetime import date, timedelta
 from typing import Any
 
-from common.online import arrivals, vps_marked, vps_marks, vps_source
+from common.online import arrivals, vps_marked, vps_marks, vps_releases, vps_source
 
 ALL = "all"
 YOURS = "yours"
@@ -23,6 +24,8 @@ NOT_SHOWN = ("ruleFiles",)
 CHIP_KINDS = ("tableFiles", "b2sFiles", "wheelArtFiles", "topperFiles", "pupPackFiles")
 # The kinds a game can lack, in the order the shelf's tabs run.
 GAP_KINDS = ("b2sFiles", "romFiles", "povFiles", "wheelArtFiles", "topperFiles")
+# The table format the library plays, which is the one Games You Don't Have counts.
+TABLE_FORMAT = "VPX"
 
 SHELF_SHOWN = 12
 AUTHORS_SHOWN = 8
@@ -135,6 +138,34 @@ def lacking_media(found: dict[str, Any],
     return out
 
 
+def dont_have(found: dict[str, Any], marks: vps_marks.Marks | None = None) -> list[dict[str, Any]]:
+    """The games VPS lists that the library has none of and that have a table in
+    `TABLE_FORMAT`, the ones the most people made a table for first. A game counts a person
+    once, by the author a release names first, however many tables or versions they made.
+
+    Nothing is listed until the library has been compared, since a game that has not been
+    checked is not a game you lack. An ignored game is left out."""
+    if not found.get("counted"):
+        return []
+    marks = marks or vps_marks.Marks()
+    out = []
+    for row in found.get("rows") or []:
+        name = (row.get("name") or "").strip()
+        if not name or row.get("in_library") or marks.game_ignored(str(row["vps_id"])):
+            continue
+        tables = [one for one in (row.get("releases") or {}).get(vps_releases.TABLES) or []
+                  if one.get("format") == TABLE_FORMAT]
+        if not tables:
+            continue
+        year = row.get("year")
+        out.append({"vps_id": row["vps_id"], "game": name, "img_url": row.get("img_url") or "",
+                    "manufacturer": (row.get("manufacturer") or "").strip(),
+                    "year": str(year) if year else "",
+                    "authors": len({one["by"][0] for one in tables if one.get("by")})})
+    out.sort(key=lambda one: (-one["authors"], one["game"].casefold(), one["vps_id"]))
+    return out
+
+
 def _same_game(listed: Mapping[str, Any], offered: Mapping[str, Any]) -> bool:
     """Whether a record from VPS and one from a source are one game: the same library id, or
     where VPS's has none, the same entry."""
@@ -180,7 +211,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
 
     New is cut to what a tile row shows, once for each chip, with the count each chip holds
     so a chip with nothing in it is left out by the page. Whatever `marks` ignores is on no
-    shelf, and what it holds Wanted is its own."""
+    shelf, and what it holds Wanted is its own. `dont_have` is the games the library lacks, cut
+    to a row of tiles with the count of all of them."""
     marks = marks or vps_marks.Marks()
     shelf = [one for one in arrivals_in(found, days, kept, today)
              if not marks.release_ignored(one["id"], one["vps_id"])]
@@ -206,6 +238,7 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
         missing[tab] = gaps([], games)
     held = vps_marked.wanted(found, marks)
     wanted = {"count": len(held), "items": held[:SHELF_SHOWN]}
+    lacked = dont_have(found, marks)
     return {"counted": found.get("counted") or "", "days": days, "since": since(days, today),
             "new": new, "authors": authors_collected(found, shelf), "missing": missing,
-            "wanted": wanted}
+            "wanted": wanted, "dont_have": {"count": len(lacked), "games": lacked[:SHELF_SHOWN]}}

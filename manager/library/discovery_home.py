@@ -1,6 +1,6 @@
 """Discovery's front page, drawn from what `GET /discovery/home` answers: what VPS added
-lately, the games the library holds that lack a kind VPS lists, whose work it holds, and the
-views it has saved.
+lately, the games the library holds that lack a kind VPS lists, the games VPS lists that it
+has none of, whose work it holds, and the views it has saved.
 
 A tile opens its game in the pane, an author's name opens the author's page, and See All
 opens a grid on a named view of the same question. The search box and the counts on Your
@@ -27,6 +27,7 @@ from manager.kit import (
     candidates,
     deeplink,
     dropdown,
+    game_tables,
     panel,
     remembered,
     verbs,
@@ -169,6 +170,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             tiles_box = ui.column().classes("w-full gap-2")
         wanted_box = ui.column().classes("w-full gap-2")
         lacking_box = ui.column().classes("w-full gap-2")
+        dont_have_box = ui.column().classes("w-full gap-2")
         authors_box = ui.column().classes("w-full gap-2")
         views_box = ui.column().classes("w-full gap-2")
 
@@ -258,6 +260,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         shown["home"] = fresh
         draw_shelf()
         draw_wanted()
+        draw_dont_have()
         draw_authors()
 
     def pick_chip(chip: str) -> None:
@@ -308,6 +311,39 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     def pick_lack(listing: str) -> None:
         shown["lack"] = listing
         draw_lacking()
+
+    def draw_dont_have() -> None:
+        dont_have_box.clear()
+        lacked = shown["home"]["dont_have"]
+        if not lacked["games"]:
+            return
+        with dont_have_box:
+            with ui.row().classes("manager-heading-row w-full items-center gap-2 px-3"):
+                ui.label(t("manager.discovery.dont_have")).classes(
+                    "manager-fact-heading shrink-0")
+                ui.label(t("manager.discovery.dont_have.order")).classes(
+                    "text-xs manager-help")
+            row = ui.row().classes("manager-shelf w-full px-3")
+            for game in lacked["games"]:
+                dont_have_tile(row, game)
+
+    def dont_have_tile(parent: Any, game: dict[str, Any]) -> None:
+        with parent, ui.element("div").classes("manager-shelf-tile") as card:
+            card.props("tabindex=0 role=button")
+            card.on("click", lambda _e, one=game: on_select({"id": one["vps_id"]}))
+            card.on("keydown.enter", lambda _e, one=game: on_select({"id": one["vps_id"]}))
+            candidates.thumb(game["img_url"], icons.TABLES, t("manager.discovery.no_picture"))
+            with ui.column().classes("gap-0 min-w-0"):
+                ui.label(t("word.game")).classes("text-xs manager-label")
+                ui.label(game["game"]).classes("manager-shelf-name")
+                if made := game_tables.made(game):
+                    ui.label(made).classes("text-xs manager-help truncate")
+                ui.label(t("manager.discovery.dont_have.authors", count=game["authors"])) \
+                    .classes("text-xs manager-help")
+            if marking.wanted_game(game["vps_id"]):
+                ui.icon(verbs.WANTED, size="18px").classes("manager-cell-mark").tooltip(
+                    t("manager.discovery.mark.wanted.help"))
+            menu_on(card, discovery_marks.DONT_HAVE, game, "")
 
     def draw_wanted() -> None:
         wanted_box.clear()
@@ -394,6 +430,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     draw_shelf()
     draw_wanted()
     draw_lacking()
+    draw_dont_have()
     draw_authors()
     draw_views()
     busy.start(views_box, learn)
