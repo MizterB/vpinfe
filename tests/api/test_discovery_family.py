@@ -94,14 +94,14 @@ class ShelfTests(unittest.TestCase):
 
         self.assertEqual(_names(shelf), ["a2"])
 
-    def test_the_games_with_the_most_authors_come_first_then_name_then_id(self) -> None:
+    def test_the_games_with_the_most_authors_come_first_then_name_then_catalog_order(self) -> None:
         shelf = vps_home.family(found(
             game("h", "Joust", in_library=True),
             game("j2", "Joust", table("1", (0,))),
             game("j3", "Joust", table("2", (0,)), table("3", (1,))),
             game("j1", "Joust", table("4", (0,)))))
 
-        self.assertEqual(_names(shelf), ["j3", "j1", "j2"])
+        self.assertEqual(_names(shelf), ["j3", "j2", "j1"])
 
     def test_a_game_with_no_table_a_launcher_plays_is_left_out(self) -> None:
         rows = found(game("h", "Joust", in_library=True),

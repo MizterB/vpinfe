@@ -21,6 +21,7 @@ from tests.support.home_shelf import (
     grid_order,
     mark,
     passes,
+    settle,
     table,
     words_of,
 )
@@ -38,6 +39,17 @@ class DrivenShelf(ShelfHarness):
     """Games You Don't Have, on a front page with a client that answers."""
 
     FOUND = FOUND
+
+    async def test_reading_the_shelves_again_draws_this_one_from_the_new_read(self) -> None:
+        body = await self._draw()
+        self.assertIn("Cactus", words_of(body))
+        self.found = {**FOUND, "rows": [row for row in FOUND["rows"] if row["vps_id"] != "g3"]}
+
+        await self.refresh()
+        await settle()
+
+        self.assertNotIn("Cactus", words_of(body))
+        self.assertIn("Batman", words_of(body))
 
     async def test_the_shelf_lists_the_games_the_library_lacks_with_the_most_authors_first(
             self) -> None:
@@ -236,6 +248,25 @@ class BrowseViewTests(unittest.TestCase):
         self.assertEqual(view["name"], "Games You Don't Have")
         self.assertEqual([(one["colId"], one["sort"]) for one in view["sort"]],
                          [(discovery.TABLE_AUTHORS, "desc"), ("name", "asc")])
+
+
+class SameNameTests(unittest.TestCase):
+    """Entries of one name that the same number of people made a table for keep the catalog's
+    order, which is the order the grid keeps them in."""
+
+    FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "rows": [
+        entry("zz9", "Joust", [table("t1", 0)], manufacturer="Atari", year=1990),
+        entry("aa1", "Joust", [table("t2", 0)], manufacturer="Williams", year=1991),
+    ]}
+
+    def test_the_shelf_and_the_view_agree_where_the_ids_would_sort_the_other_way(self) -> None:
+        shelf = [one["vps_id"] for one in vps_home.dont_have(self.FOUND, None, ("VPX",))]
+        view = discovery.dont_have_opening(counted=True)
+        kept = [row for row in discovery.rows(self.FOUND, KEPT, None, ("VPX",))
+                if passes(row, view["filters"])]
+
+        self.assertEqual(shelf, ["zz9", "aa1"])
+        self.assertEqual(grid_order(kept, view["sort"]), shelf)
 
 
 class ColumnTests(unittest.TestCase):

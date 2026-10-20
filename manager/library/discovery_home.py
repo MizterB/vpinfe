@@ -236,7 +236,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          open_releases_view: Callable[[str], Any],
          open_marks: Callable[[str], Any],
          open_subject: Callable[[dict[str, str]], Any],
-         marking: discovery_marks.Marking) -> None:
+         marking: discovery_marks.Marking) -> Callable[[], Awaitable[None]]:
     """Draw Home into `body` from `home`, the answer for the remembered window.
 
     `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
@@ -247,7 +247,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     Browse, `open_releases_view(id)` on one of Releases, `open_marks(view)` the Marks grid on
     its Ignored or Wanted view, `open_subject` an author's page, and `fix_scripts(folders)`
     fetches the script fixes of those games. `marking` is the menu a tile opens on a right
-    click or a long press, and what says a release is Wanted."""
+    click or a long press, and what says a release is Wanted. Returns the coroutine that reads
+    the shelves again and draws them where they stand."""
     shown: dict[str, Any] = {"home": home, "chip": vps_home.ALL, "lack": "", "rows": None,
                              "people": [], "asked": home["days"]}
     with body:
@@ -586,7 +587,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                     ui.label(made).classes("text-xs manager-help truncate")
                 held = game["held"]
                 ui.label(t("manager.discovery.family.held", made=game_tables.made(held[0]))
-                         if len(held) == 1
+                         if len(held) == 1 and game_tables.made(held[0])
                          else t("manager.discovery.family.held_many", count=len(held))) \
                     .classes("text-xs manager-help truncate")
 
@@ -702,3 +703,4 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     draw_authors()
     draw_views()
     busy.start(views_box, learn)
+    return refresh

@@ -189,7 +189,8 @@ def dont_have(found: dict[str, Any], marks: vps_marks.Marks | None = None,
                     "manufacturer": (row.get("manufacturer") or "").strip(),
                     "year": str(year) if year else "",
                     "authors": authors})
-    out.sort(key=lambda one: (-one["authors"], one["game"].casefold(), one["vps_id"]))
+    # Entries that tie keep the catalog's order, which is the order the grid keeps them in.
+    out.sort(key=lambda one: (-one["authors"], one["game"].casefold()))
     return out
 
 
@@ -287,7 +288,7 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     so a chip with nothing in it is left out by the page. Whatever `marks` ignores is on no
     shelf, and what it holds Wanted is its own. `dont_have` is the games the library lacks, cut
     to a row of tiles with the count of all of them, counting the tables in `formats`. `family` is
-the part of those that share a title with a game the library holds.
+    the part of those that share a title with a game the library holds.
     `updates` is what `library_updates.found` answers: the games with a later version of
     something they hold."""
     marks = marks or vps_marks.Marks()

@@ -96,6 +96,7 @@ class ShelfHarness(unittest.IsolatedAsyncioTestCase):
         self.state: dict[str, Any] = {}
         self.selected: list[Any] = []
         self.spied: dict[str, Any] = {}
+        self.refresh: Any = None
 
         async def inline(call: Any, *args: Any, **more: Any) -> Any:
             return call(*args, **more)
@@ -126,7 +127,7 @@ class ShelfHarness(unittest.IsolatedAsyncioTestCase):
 
         def spy(*args: Any, **more: Any) -> None:
             self.spied.update(more)
-            real(*args, **more)
+            self.refresh = real(*args, **more)
 
         with _PAGE:
             body = ui.column()

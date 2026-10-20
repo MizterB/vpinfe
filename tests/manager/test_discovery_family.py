@@ -147,6 +147,81 @@ class FamilyShelf(ShelfHarness):
         self.assertEqual(self.selected, [{"id": "o2"}])
 
 
+class RefreshTests(ShelfHarness):
+    FOUND = FOUND
+
+    async def test_reading_the_shelves_again_draws_this_one_from_the_new_read(self) -> None:
+        body = await self._draw()
+        self.assertIn("Other Versions of Your Games", words_of(body))
+        self.found = {**FOUND, "rows": [FOUND["rows"][0], FOUND["rows"][5]]}
+
+        await self.refresh()
+        await settle()
+
+        self.assertNotIn("Other Versions of Your Games", words_of(body))
+
+
+class SameNameTests(unittest.TestCase):
+    """Entries of one name that the same number of people made a table for keep the catalog's
+    order, which is the order the grid keeps them in."""
+
+    FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "rows": [
+        game("h1", "Joust", [table("t1", 0)], held=True, manufacturer="Bally", year=1982),
+        game("zz9", "Joust", [table("t2", 0)], manufacturer="Atari", year=1990),
+        game("aa1", "Joust", [table("t3", 0)], manufacturer="Williams", year=1991),
+    ]}
+
+    def test_the_shelf_and_the_view_agree_where_the_ids_would_sort_the_other_way(self) -> None:
+        shelf = [one["vps_id"] for one in vps_home.family(self.FOUND, None, ("VPX",))]
+        view = discovery.family_opening(counted=True)
+        rows = discovery.rows(self.FOUND, discovery_kept(), None, ("VPX",))
+        kept = [row for row in rows if passes(row, view["filters"])]
+
+        self.assertEqual(shelf, ["zz9", "aa1"])
+        self.assertEqual(grid_order(kept, view["sort"]), shelf)
+
+
+class UntitledTests(ShelfHarness):
+    """An entry with only a bracketed part or punctuation for a name has no title to share."""
+
+    FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "rows": [
+        game("h1", "(Pro)", [table("t1", 0)], held=True),
+        game("o1", "(Beta)", [table("t2", 0)]),
+        game("o2", "!", [table("t3", 0)]),
+        game("h2", "Joust", [table("t4", 0)], held=True),
+    ]}
+
+    async def test_an_untitled_game_held_does_not_put_the_others_on_the_shelf(self) -> None:
+        words = words_of(await self._draw())
+
+        self.assertNotIn("Other Versions of Your Games", words)
+        self.assertIn("Games You Don't Have", words)
+
+    def test_it_does_not_mark_the_others_in_the_column(self) -> None:
+        by_id = {row["id"]: row for row in discovery.rows(self.FOUND, discovery_kept(), None,
+                                                          ("VPX",))}
+
+        self.assertEqual(by_id["o1"][discovery.OTHER_HELD], discovery.NO)
+        self.assertEqual(by_id["o2"][discovery.OTHER_HELD], discovery.NO)
+
+
+class UnnamedHeldTests(ShelfHarness):
+    """The line under a tile always says something: a held game with no maker and no year is
+    counted instead of named."""
+
+    FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "rows": [
+        game("h1", "Joust", [table("t1", 0)], held=True),
+        game("o1", "Joust", [table("t2", 0)], manufacturer="Atari", year=1990),
+    ]}
+
+    async def test_a_held_game_with_no_maker_or_year_is_counted(self) -> None:
+        words = words_of(await self._draw())
+
+        self.assertIn("Atari 1990", words)
+        self.assertIn("You have 1 with this title", words)
+        self.assertNotIn("You have", [word.strip() for word in words])
+
+
 class BrowseViewTests(unittest.TestCase):
     """See All opens Browse on exactly the games, in the order, the shelf draws from."""
 

@@ -57,12 +57,12 @@ class ShelfTests(unittest.TestCase):
 
         self.assertEqual(_names(shelf), ["medieval", "Pirates", "Twilight Zone"])
 
-    def test_games_with_the_same_name_and_authors_come_in_id_order(self) -> None:
+    def test_games_with_the_same_name_and_authors_keep_the_catalog_order(self) -> None:
         shelf = vps_home.dont_have(found(game("z", "Alien", table("1", (0,))),
                                          game("b", "Alien", table("2", (0,))),
                                          game("m", "Alien", table("3", (0,)))))
 
-        self.assertEqual([one["vps_id"] for one in shelf], ["b", "m", "z"])
+        self.assertEqual([one["vps_id"] for one in shelf], ["z", "b", "m"])
 
     def test_a_person_counts_once_however_many_tables_they_made(self) -> None:
         shelf = vps_home.dont_have(found(
