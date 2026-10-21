@@ -111,6 +111,17 @@ def _listen_access() -> bool:
         return False
 
 
+def ask_listen_access() -> bool:
+    """Shows macOS's Input Monitoring prompt, which macOS shows once per app, and answers
+    whether access is held now. A grant reaches a running process only after a restart."""
+    try:
+        import Quartz
+
+        return bool(Quartz.CGRequestListenEventAccess())
+    except Exception:  # noqa: BLE001 - an answer nobody could give is a no
+        return False
+
+
 def hearing(env: Mapping[str, str] | None = None, system: str | None = None,
             devices: Callable[[], list[str]] = keyboards,
             listen_access: Callable[[], bool] = _listen_access) -> Hearing:

@@ -86,6 +86,20 @@ class HearingTests(unittest.TestCase):
         self.assertEqual(key_reader.keyboards("/nowhere/devices"), [])
 
 
+class AskListenAccessTests(unittest.TestCase):
+    def test_it_asks_macos_and_answers_what_macos_says(self) -> None:
+        for said in (True, False):
+            quartz = mock.Mock()
+            quartz.CGRequestListenEventAccess.return_value = said
+            with mock.patch.dict("sys.modules", {"Quartz": quartz}):
+                self.assertIs(said, key_reader.ask_listen_access())
+            quartz.CGRequestListenEventAccess.assert_called_once_with()
+
+    def test_a_device_that_cannot_ask_answers_no(self) -> None:
+        with mock.patch.dict("sys.modules", {"Quartz": None}):
+            self.assertFalse(key_reader.ask_listen_access())
+
+
 class WantedTests(unittest.TestCase):
     def test_nothing_is_listened_for_until_take_picture_has_a_key(self) -> None:
         self.assertEqual(key_reader.wanted({"take_picture": [], "back": ["key:KeyB"]}), {})

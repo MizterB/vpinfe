@@ -18,6 +18,7 @@ from manager.kit import offload, panel
 from manager.kit.api import ApiClient
 from manager.kit.data import Library
 from manager.settings import input_page
+from manager.setup import setup_key_access
 from manager.setup.setup_screens import write
 
 logger = logging.getLogger("vpinfe.manager.setup.setup_controls")
@@ -30,7 +31,7 @@ def _asked_here(schema: list[dict]) -> list[dict]:
             if block.get("name") == input_registry.SECTION else block for block in schema]
 
 
-async def ask() -> dict[str, Any]:
+async def ask(asked: setup_key_access.Asked | None = None) -> dict[str, Any]:
     title = t("manager.setup.controls.title")
     library = Library(ApiClient())
     try:
@@ -43,7 +44,12 @@ async def ask() -> dict[str, Any]:
     if not entries:
         return {"title": title, "notes": [t("said.settings_unreadable")]}
 
+    # Never stops the step: the buttons below work without it.
+    unheard = await setup_key_access.look(asked or setup_key_access.Asked())
+
     def draw(_values: dict[str, Any]) -> None:
+        if unheard:
+            setup_key_access.draw(unheard)
         panel.facts(ui, entries)
 
     return {"title": title, "help": t("manager.setup.controls.lead"), "draw": draw}

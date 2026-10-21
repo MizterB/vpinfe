@@ -9,7 +9,7 @@ from unittest import mock
 
 from common.config import setting_groups
 from common.settings import config_service
-from manager.setup import setup, setup_controls
+from manager.setup import setup, setup_controls, setup_key_access
 
 
 def _ran(coro: Any) -> Any:
@@ -47,6 +47,13 @@ class AskedHereTests(unittest.TestCase):
 
 
 class AskTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # Never the real check: on a Mac it would show the Input Monitoring prompt.
+        patched = mock.patch.object(setup_controls.setup_key_access, "look",
+                                    new=mock.AsyncMock(return_value=None))
+        self.look = patched.start()
+        self.addCleanup(patched.stop)
+
     def test_the_step_draws_the_input_table_with_controllers_waiting_to_be_heard(self) -> None:
         schema = config_service.schema()["sections"]
         with mock.patch.object(setup_controls, "Library", return_value=_library(schema, {})), \
@@ -77,6 +84,34 @@ class AskTests(unittest.TestCase):
 
         self.assertNotIn("draw", asked)
         self.assertTrue(asked["notes"])
+
+    def test_what_stops_keys_is_drawn_above_the_table_and_does_not_stop_the_step(self) -> None:
+        schema = config_service.schema()["sections"]
+        found = setup_key_access.Finding(("a", "b"))
+        self.look.return_value = found
+        order: list[str] = []
+        with mock.patch.object(setup_controls, "Library", return_value=_library(schema, {})), \
+             mock.patch.object(setup_controls.input_page, "rows",
+                               return_value=[("row", mock.Mock())]), \
+             mock.patch.object(setup_controls.setup_key_access, "draw",
+                               side_effect=lambda _: order.append("finding")), \
+             mock.patch.object(setup_controls.panel, "facts",
+                               side_effect=lambda *_: order.append("table")):
+            asked = _ran(setup_controls.ask())
+            asked["draw"]({})
+
+        self.assertEqual(["finding", "table"], order)
+        self.assertTrue(asked["help"])
+
+    def test_the_question_to_a_mac_is_the_openings_not_the_steps(self) -> None:
+        schema = config_service.schema()["sections"]
+        opening = setup_key_access.Asked()
+        with mock.patch.object(setup_controls, "Library", return_value=_library(schema, {})), \
+             mock.patch.object(setup_controls.input_page, "rows",
+                               return_value=[("row", mock.Mock())]):
+            _ran(setup_controls.ask(opening))
+
+        self.look.assert_awaited_once_with(opening)
 
 
 class StepTests(unittest.TestCase):

@@ -29,7 +29,14 @@ from manager.kit import deeplink, offload, wizard
 from manager.kit.api import ApiClient
 from manager.kit.on_page import on_page
 from manager.settings import screens
-from manager.setup import setup_appearance, setup_controls, setup_screens, setup_tables, setup_vpx
+from manager.setup import (
+    setup_appearance,
+    setup_controls,
+    setup_key_access,
+    setup_screens,
+    setup_tables,
+    setup_vpx,
+)
 
 logger = logging.getLogger("vpinfe.manager.setup.setup")
 
@@ -66,6 +73,7 @@ class Session:
     bgset_due: bool = True
     screens: setup_screens.Screens = field(default_factory=setup_screens.Screens)
     tables: setup_tables.Tables = field(default_factory=setup_tables.Tables)
+    keys: setup_key_access.Asked = field(default_factory=setup_key_access.Asked)
     # Set once the install has been finished, which a job that is polled more than once
     # must not do again.
     finished: bool = False
@@ -171,7 +179,7 @@ async def _answer_screens(session: Session, values: dict[str, Any]) -> None:
 
 
 async def _ask_controls(session: Session) -> dict[str, Any]:
-    return await setup_controls.ask()
+    return await setup_controls.ask(session.keys)
 
 
 async def _answer_controls(session: Session, values: dict[str, Any]) -> None:
