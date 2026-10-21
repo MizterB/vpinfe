@@ -1,4 +1,4 @@
-"""Browse's Playable and Held columns, and the built-in view that waits for a count."""
+"""All Games' Playable and Held columns, and the built-in view that waits for a count."""
 
 from __future__ import annotations
 
@@ -327,7 +327,7 @@ PLAYS = ("VPX",)
 class TheGridHoldsWhatThePageLists(unittest.TestCase):
     """Without on a maker's page against the grid it opens: both read the same library, the
     page through `games_found` and `in_show`, the grid through the filters the page hands
-    it applied to Browse's own rows."""
+    it applied to All Games' own rows."""
 
     LIBRARY = [
         # A bound table and no backglass: the page counts it Without Backglasses.

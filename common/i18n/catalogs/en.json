@@ -1179,7 +1179,7 @@
     "other": "{count:n} games, {held:n} in your library"
   },
   "manager.discovery.tab.home": "Home",
-  "manager.discovery.tab.browse": "Browse",
+  "manager.discovery.tab.browse": "All Games",
   "manager.discovery.tab.releases": "Releases",
   "manager.discovery.new_shelf": "New on VPS",
   "manager.discovery.new_view": "New in the {window}",
@@ -3503,7 +3503,7 @@
   "manager.settings.shelf.health.description": "Games of yours with no table, or matched to the same VPS entry",
   "manager.settings.shelf.opened.description": "Games whose release page you opened in the last day and don't have",
   "manager.settings.shelf.authors.description": "Authors whose work you hold, and how much of it is new",
-  "manager.settings.shelf.views.description": "Your saved views of Browse and Releases, with how many games each shows",
+  "manager.settings.shelf.views.description": "Your saved views of All Games and Releases, with how many games each shows",
   "manager.settings.overview_note": "What Overview looks for on this device. A row left on reports whatever it finds.",
   "manager.settings.install_at": "{name} - {url}",
   "manager.settings.kinds_note": "Turn one off and VPinFE no longer shows, counts or downloads it. Its files stay.",

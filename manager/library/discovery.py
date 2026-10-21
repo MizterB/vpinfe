@@ -203,7 +203,7 @@ COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, OTHER_HELD, *_HELD_KIND_F
 
 
 def dont_have_opening(*, counted: bool) -> dict[str, Any]:
-    """The view Games You Don't Have opens Browse on: the games not in the library that have
+    """The view Games You Don't Have opens All Games on: the games not in the library that have
     a table, the ones the most people made a table for first. Ignored games are left out as
     they are on the shelf, a Wanted one stays. Before the library is compared nothing is
     known to be missing, so only the table filter is set."""
@@ -217,7 +217,7 @@ def dont_have_opening(*, counted: bool) -> dict[str, Any]:
 
 
 def family_opening(*, counted: bool) -> dict[str, Any]:
-    """The view Other Versions of Your Games opens Browse on: the games not in the library
+    """The view Other Versions of Your Games opens All Games on: the games not in the library
     that share a title with one it holds and have a table, in the shelf's order, ignored
     games left out. Before the library is compared nothing is known to be held, so only the
     table filter is set."""
@@ -345,7 +345,7 @@ def summary(shown: list[dict[str, Any]], counted: bool) -> str:
 
 
 def tab_of(state: dict[str, Any]) -> str:
-    """The tab chosen; Browse where the address named a subject or a game, else Home."""
+    """The tab chosen; All Games where the address named a subject or a game, else Home."""
     if state.get("subject"):
         return BROWSE
     chosen = state.get("discovery_tab")
@@ -466,12 +466,12 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         return state["open_on"](needs.Opens("games", keys={games.LACKING_KEY: tuple(game_ids)}))
 
     def see_dont_have() -> None:
-        """Browse, on the games the shelf draws from."""
+        """All Games, on the games the shelf draws from."""
         open_page(state, people, rerender, None, tab=BROWSE,
                   opening=dont_have_opening(counted=bool(home["counted"])))
 
     def see_family() -> None:
-        """Browse, on the games the shelf draws from."""
+        """All Games, on the games the shelf draws from."""
         open_page(state, people, rerender, None, tab=BROWSE,
                   opening=family_opening(counted=bool(home["counted"])))
 
@@ -647,7 +647,7 @@ def _filter_on(definition: dict[str, Any] | None, value: str) -> dict[str, Any]:
 
 def browse_filters(subject: dict[str, str], question: dict[str, Any],
                    columns: list[dict[str, Any]], *, counted: bool) -> dict[str, Any]:
-    """What a maker's or a theme's page asks, as filters on Browse's columns. In Library,
+    """What a maker's or a theme's page asks, as filters on the All Games columns. In Library,
     the Held columns, Have and Missing are left out before the library has been counted: the
     columns hold nothing then, and a filter on them would empty the grid.
 
@@ -679,7 +679,7 @@ def opening_for(subject: dict[str, str], question: dict[str, Any],
                 columns: list[dict[str, Any]], *, counted: bool, search: str = "",
                 releases: Mapping[str, Any] | None = None) -> tuple[str, dict[str, Any]]:
     """The tab a page's Open in Grid goes to and the view it opens: an author's releases on
-    Releases, a maker's or theme's games on Browse. The view is named for the page, and for
+    Releases, a maker's or theme's games on All Games. The view is named for the page, and for
     the kind only where the grid has a filter on that kind. `search` is what was typed in the
     tab row's box, which the grid is opened with; `releases` is `releases_of`'s, which says
     the formats a release is filed under."""

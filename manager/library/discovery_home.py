@@ -247,14 +247,14 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          shelves: Sequence[str] = discovery_shelves.IDS) -> Callable[[], Awaitable[None]]:
     """Draw Home into `body` from `home`, the answer for the remembered window.
 
-    `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
+    `catalog()` gives the people and the All Games rows once the catalog is in memory; `reread`
     answers for another window. `see_new(days, chip)`, `see_missing(game_ids)` and
     `see_updates(game_ids)` open the grid on the shelf's question, `see_dont_have()` and
-    `see_family()` Browse on the games the shelf draws from, `see_unmatched()` the Games grid
+    `see_family()` All Games on the games the shelf draws from, `see_unmatched()` the Games grid
     on its Unmatched view, `match_game(game)` the Match picker on one game, `see_health(finding)`
     Games on the view that lists a Library Health finding's games, `see_picture(vps_id, kind)`
     a game's pane on the section of that media kind, `open_view(id)` on a saved view of
-    Browse, `open_releases_view(id)` on one of Releases, `open_marks(view)` the Marks grid on
+    All Games, `open_releases_view(id)` on one of Releases, `open_marks(view)` the Marks grid on
     its Ignored or Wanted view, `open_subject` an author's page, and `fix_scripts(folders)`
     fetches the script fixes of those games. `marking` is the menu a tile opens on a right
     click or a long press, and what says a release is Wanted. `shelves` are the ids of the

@@ -149,7 +149,7 @@ class DrivenShelf(ShelfHarness):
 
 
 class BrowseViewTests(unittest.TestCase):
-    """See All opens Browse on exactly the games, in the order, the shelf draws from."""
+    """See All opens All Games on exactly the games, in the order, the shelf draws from."""
 
     FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "rows": [
         *FOUND["rows"],

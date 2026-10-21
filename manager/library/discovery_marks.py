@@ -269,7 +269,7 @@ def listed_verbs(library: Library, subjects: Sequence[Subject],
 
 def game_verbs(library: Library, games: Sequence[Mapping[str, Any]], after: After,
                *, wanting: bool = True) -> list[panel.Verb]:
-    """Add to Wanted and Ignore Game for the Browse rows, each turning to what takes it off
+    """Add to Wanted and Ignore Game for the All Games rows, each turning to what takes it off
     where the game holds it. `wanting` is False on the Releases tab, where a release is what
     is wanted."""
     subjects = game_subjects(games)

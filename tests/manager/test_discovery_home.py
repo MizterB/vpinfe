@@ -588,7 +588,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("Mine On Releases", words)
         self.assertEqual(words.count("Releases"), 2)
-        self.assertIn("Browse", words)
+        self.assertIn("All Games", words)
 
     async def test_a_releases_view_chosen_opens_the_releases_tab_on_it(self) -> None:
         self.prefs["discovery_releases.views"] = {"views": [

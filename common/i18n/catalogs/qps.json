@@ -1179,7 +1179,7 @@
     "other": "{count:n} ĝàɱèš, {held:n} îñ ýöûř ŀîƀřàřý"
   },
   "manager.discovery.tab.home": "Ĥöɱè",
-  "manager.discovery.tab.browse": "Ɓřöŵšè",
+  "manager.discovery.tab.browse": "Àŀŀ Ĝàɱèš",
   "manager.discovery.tab.releases": "Řèŀèàšèš",
   "manager.discovery.new_shelf": "Ñèŵ öñ ṼÞŠ",
   "manager.discovery.new_view": "Ñèŵ îñ ţĥè {window}",
@@ -3503,7 +3503,7 @@
   "manager.settings.shelf.health.description": "Ĝàɱèš öƒ ýöûřš ŵîţĥ ñö ţàƀŀè, öř ɱàţçĥèđ ţö ţĥè šàɱè ṼÞŠ èñţřý",
   "manager.settings.shelf.opened.description": "Ĝàɱèš ŵĥöšè řèŀèàšè þàĝè ýöû öþèñèđ îñ ţĥè ŀàšţ đàý àñđ đöñ'ţ ĥàṽè",
   "manager.settings.shelf.authors.description": "Àûţĥöřš ŵĥöšè ŵöřķ ýöû ĥöŀđ, àñđ ĥöŵ ɱûçĥ öƒ îţ îš ñèŵ",
-  "manager.settings.shelf.views.description": "Ýöûř šàṽèđ ṽîèŵš öƒ Ɓřöŵšè àñđ Řèŀèàšèš, ŵîţĥ ĥöŵ ɱàñý ĝàɱèš èàçĥ šĥöŵš",
+  "manager.settings.shelf.views.description": "Ýöûř šàṽèđ ṽîèŵš öƒ Àŀŀ Ĝàɱèš àñđ Řèŀèàšèš, ŵîţĥ ĥöŵ ɱàñý ĝàɱèš èàçĥ šĥöŵš",
   "manager.settings.overview_note": "Ŵĥàţ Öṽèřṽîèŵ ŀööķš ƒöř öñ ţĥîš đèṽîçè. À řöŵ ŀèƒţ öñ řèþöřţš ŵĥàţèṽèř îţ ƒîñđš.",
   "manager.settings.install_at": "{name} - {url}",
   "manager.settings.kinds_note": "Ţûřñ öñè öƒƒ àñđ ṼÞîñƑÈ ñö ŀöñĝèř šĥöŵš, çöûñţš öř đöŵñŀöàđš îţ. Îţš ƒîŀèš šţàý.",

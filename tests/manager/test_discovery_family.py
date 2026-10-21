@@ -1,5 +1,5 @@
 """Other Versions of Your Games on Discovery's front page: the shelf drawn from one read, what
-a tile says, and the Browse view and column See All opens."""
+a tile says, and the All Games view and column See All opens."""
 
 from __future__ import annotations
 
@@ -223,7 +223,7 @@ class UnnamedHeldTests(ShelfHarness):
 
 
 class BrowseViewTests(unittest.TestCase):
-    """See All opens Browse on exactly the games, in the order, the shelf draws from."""
+    """See All opens All Games on exactly the games, in the order, the shelf draws from."""
 
     FOUND: dict[str, Any] = {"counted": "2026-10-01T10:00:00Z", "people": PEOPLE, "rows": [
         *FOUND["rows"],
