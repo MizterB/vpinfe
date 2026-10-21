@@ -132,6 +132,8 @@ def removal(tables: list[dict[str, Any]], game: dict[str, Any], table_id: str,
             then: str | None = None) -> tuple[str, str] | None:
     """The file this lens's Remove takes and who loses it, or None where the lens has no
     file at its own tier and Remove takes nothing. `then` is the file shown after it.
+    The game's lens with no file of its own takes the default-named one while that is what
+    it shows.
 
     `tiers` is None when the slot's detail could not be read, and then only the file on
     show is known.
@@ -141,9 +143,12 @@ def removal(tables: list[dict[str, Any]], game: dict[str, Any], table_id: str,
     tier = media_ownership.TABLE if own else media_ownership.GAME
     known = tiers is not None
     if tiers is None:
-        tiers = [{"tier": entry.get("via"), "file": entry.get("file")}] \
+        tiers = [{"tier": entry.get("via"), "file": entry.get("file"), "wins": True}] \
             if entry.get("present") else []
     at = next((i for i, one in enumerate(tiers) if one.get("tier") == tier), None)
+    if at is None and not own:
+        at = next((i for i, one in enumerate(tiers)
+                   if one.get("tier") == "default" and one.get("wins")), None)
     if at is None:
         return None
     name = str(tiers[at].get("file") or "")

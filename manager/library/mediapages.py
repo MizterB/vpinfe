@@ -48,9 +48,10 @@ def owner_of(entry: dict[str, Any], table_id: str) -> str:
 
 
 def removable(entry: dict[str, Any]) -> bool:
-    """Only a page at the table's or the folder's own tier goes from here; the default's
-    pages are every game's and the API refuses them."""
-    return str(entry.get("via") or "") in (media_ownership.TABLE, media_ownership.GAME)
+    """Only a page at the table's or the folder's own tier goes from here, and the default
+    counts as the folder's."""
+    return media_ownership.key_of(str(entry.get("via") or "")) in (
+        media_ownership.TABLE, media_ownership.GAME)
 
 
 async def confirm_remove(kind: str, page: int, pages: int, owner: str) -> bool:

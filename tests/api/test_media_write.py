@@ -157,6 +157,42 @@ class MediaWriteTests(TempTree):
                          [f"medias/(Playfield) {FOLDER}.png"])
         self.assertIn("table.png", self._medias(), "the default is not ours to delete")
 
+    def test_deleting_with_no_file_of_the_game_s_own_takes_the_default(self) -> None:
+        response = self.client.delete(f"/games/{GAME_ID}/media/playfield")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["removed"], ["medias/table.png"])
+        self.assertEqual(self._medias(), set())
+
+    def test_a_default_that_a_set_or_logo_hides_is_not_taken_unseen(self) -> None:
+        from common.media.media_specs import MediaHit
+
+        hidden = {"playfield": MediaHit(self.folder / "medias" / "table.png", "set:logo")}
+        with patch("common.games.media_service.resolved_media", return_value=hidden):
+            response = self.client.delete(f"/games/{GAME_ID}/media/playfield")
+
+        self.assertEqual(response.json()["removed"], [])
+        self.assertIn("table.png", self._medias())
+
+    def test_a_table_with_a_name_of_its_own_does_not_take_the_default(self) -> None:
+        response = self.client.delete(f"/games/{GAME_ID}/tables/tbl0000002/media/playfield")
+
+        self.assertEqual(response.json()["removed"], [])
+        self.assertIn("table.png", self._medias())
+
+    def test_a_table_named_as_its_folder_takes_the_default_like_the_game(self) -> None:
+        response = self.client.delete(f"/games/{GAME_ID}/tables/tbl0000001/media/playfield")
+
+        self.assertEqual(response.json()["removed"], ["medias/table.png"])
+
+    def test_the_default_shows_again_once_the_game_s_file_goes(self) -> None:
+        self.client.put(f"/games/{GAME_ID}/media/playfield", files=_png())
+        self.client.delete(f"/games/{GAME_ID}/media/playfield")
+
+        shown = self.client.get(f"/games/{GAME_ID}/media/playfield/detail").json()
+
+        self.assertEqual((shown["via"], shown["file"]), ("default", "table.png"))
+
     @needs_posix_permissions
     def test_a_file_it_may_not_delete_is_refused_with_why(self) -> None:
         self.client.put(f"/games/{GAME_ID}/media/playfield", files=_png())

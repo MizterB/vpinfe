@@ -95,17 +95,22 @@ class HeldActsTests(unittest.TestCase):
                                         _Held("wheel.png", "", row, detail))
         return list(acts)
 
-    def test_remove_is_offered_where_the_game_holds_a_file_of_its_own(self) -> None:
+    def test_remove_is_offered_for_the_game_s_file_and_for_the_default_that_shows(self) -> None:
         kind = Kind(key="discovery_wheel", word="Wheel", media="wheel")
 
-        self.assertEqual([file_acts.REPLACE, file_acts.REMOVE],
-                         self._acts(kind, {"tiers": [{"tier": "game", "file": "wheel.png"}]}))
+        for tier in ("game", "default"):
+            with self.subTest(tier=tier):
+                self.assertEqual(
+                    [file_acts.REPLACE, file_acts.REMOVE],
+                    self._acts(kind, {"tiers": [{"tier": tier, "file": "wheel.png",
+                                                 "wins": True}]}))
 
-    def test_remove_is_not_offered_for_a_file_only_the_default_name_holds(self) -> None:
+    def test_remove_is_left_off_a_default_the_game_does_not_show(self) -> None:
         kind = Kind(key="discovery_wheel", word="Wheel", media="wheel")
 
         self.assertEqual([file_acts.REPLACE],
-                         self._acts(kind, {"tiers": [{"tier": "default", "file": "wheel.png"}]}))
+                         self._acts(kind, {"tiers": [{"tier": "default", "file": "wheel.png",
+                                                      "wins": False}]}))
 
 
 class HeldsTests(unittest.TestCase):

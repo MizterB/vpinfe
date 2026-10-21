@@ -492,9 +492,9 @@ async def put_table_media(game_id: str, table_id: str, kind: str,
                dependencies=[requires(scopes.GAMES_WRITE)])
 def delete_game_media(game_id: str, kind: str, page: int | None = REMOVE_PAGE
                       ) -> models.MediaRemoved:
-    """Only the folder-named file. A table's own media and the default both survive. With a
-    `page`, that page alone goes and the ones after it move down a number; with none, the
-    kind goes with all its pages."""
+    """The folder-named file, or the default-named one the game shows when it has none. A
+    table's own media survives. With a `page`, that page alone goes and the ones after it
+    move down a number; with none, the kind goes with all its pages."""
     return models.MediaRemoved.model_validate(media_ops.remove(game_id, kind, "", page))
 
 

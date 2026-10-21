@@ -334,6 +334,23 @@ class RemovingTests(OnDiskTests):
                                                                     FOLDER, 2)],
                          [f"(Flyer 2) {FOLDER}.png"])
 
+    def test_the_folder_tier_reaches_the_default_only_where_it_holds_nothing(self) -> None:
+        (self.root / "medias" / "wheel.png").write_bytes(b"x")
+        other = "(Wheel) Other.png"
+        (self.root / "medias" / other).write_bytes(b"x")
+
+        self.assertEqual(media_placement.reached(self.root, "wheel", FOLDER), media_placement.FIXED)
+        self.assertEqual(media_placement.reached(self.root, "wheel", "Other"), "Other")
+        media_placement.place(self.root, "wheel", FOLDER, self._source())
+        self.assertEqual(media_placement.reached(self.root, "wheel", FOLDER), FOLDER)
+
+    def test_the_default_reached_is_the_one_the_playfield_variant_names(self) -> None:
+        (self.root / "medias" / "table.png").write_bytes(b"x")
+
+        self.assertEqual(media_placement.reached(self.root, "playfield", FOLDER, "table"),
+                         media_placement.FIXED)
+        self.assertEqual(media_placement.reached(self.root, "playfield", FOLDER, "fss"), FOLDER)
+
     def test_a_page_that_is_not_there_is_refused(self) -> None:
         self._flyer(1, 2)
 

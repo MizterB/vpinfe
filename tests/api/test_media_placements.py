@@ -184,6 +184,7 @@ class DetailTests(PlacementTests):
                  "tbl0000002", f"(Playfield) {FOLDER}.png"),
                 ("playfield", (f"(Playfield) {FOLDER} - VR.png",), "tbl0000002", "table.png"),
                 ("playfield", (f"(Playfield) {FOLDER}.png",), "", "table.png"),
+                ("playfield", (), "", None),
                 ("wheel", (f"(Wheel) {FOLDER} - VR.png", f"(Logo) {FOLDER}.png"),
                  "tbl0000002", f"(Logo) {FOLDER}.png"),
                 ("backglass", (f"(Backglass) {FOLDER} - VR.png",), "tbl0000002", None)):

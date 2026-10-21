@@ -59,10 +59,12 @@ def _spec_of(kind: str) -> MediaSpec:
     return spec
 
 
-def _name(spec: MediaSpec, token: str | None, stem: str, page: int, extension: str) -> str:
-    """The filename of one page at one tier, in one token and one extension."""
+def _name(spec: MediaSpec, token: str | None, stem: str, page: int, extension: str,
+          variant: str = "table") -> str:
+    """The filename of one page at one tier, in one token and one extension. `variant` is
+    the playfield variant, which only the shared default's name depends on."""
     if stem == FIXED:
-        return fixed_page_name(spec, page, extension)
+        return fixed_page_name(spec, page, extension, variant)
     return f"{page_token(token or '', page)} {stem}{extension}"
 
 
@@ -95,7 +97,7 @@ def _names_in(folder: Path) -> dict[str, str]:
         return {}
 
 
-def _members(game_dir: Path, kind: str, stem: str, page: int = 1
+def _members(game_dir: Path, kind: str, stem: str, page: int = 1, variant: str = "table"
              ) -> Iterator[tuple[Path, str | None, str]]:
     """Every file serving one page of this kind at this stem's tier, as the path, the
     token it is spelled with (None at the shared default) and its extension, in the order
@@ -109,24 +111,25 @@ def _members(game_dir: Path, kind: str, stem: str, page: int = 1
     tokens = (None,) if stem == FIXED else (spec.token, *spec.alt_tokens)
     for token in tokens:
         for extension in spec.family:
-            wanted = _name(spec, token, stem, page, extension).lower()
+            wanted = _name(spec, token, stem, page, extension, variant).lower()
             for folder, names in folders:
                 if wanted in names:
                     yield folder / names[wanted], token, extension
 
 
-def _family_at_tier(game_dir: Path, kind: str, stem: str, page: int = 1) -> Iterator[Path]:
+def _family_at_tier(game_dir: Path, kind: str, stem: str, page: int = 1,
+                    variant: str = "table") -> Iterator[Path]:
     """Every file already serving this page at this stem's tier, whatever its token or
     extension. `(Flyer 2)` is not in page 1's family: each page has its own."""
-    for path, _token, _extension in _members(game_dir, kind, stem, page):
+    for path, _token, _extension in _members(game_dir, kind, stem, page, variant):
         yield path
 
 
-def _present(game_dir: Path, kind: str, stem: str) -> list[int]:
+def _present(game_dir: Path, kind: str, stem: str, variant: str = "table") -> list[int]:
     """The page numbers with a file at this tier, ascending. A number can be missing from
     the run - a folder somebody else filled - so these are numbers, not positions."""
     spec = _SPEC_BY_KIND[kind]
-    first = [1] if next(_members(game_dir, kind, stem), None) is not None else []
+    first = [1] if next(_members(game_dir, kind, stem, 1, variant), None) is not None else []
     if not spec.pages:
         return first
     listing = [name for folder in (game_dir / "medias", game_dir)
@@ -134,9 +137,9 @@ def _present(game_dir: Path, kind: str, stem: str) -> list[int]:
     return first + page_numbers(spec, None if stem == FIXED else stem, listing)
 
 
-def _pages(game_dir: Path, kind: str, stem: str) -> list[int]:
+def _pages(game_dir: Path, kind: str, stem: str, variant: str = "table") -> list[int]:
     """The numbers of the pages that show: none unless page 1 is there."""
-    present = _present(game_dir, kind, stem)
+    present = _present(game_dir, kind, stem, variant)
     return present if present[:1] == [1] else []
 
 
@@ -382,7 +385,7 @@ def record_origin(game_dir: str | Path, path: Path, host: str = "user",
 
 
 def removable(game_dir: str | Path, kind: str, stem: str,
-              page: int | None = None) -> list[Path]:
+              page: int | None = None, variant: str = "table") -> list[Path]:
     """The files a `remove` at this stem takes: one page's, or with no page every file the
     kind has at this tier - the flyer is its pages."""
     game_dir = Path(game_dir)
@@ -390,19 +393,33 @@ def removable(game_dir: str | Path, kind: str, stem: str,
     if not spec.token:
         raise RuntimeError(f"Cannot address {kind} by name")
     if page is None:
-        numbers = _present(game_dir, kind, stem)
+        numbers = _present(game_dir, kind, stem, variant)
         if 1 not in numbers:
             numbers = []
     else:
-        pages = _pages(game_dir, kind, stem)
+        pages = _pages(game_dir, kind, stem, variant)
         if not 1 <= page <= len(pages):
             raise UnplaceableError(t("error.games.no_such_page", slot=spec.label, page=page))
         numbers = [pages[page - 1]]
     return [path for number in numbers
-            for path in _family_at_tier(game_dir, kind, stem, number)]
+            for path in _family_at_tier(game_dir, kind, stem, number, variant)]
 
 
-def remove(game_dir: str | Path, kind: str, stem: str, page: int | None = None) -> list[str]:
+def reached(game_dir: str | Path, kind: str, stem: str, variant: str = "table") -> str:
+    """The stem a Remove at `stem` acts on. The folder's own tier, when it holds nothing
+    and the shared default does: that file is what the game shows, and Remove takes what
+    is shown. Any other stem, and a folder tier with a file in it, is returned as asked.
+    """
+    game_dir = Path(game_dir)
+    if stem.lower() != game_dir.name.lower() or not _spec_of(kind).token:
+        return stem
+    if _pages(game_dir, kind, stem, variant):
+        return stem
+    return FIXED if next(_members(game_dir, kind, FIXED, 1, variant), None) else stem
+
+
+def remove(game_dir: str | Path, kind: str, stem: str, page: int | None = None,
+           variant: str = "table") -> list[str]:
     """Delete this kind's files at this stem's tier. Never touches another tier.
 
     With a page, only that page goes and the ones after it move down a number, so no gap
@@ -411,9 +428,9 @@ def remove(game_dir: str | Path, kind: str, stem: str, page: int | None = None) 
     Raises the OSError of the first file that will not go, and leaves the rest.
     """
     game_dir = Path(game_dir)
-    before = _pages(game_dir, kind, stem)
+    before = _pages(game_dir, kind, stem, variant)
     removed = []
-    for path in removable(game_dir, kind, stem, page):
+    for path in removable(game_dir, kind, stem, page, variant):
         path.unlink()
         # Forward-slashed: this list is an API payload, and `os.path.relpath`
         # answers in the host's separator - so the same library reported

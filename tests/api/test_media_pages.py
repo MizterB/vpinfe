@@ -130,7 +130,7 @@ class MediaPagesTests(TempTree):
         self.assertEqual(response.status_code, 400, response.text)
         self.assertEqual(len(self._medias()), 3)
 
-    def test_the_game_cannot_remove_a_page_of_the_default(self) -> None:
+    def test_the_game_removes_a_page_of_the_default_when_it_has_none_of_its_own(self) -> None:
         for path in (self.folder / "medias").iterdir():
             path.rename(path.with_name(
                 "flyer.png" if path.name.startswith("(Flyer) ") else
@@ -138,8 +138,19 @@ class MediaPagesTests(TempTree):
 
         response = self.client.delete(f"/games/{GAME_ID}/media/flyer", params={"page": 2})
 
-        self.assertEqual(response.status_code, 400, response.text)
-        self.assertEqual(self._medias(), {"flyer.png", "flyer 2.png", "flyer 3.png"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["removed"], ["medias/flyer 2.png"])
+        self.assertEqual(self._medias(), {"flyer.png", "flyer 2.png"})
+        self.assertEqual((self.folder / "medias" / "flyer 2.png").read_bytes(),
+                         b"\x89PNGthree")
+
+    def test_a_page_of_the_default_stays_while_the_game_has_pages_of_its_own(self) -> None:
+        (self.folder / "medias" / "flyer 4.png").write_bytes(b"\x89PNGdefault")
+
+        response = self.client.delete(f"/games/{GAME_ID}/media/flyer")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self._medias(), {"flyer 4.png"})
 
     def test_a_page_number_too_long_to_count_is_not_found(self) -> None:
         response = self.client.get(f"/games/{GAME_ID}/media/flyer", params={"page": "9" * 5000})

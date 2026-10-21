@@ -254,8 +254,8 @@ def _acts(context: dict[str, Any], scene: Scene, kind: Kind,
     acts = file_acts.held_acts(
         library, file_acts.files_of(library, [held.row])[0],
         vps_kinds.MEDIA if kind.media else vps_kinds.ASSET, state, after)
-    # Remove takes the game's own file and leaves the default-named one, which is where
-    # a download lands, so a card holding only that has nothing for it to take.
+    # A card the game's lens has nothing to take from (a stand-in, a file a set hides) is
+    # left without Remove, which would only say so.
     if kind.media and file_acts.removal([], {}, "", held.detail.get("tiers"), held.row) is None:
         acts.pop(file_acts.REMOVE, None)
     return acts

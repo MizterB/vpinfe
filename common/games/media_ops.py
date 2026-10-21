@@ -184,12 +184,24 @@ def _shown_to(game: Game, game_dir: Path, files: set[str], medias: set[str], kin
     return counted
 
 
+def _reached(game_dir: Path, kind: str, lens: str, variant: str) -> str:
+    """The stem a Remove at `lens` acts on: the default's only while the default is what
+    the game shows, so a file a set or a logo hides is not taken unseen."""
+    reached = media_placement.reached(game_dir, kind, lens, variant)
+    if reached != lens:
+        hit = media_service.resolved_media(game_dir).get(kind)
+        if hit is None or hit.tier != "default":
+            return lens
+    return reached
+
+
 def _after_remove(game_dir: Path, files: set[str], medias: set[str], kind: str,
                   variant: str, active_sets: dict[str, str] | None,
                   stem: str | None) -> Path | None:
     """The file this lens is shown once `remove` has taken the files at its tier."""
-    gone = media_placement.removable(game_dir, kind,
-                                     game_dir.name if stem is None else stem)
+    at = game_dir.name if stem is None else stem
+    gone = media_placement.removable(game_dir, kind, _reached(game_dir, kind, at, variant),
+                                     variant=variant)
     left_in_root = files - {path.name for path in gone if path.parent == game_dir}
     left_in_medias = medias - {path.name for path in gone
                                if path.parent == game_dir / "medias"}
@@ -447,13 +459,16 @@ def remove(game_id: str, kind: str, table_id: str = "", page: int | None = None)
     """Take a file out of one tier. A build's own art and the default both survive the
     folder's file going. With no `page` the kind goes with all its pages; with one, only
     that page does and the pages after it move down a number. Always at the tier asked
-    for: a page that lives at another tier is not this lens's to remove.
+    for: a page that lives at another tier is not this lens's to remove. The folder's tier
+    holding nothing, the default it falls to is the file taken.
     """
     game = game_lens.game_for_writing(game_id)
     game_dir = _folder(game)
     lens = stem_or_refuse(game, table_id) if table_id else game_dir.name
+    variant = media_service.media_settings()[0]
     try:
-        removed = media_placement.remove(game_dir, kind, lens, page)
+        removed = media_placement.remove(game_dir, kind, _reached(game_dir, kind, lens, variant),
+                                         page, variant)
     except media_placement.UnplaceableError as exc:
         raise service_errors.RefusedError(why(exc)) from exc
     except OSError as exc:

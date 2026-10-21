@@ -314,9 +314,10 @@ def page_token(token: str, page: int) -> str:
     return token if page == 1 else f"{token[:-1]} {page})"
 
 
-def fixed_page_name(spec: MediaSpec, page: int, extension: str) -> str:
+def fixed_page_name(spec: MediaSpec, page: int, extension: str,
+                    variant: str = "table") -> str:
     """The fixed-tier name of a page: "flyer.png", then "flyer 2.png"."""
-    stem = spec.stem()
+    stem = spec.stem(variant)
     return f"{stem}{extension}" if page == 1 else f"{stem} {page}{extension}"
 
 
