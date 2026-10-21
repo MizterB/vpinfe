@@ -99,10 +99,6 @@ These are what each action starts as:
 
 To see which number a gamepad button has, run `./vpinfe --gamepadtest`.  It opens a window that lights up each button as you press it, and lets you assign a button to an action.  Press Escape to close it.
 
-### SDL3
-
-Controllers are read through SDL3.  A release build includes its own copy under `third_party/sdl3`, so there is nothing to install.  Running from source, VPinFE uses the SDL3 on your system: `brew install sdl3` on macOS, your distribution's SDL3 package on Linux, and on Windows `SDL3.dll` from the zip on SDL's [releases page](https://github.com/libsdl-org/SDL/releases), in a folder on your `PATH`.
-
 ## DOF and real DMDs
 
 Release builds include two integrations, packaged under `third_party/dof` and `third_party/libdmdutil`:

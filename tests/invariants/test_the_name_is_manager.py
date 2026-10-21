@@ -43,7 +43,6 @@ MEANS_SOMETHING_ELSE = [
     (r"^docs/conventions\.md$", r"console\.log", "a JS example logging to the browser"),
     (r"^docs/compatibility-3\.0\.md$", r"console", "what 2.x called it"),
     (r"^tests/invariants/test_the_name_is_manager\.py$", r"console", "this file"),
-    (r"^scripts/fetch_sdl3_bundle\.py$", r"SDL_UNIX_CONSOLE_BUILD", "SDL's own build flag"),
 ]
 PATTERNS = [(re.compile(path), re.compile(line, re.I if line.startswith("console") else 0), why)
             for path, line, why in MEANS_SOMETHING_ELSE]

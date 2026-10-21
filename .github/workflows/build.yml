@@ -33,10 +33,6 @@ jobs:
       DOF_REPO: vpinfe/libdof-python
       DMDUTIL_VERSION: latest
       DMDUTIL_REPO: vpinfe/libdmdutil-python
-      # One version on all four triplets, so controller ids are the same everywhere and
-      # match what Visual Pinball writes. Bump it with the digests in
-      # scripts/fetch_sdl3_bundle.py, and with Visual Pinball's own SDL3.
-      SDL3_VERSION: 3.4.16
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]
@@ -115,31 +111,6 @@ jobs:
             --outdir third_party/libdmdutil
         shell: bash
 
-      # Windows and macOS download SDL's own release in seconds. SDL publishes no Linux
-      # library, so Linux compiles the release source; the result is cached so that
-      # happens on a version bump or after GitHub drops a cache nobody used for a week.
-      - name: Cache SDL3 build (Linux)
-        if: runner.os == 'Linux'
-        id: sdl3_cache
-        uses: actions/cache@v6
-        with:
-          path: third_party/sdl3
-          key: sdl3-${{ env.SDL3_VERSION }}-${{ env.DOF_TRIPLET }}-${{ hashFiles('scripts/fetch_sdl3_bundle.py') }}
-
-      - name: Install SDL3 build dependencies (Linux)
-        if: runner.os == 'Linux' && steps.sdl3_cache.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake libudev-dev
-
-      - name: Fetch SDL3
-        run: |
-          python scripts/fetch_sdl3_bundle.py fetch \
-            --version "${SDL3_VERSION}" \
-            --triplet "${DOF_TRIPLET}" \
-            --outdir third_party/sdl3
-        shell: bash
-
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -198,12 +169,6 @@ jobs:
         run: pyinstaller packaging/vpinfe.spec
         shell: bash
 
-      # The test suite cannot see a native library that did not make it into the build.
-      # This loads the one the build contains and compares the version SDL reports.
-      - name: Check the bundled SDL3 loads
-        run: python scripts/fetch_sdl3_bundle.py check --version "${SDL3_VERSION}" dist
-        shell: bash
-
       - name: Bundle Chromium into the .app (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -230,7 +195,6 @@ jobs:
         run: |
           codesign --force --deep --sign - dist/VPinFE.app
           codesign --verify --verbose dist/VPinFE.app
-          python scripts/fetch_sdl3_bundle.py check --version "${SDL3_VERSION}" dist/VPinFE.app
           sudo xattr -rc dist
           create-dmg \
             --volname "VPinFE" \
@@ -287,7 +251,6 @@ jobs:
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             rm -rf dist/VPinFE
           fi
-          python scripts/fetch_sdl3_bundle.py check --version "${SDL3_VERSION}" dist
         shell: bash
 
       - name: Upload slim build artifact (Linux)
@@ -320,7 +283,6 @@ jobs:
         run: |
           codesign --force --deep --sign - dist/VPinFE.app
           codesign --verify --verbose dist/VPinFE.app
-          python scripts/fetch_sdl3_bundle.py check --version "${SDL3_VERSION}" dist/VPinFE.app
           sudo xattr -rc dist
           create-dmg \
             --volname "VPinFE" \

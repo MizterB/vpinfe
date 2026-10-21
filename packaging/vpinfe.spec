@@ -52,7 +52,6 @@ DATA_ROOTS = [
     "releases",
     "third_party/dof",
     "third_party/libdmdutil",
-    "third_party/sdl3",
 ]
 
 # Chromium is the only difference between a full build and a slim one. macOS is absent on

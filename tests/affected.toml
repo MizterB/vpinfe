@@ -82,11 +82,6 @@ tests = [
   "tests/theming/test_vpx_settings_in_place_drive.py",
 ]
 
-# The script that fetches SDL3 for a release build, which only the invariants read.
-[[area]]
-paths = ["scripts/fetch_sdl3_bundle.py"]
-tests = []
-
 # The Visual Pinball settings catalog and the scripts that generate and check it.
 [[area]]
 paths = [
