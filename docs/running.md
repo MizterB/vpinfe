@@ -92,8 +92,8 @@ These are what each action starts as:
 | Page Next       | Page Down, Down arrow     | D-pad down, right shoulder       |
 | Select          | Enter                     | Button 0                         |
 | Back            | Escape, B                 | Button 1                         |
-| Menu            | M                         | Start                            |
-| Collection Menu | C                         | Select                           |
+| Menu            | M                         | Button 9                         |
+| Collection Menu | C                         | Button 8                         |
 | Tutorial        | T                         |                                  |
 | Quit            | Q, or hold Escape         | Hold Button 1                    |
 

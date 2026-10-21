@@ -248,7 +248,7 @@ class ReadableBindingTests(unittest.TestCase):
                                  (2, "Button 2"), (3, "Button 3"),
                                  (4, "Left Shoulder"), (5, "Right Shoulder"),
                                  (6, "Left Trigger"), (7, "Right Trigger"),
-                                 (8, "Select"), (9, "Start"),
+                                 (8, "Button 8"), (9, "Button 9"),
                                  (10, "Left Stick"), (11, "Right Stick"),
                                  (12, "D-pad Up"), (13, "D-pad Down"),
                                  (14, "D-pad Left"), (15, "D-pad Right")):

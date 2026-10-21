@@ -51,11 +51,10 @@ _SELECT, _START = 8, 9
 _LEFT_STICK, _RIGHT_STICK = 10, 11
 _DPAD_UP, _DPAD_DOWN, _DPAD_LEFT, _DPAD_RIGHT = 12, 13, 14, 15
 
-# The face buttons are not named: a button with no name here reads by its number.
+# The face buttons, Select and Start are not named: a button with no name here reads by its number.
 _PAD_WORDS = {
     _LEFT_SHOULDER: "input.pad.left_shoulder", _RIGHT_SHOULDER: "input.pad.right_shoulder",
     _LEFT_TRIGGER: "input.pad.left_trigger", _RIGHT_TRIGGER: "input.pad.right_trigger",
-    _SELECT: "input.pad.select", _START: "input.pad.start",
     _LEFT_STICK: "input.pad.left_stick", _RIGHT_STICK: "input.pad.right_stick",
     _DPAD_UP: "input.pad.dpad_up", _DPAD_DOWN: "input.pad.dpad_down",
     _DPAD_LEFT: "input.pad.dpad_left", _DPAD_RIGHT: "input.pad.dpad_right",
