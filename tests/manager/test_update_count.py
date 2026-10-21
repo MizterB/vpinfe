@@ -170,7 +170,8 @@ class PaneRowTests(unittest.TestCase):
     def newer(self, held: dict[str, str], game_id: str = "game-1") -> str:
         library = mock.Mock()
         library.update_moves.return_value = self.MOVES
-        return discovery_list._newer({"library": library}, mock.Mock(game_id=game_id), held)
+        return discovery_list._newer({"library": library}, mock.Mock(game_id=game_id),
+                                    held.get("vps_file_id", ""))
 
     def test_a_held_file_tied_to_a_release_that_moved_says_the_version(self) -> None:
         self.assertEqual("1.2", self.newer({"vps_file_id": "f1"}))

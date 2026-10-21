@@ -28,13 +28,13 @@ from manager.kit import (
     panel,
     undo,
     verbs,
-    when,
 )
 from manager.kit.data import Library, config_groups
 from manager.kit.on_page import on_page
 from manager.library import (
     backglass_view,
     file_acts,
+    file_facts,
     file_move,
     mediasource,
     mediaview,
@@ -250,7 +250,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
             return
         detail.update({one: fresh[one] for one in fresh if one != "text"})
         if "spec" in spoken and not spoken["spec"].is_deleted:
-            spoken["spec"].text = _asset_spec(detail)
+            spoken["spec"].text = file_facts.asset_spec(detail)
 
     context["after_save"] = after_save
     if context["dock"] is not None:
@@ -270,7 +270,7 @@ async def _asset_file_block(context: dict[str, Any]) -> None:
                 media_ownership.badge(tier)
             if glass and not glass["damaged"]:
                 _backglass_chips(glass)
-        spec = _asset_spec(detail)
+        spec = file_facts.asset_spec(detail)
         if spec:
             spoken["spec"] = ui.label(spec).classes("manager-help")
         if glass and glass["damaged"]:
@@ -787,20 +787,6 @@ def _asset_icon(kind: str) -> str:
         return asset_registry.spec_for(kind).icon
     except KeyError:
         return "description"
-
-
-def _asset_spec(detail: dict[str, Any]) -> str:
-    parts = []
-    if detail.get("folder"):
-        parts.append(t("manager.workbench.files_in_folder", count=int(detail.get("files") or 0)))
-    elif detail.get("format"):
-        parts.append(str(detail["format"]))
-    size = mediasource._size(detail.get("size_bytes"))
-    if size:
-        parts.append(size)
-    if detail.get("modified"):
-        parts.append(when.ago(detail["modified"]))
-    return " \u00b7 ".join(parts)
 
 
 @on_page

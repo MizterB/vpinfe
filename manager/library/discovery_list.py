@@ -1,8 +1,10 @@
-"""What a kind's section lists: the releases VPS lists, the files the game holds and the
-pictures a media source offers.
+"""What a kind's section lists: the files the game holds, then the releases VPS lists and the
+pictures a media source offers that it does not.
 
-Each release ends in one glyph and acts at once; pressing its row does nothing else. The card
-Full shows above the list is always drawn and revealed by CSS, so the toggle never rebuilds.
+A held file is a card with the Games pane's own Replace and Remove, and the release it is
+matched to. Each release ends in one glyph and acts at once; pressing its row does nothing but
+choose the one Full shows beside the cards, which is always drawn and revealed by CSS, so the
+toggle never rebuilds.
 """
 
 from __future__ import annotations
@@ -23,7 +25,16 @@ from common.games import opened_pages
 from common.i18n import t
 from common.media.media_specs import IMAGE_FAMILY
 from common.online import vps_find, vps_kinds
-from manager.kit import art, candidates, deeplink, game_tables, media_ownership, panel, verbs, when
+from manager.kit import (
+    art,
+    candidates,
+    deeplink,
+    game_tables,
+    media_ownership,
+    panel,
+    verbs,
+    when,
+)
 from manager.kit.on_page import on_page
 from manager.library import (
     discovery,
@@ -31,6 +42,8 @@ from manager.library import (
     discovery_get,
     discovery_marks,
     discovery_pictures,
+    file_acts,
+    file_facts,
     import_dialog,
     mediasource,
     mediaview,
@@ -77,7 +90,7 @@ def _record_of(kind: Kind, vps_file_id: str) -> dict[str, Any] | None:
 def _last_opened(kind: Kind, scene: Scene) -> tuple[str, str]:
     """The release whose page was opened most recently for this game and is not held yet, with
     its words, or `("", "")`. Read when a file arrives, so a page opened a moment ago counts."""
-    tied = {one["vps_file_id"] for one in kind.mine if one.get("vps_file_id")}
+    tied = _tied(kind)
     for one in opened_pages.recent(scene.vps_id, kind.listed_as):
         record = _record_of(kind, str(one.get("vps_file_id") or ""))
         if record and str(record["vps_file_id"]) not in tied:
@@ -85,10 +98,55 @@ def _last_opened(kind: Kind, scene: Scene) -> tuple[str, str]:
     return "", ""
 
 
-def _source_line(vps_file_id: object) -> str:
-    """Who lists a held file: VPS where it is tied to a release, else Local."""
-    return t("manager.discovery.source_line", source=t(
-        "manager.discovery.vps" if vps_file_id else "manager.discovery.local"))
+@dataclass
+class _Held:
+    """A file the game holds: its name on disk, the release it is matched to, and the rows
+    the Games pane draws for it."""
+
+    name: str
+    vps_file_id: str
+    row: dict[str, Any] | None = None
+    detail: dict[str, Any] = field(default_factory=dict)
+
+
+def _named(row: dict[str, Any], name: str) -> bool:
+    return name.casefold() in (str(row.get("file") or "").casefold(),
+                               Path(str(row.get("path") or "")).name.casefold())
+
+
+def _helds(kind: Kind) -> list[_Held]:
+    """The files the game holds of this kind. A media kind holds one: its slot."""
+    if kind.media:
+        if not kind.held:
+            return []
+        slot_path = str(kind.slot.get("path") or "")
+        row = next((each for each in kind.rows if slot_path and each.get("path") == slot_path),
+                   kind.rows[0] if kind.rows else None)
+        name = str(kind.slot.get("file") or kind.detail.get("file") or (row or {}).get("file")
+                   or "")
+        return [_Held(name, str(kind.slot.get("matched_to") or ""), row, kind.detail)]
+    found = []
+    for one in kind.mine:
+        name = str(one.get("name") or "")
+        row = next((each for each in kind.rows if _named(each, name)), None)
+        found.append(_Held(name, str(one.get("vps_file_id") or ""), row,
+                           kind.details.get(str(row["id"]), {}) if row else {}))
+    return found
+
+
+def _tied(kind: Kind) -> set[str]:
+    """The releases the game's files are matched to."""
+    return {one.vps_file_id for one in _helds(kind) if one.vps_file_id}
+
+
+def _origin(held: _Held) -> str:
+    """The catalog a file was fetched from, where the ledger names one: not that you added it,
+    or that nobody recorded where it came from."""
+    origin = str((held.row or {}).get("origin") or "")
+    named = media_ownership.source_name(origin)
+    generic = {media_ownership.YOU, media_ownership.UNKNOWN, media_ownership.RECORDED,
+               media_ownership.BACKGLASS_FILE}
+    return "" if named in generic else named
 
 
 def _enlarges(box: ui.element, show: Callable[[], None]) -> None:
@@ -108,17 +166,27 @@ def _art(src: str, family: str, glyph: str) -> None:
 
 
 def body(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
-    """The section of one kind: why VPS could not be read, its list, and the way to import a
-    file."""
+    """The section of one kind: why VPS could not be read, what the game has and what else
+    is available."""
     holder = ui.column().classes("gap-1 w-full min-w-0 manager-kind-body")
     with holder:
         if kind.unread:
             panel.line(t("manager.discovery.files_failed"), hint=kind.unread)
-        if kind.media:
-            _tiles(context, scene, kind)
-        if kind.records or kind.mine:
-            _releases(context, scene, kind)
-        _foot(context, scene, kind, holder)
+        helds, rows = _helds(kind), _unheld(kind)
+        view = context["state"].setdefault("discovery_views", {}).setdefault(
+            (scene.vps_id, kind.key), _View())
+        ids = [str(one.get("vps_file_id") or "") for one in rows]
+        if view.pressed not in ids:
+            view.pressed = ids[0] if ids else ""
+        use_file = _use_file(context, scene, kind, holder)
+        with ui.element("div").classes("manager-kind-cols" + (" manager-kind-cols--card"
+                                                              if rows else "")):
+            with ui.column().classes("gap-2 w-full min-w-0 manager-kind-have"):
+                _have(context, scene, kind, helds, use_file)
+            card = ui.column().classes("gap-0 w-full min-w-0 manager-card-compare")
+            if rows or kind.offers:
+                with ui.column().classes("gap-0 w-full min-w-0 manager-kind-available"):
+                    _available(context, scene, kind, rows, view, card)
 
 
 def _ours(kind: Kind) -> tuple[tuple[str, ...], str]:
@@ -128,47 +196,170 @@ def _ours(kind: Kind) -> tuple[tuple[str, ...], str]:
     return discovery_get.of_listing(kind.listed_as)
 
 
-def _foot(context: dict[str, Any], scene: Scene, kind: Kind, holder: ui.element) -> None:
-    """Import a File…, with the line that says a file may be dropped on the section where the
-    kind is missing."""
+def _use_file(context: dict[str, Any], scene: Scene, kind: Kind,
+              holder: ui.element) -> Callable[[], None]:
+    """Make the section take a dropped file, and return Import a File…."""
     ours, held_in = _ours(kind)
-    use_file = discovery_get.use_a_file(
+    return discovery_get.use_a_file(
         context, scene.game_id, holder, ours=ours, held_in=held_in,
         add_table=kind.listed_as == "tableFiles",
         match=import_dialog.ReleaseMatch(
             _chooser(context, kind, scene), picture_of=_picture_of(context, scene, kind))
         if kind.records else None,
         opened=lambda: _last_opened(kind, scene))
-    dropbox = kind.missing and not kind.records and not kind.offers
-    with ui.row().classes("items-center gap-2 w-full" + (" manager-dropbox" if dropbox else "")):
-        if dropbox:
-            ui.label(t("manager.discovery.drop_here")).classes("manager-help")
-        use_file()
+
+
+def _heading(word: str, count: int = 0) -> None:
+    with ui.row().classes("items-baseline gap-2 manager-kind-head"):
+        ui.label(word).classes("manager-card-title")
+        if count:
+            ui.label(str(count)).classes("manager-select-count")
 
 
 # ---------------------------------------------------------------------------------------
-# Releases
+# Have
+
+
+def _have(context: dict[str, Any], scene: Scene, kind: Kind, helds: list[_Held],
+          use_file: Callable[[], None]) -> None:
+    """The files the game holds, a card each; or the box a file is dropped in. Where the
+    cards have no Replace to offer, Import a File… stands under them."""
+    _heading(t("manager.discovery.have"), len(helds))
+    if not helds:
+        with ui.column().classes("items-center gap-1 w-full manager-dropbox"):
+            ui.label(t("manager.discovery.none")).classes("manager-empty-title")
+            ui.label(t("manager.discovery.drop_here")).classes("manager-help")
+            use_file()
+        return
+    replaceable = False
+    for held in helds:
+        acts = _acts(context, scene, kind, held)
+        replaceable = replaceable or file_acts.REPLACE in acts
+        _held_card(context, scene, kind, held, acts)
+    if not replaceable:
+        use_file()
+
+
+def _acts(context: dict[str, Any], scene: Scene, kind: Kind,
+          held: _Held) -> dict[str, panel.Verb]:
+    """Replace and Remove, the verbs the Games pane offers this file. A table is not given
+    them here."""
+    if held.row is None or kind.listed_as == "tableFiles":
+        return {}
+    library, state = context["library"], context["state"]
+
+    async def after(_games: list[str]) -> None:
+        await discovery_get.settle(state, scene.vps_id)
+
+    acts = file_acts.held_acts(
+        library, file_acts.files_of(library, [held.row])[0],
+        vps_kinds.MEDIA if kind.media else vps_kinds.ASSET, state, after)
+    # Remove takes the game's own file and leaves the default-named one, which is where
+    # a download lands, so a card holding only that has nothing for it to take.
+    if kind.media and file_acts.removal([], {}, "", held.detail.get("tiers"), held.row) is None:
+        acts.pop(file_acts.REMOVE, None)
+    return acts
+
+
+def _picture(context: dict[str, Any], scene: Scene, kind: Kind, held: _Held,
+             record: dict[str, Any] | None) -> tuple[str, str, Callable[[], None] | None]:
+    """What a held file draws as: its address, the family it draws as and what enlarges it.
+    A picture is drawn from the file itself, in place of the release's."""
+    if kind.media:
+        version = str(kind.slot.get("version") or "")
+        return (art.media(scene.game_id, kind.media, version=version, size=art.CELL),
+                kind.held_family,
+                partial(mediaview.open_viewer,
+                        art.media(scene.game_id, kind.media, version=version), kind.media,
+                        kind.label))
+    own = _own_picture(context, scene, kind, held.name)
+    if own:
+        return (art.media(scene.game_id, own[0], version=own[1], size=art.CELL), "image",
+                partial(mediaview.open_pages, [
+                    art.media(scene.game_id, own[0], version=own[1], size=art.PANEL)],
+                    kind.label))
+    return str(record.get("img_url") or "") if record else "", "image", None
+
+
+def _held_card(context: dict[str, Any], scene: Scene, kind: Kind, held: _Held,
+               acts: dict[str, panel.Verb]) -> None:
+    record = _record_of(kind, held.vps_file_id)
+    src, family, show = _picture(context, scene, kind, held, record)
+    spec = (file_facts.media_spec if kind.media else file_facts.asset_spec)(held.detail)
+    with ui.column().classes("gap-1 manager-kind-card manager-have-card"):
+        with ui.row().classes("items-start gap-3 no-wrap w-full"):
+            with ui.element("div").classes("manager-rel-pic") as pic:
+                candidates.thumb(src, kind.glyph, t("manager.discovery.no_picture"), family)
+            if show is not None:
+                _enlarges(pic, show)
+            with ui.column().classes("gap-0 grow min-w-0"):
+                ui.label(short_name(held.name, scene.title)).classes("truncate") \
+                    .tooltip(held.name)
+                if spec:
+                    ui.label(spec).classes("manager-help truncate")
+                if kind.records:
+                    _match_line(context, scene, kind, held, record)
+                if origin := _origin(held):
+                    ui.label(t("manager.discovery.source_line", source=origin)) \
+                        .classes("manager-help truncate")
+        with ui.element("div").classes("manager-slot-actions"):
+            _verb(acts.get(file_acts.REPLACE), verbs.REPLACE)
+            if kind.records:
+                label, icon, hint = (
+                    (t("manager.workbench.change_match_2"), verbs.MATCH,
+                     t("manager.discovery.change_match.help")) if held.vps_file_id
+                    else (t("manager.workbench.match"), verbs.NO_MATCH,
+                          t("manager.discovery.match.help")))
+                panel.action(label, partial(_match_held, context, scene, kind, held),
+                             icon=icon, hint=hint)()
+            _verb(acts.get(file_acts.REMOVE), verbs.REMOVE, danger=True)
+
+
+def _verb(verb: panel.Verb | None, icon: str, *, danger: bool = False) -> None:
+    if verb is not None:
+        panel.action(verb.label, verb.run, icon=icon, danger=danger, hint=verb.hint,
+                     enabled=verb.run is not None)()
+
+
+def _match_line(context: dict[str, Any], scene: Scene, kind: Kind, held: _Held,
+                record: dict[str, Any] | None) -> None:
+    """The release a file is matched to, with the way to its page, or that it is matched to
+    none."""
+    with ui.row().classes("items-center gap-1 no-wrap w-full"):
+        if not held.vps_file_id:
+            ui.icon(verbs.NO_MATCH).classes("manager-help")
+            ui.label(t("manager.discovery.not_matched")).classes("manager-help truncate")
+            return
+        ui.icon(verbs.MATCH).classes("manager-have")
+        ui.label(t("manager.discovery.matched_to", release=_head(record))
+                 if record else t("manager.workbench.delisted_file")).classes("truncate")
+        if record:
+            site, page = discovery.site_of(record)
+            if page:
+                _way_out(scene, kind, held.vps_file_id, site, page,
+                         discovery.page_is_broken(record), lambda: None)
+        if later := _newer(context, scene, held.vps_file_id):
+            ui.label(t("manager.discovery.update.row", version=later)).classes("manager-label")
+
+
+# ---------------------------------------------------------------------------------------
+# Available
 
 
 def _unheld(kind: Kind) -> list[dict[str, Any]]:
-    """The releases the game does not hold yet: those whose page was opened first, then the
-    rest, each newest first. The held ones are drawn above the list."""
-    tied = {one["vps_file_id"] for one in kind.mine if one.get("vps_file_id")}
+    """The releases the game is not matched to: those whose page was opened first, then the
+    rest, each newest first."""
+    tied = _tied(kind)
     rows = [one for one in discovery.newest_first(kind.records)
             if str(one.get("vps_file_id") or "") not in tied]
     return sorted(rows, key=lambda one: str(one.get("vps_file_id") or "") not in kind.opened)
 
 
-def _releases(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
-    rows = _unheld(kind)
-    ids = [str(one.get("vps_file_id") or "") for one in rows]
-    view = context["state"].setdefault("discovery_views", {}).setdefault(
-        (scene.vps_id, kind.key), _View())
-    if view.pressed not in ids:
-        view.pressed = ids[0] if ids else ""
+def _available(context: dict[str, Any], scene: Scene, kind: Kind, rows: list[dict[str, Any]],
+               view: _View, card: ui.element) -> None:
     features = kind.listed_as == "tableFiles"
-    card = ui.column().classes("gap-0 w-full manager-card-compare")
-    if len(rows) + len(kind.mine) > LONG_KIND:
+    _heading(t("manager.discovery.available"), len(rows) + len(kind.offers))
+    if len(rows) > LONG_KIND:
         box = panel.search(t("manager.folder_picker.filter")).classes("w-full")
         box.value = view.text
         box.on_value_change(lambda event: filter_by(str(event.value or "")))
@@ -213,6 +404,8 @@ def _releases(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
 
     def draw_card() -> None:
         card.clear()
+        if not rows:
+            return
         with card:
             _card(context, scene, kind, rows, view, features, press)
 
@@ -227,11 +420,10 @@ def _releases(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
                              icon=verbs.SHOW_PICTURES, inline=True,
                              hint=t("manager.discovery.show_pictures.help"))()
         with ui.column().classes("gap-0 w-full min-w-0 manager-rels"):
-            for held in kind.mine:
-                _have(context, scene, kind, held)
             for record in shown():
                 _release(context, scene, kind, record, view, features, picture_of(record),
                          press)
+            _offers(context, scene, kind)
         shade(view)
 
     part = panel.region(build)
@@ -270,43 +462,13 @@ def _own_picture(context: dict[str, Any], scene: Scene, kind: Kind,
     return (slot, str(held.get("version") or "")) if held.get("present") else None
 
 
-def _have(context: dict[str, Any], scene: Scene, kind: Kind, held: dict[str, str]) -> None:
-    """A file the game holds: the release it is tied to where VPS lists it, else its name. A
-    picture is drawn from the file itself, in place of the release's."""
-    record = _record_of(kind, str(held.get("vps_file_id") or ""))
-    name = str(held.get("name") or "")
-    own = _own_picture(context, scene, kind, name)
-    with ui.element("div").classes("manager-rel manager-rel--have"):
-        with ui.element("div").classes("manager-rel-pic") as pic:
-            candidates.thumb(
-                art.media(scene.game_id, own[0], version=own[1], size=art.CELL) if own
-                else str(record.get("img_url") or "") if record else "",
-                kind.glyph, t("manager.discovery.no_picture"))
-        if own:
-            _enlarges(pic, partial(mediaview.open_pages, [
-                art.media(scene.game_id, own[0], version=own[1], size=art.PANEL)], kind.label))
-        with ui.column().classes("gap-0 grow min-w-0"):
-            ui.label(_head(record) if record else short_name(name, scene.title)) \
-                .classes("truncate").tooltip(name)
-            ui.label(_source_line(held.get("vps_file_id"))).classes("manager-help truncate")
-        with ui.row().classes("items-center gap-1 no-wrap shrink-0"):
-            if kind.records:
-                panel.icon_action(
-                    t("manager.discovery.match"), partial(_match_held, context, scene, kind, name),
-                    icon=verbs.MATCH, hint=t("manager.discovery.match"))()
-            if later := _newer(context, scene, held):
-                ui.label(t("manager.discovery.update.row", version=later)).classes("manager-label")
-            ui.label(t("manager.discovery.have")).classes("manager-have")
-
-
-def _newer(context: dict[str, Any], scene: Scene, held: dict[str, str]) -> str:
+def _newer(context: dict[str, Any], scene: Scene, vps_file_id: str) -> str:
     """The version VPS lists now for the release a held file is tied to, where that is later
     than when it was tied and the update has not been skipped or ignored."""
-    file_id = str(held.get("vps_file_id") or "")
-    if not file_id or not scene.game_id:
+    if not vps_file_id or not scene.game_id:
         return ""
     return next((str(move["now"]) for move in context["library"].update_moves(scene.game_id)
-                 if move["release_id"] == file_id), "")
+                 if move["release_id"] == vps_file_id), "")
 
 
 def _looked(context: dict[str, Any], scene: Scene, kind: Kind) -> dict[str, str]:
@@ -348,11 +510,11 @@ def _chooser(context: dict[str, Any], kind: Kind, scene: Scene,
 
 
 @on_page
-async def _match_held(context: dict[str, Any], scene: Scene, kind: Kind, name: str) -> None:
+async def _match_held(context: dict[str, Any], scene: Scene, kind: Kind, held: _Held) -> None:
     """Tie a file the game holds to the release the person says it is."""
     library, state = context["library"], context["state"]
-    held = next((one for one in kind.mine if one.get("name") == name), {})
-    chosen = await _chooser(context, kind, scene, name)(str(held.get("vps_file_id") or ""))
+    name = held.name
+    chosen = await _chooser(context, kind, scene, name)(held.vps_file_id)
     if chosen is None or not scene.game_id:
         return
     try:
@@ -362,7 +524,9 @@ async def _match_held(context: dict[str, Any], scene: Scene, kind: Kind, name: s
                     await run.io_bound(library.set_table_source, scene.game_id, str(one["id"]),
                                        chosen[0])
         else:
-            await run.io_bound(library.set_asset_source, scene.game_id, name, chosen[0])
+            # A media file is keyed by its path under the game, an asset by its name.
+            key = str((held.row or {}).get("path") or name) if kind.media else name
+            await run.io_bound(library.set_asset_source, scene.game_id, key, chosen[0])
     except Exception as exc:  # noqa: BLE001 - the file stays; only the tie failed
         logger.warning("manager: could not tie %s to %s", name, chosen[0], exc_info=True)
         ui.notify(t("manager.discovery.tie_failed"), caption=why(exc), type="warning")
@@ -462,44 +626,30 @@ def _download(context: dict[str, Any], scene: Scene, offered: Offered) -> None:
 
 def _card(context: dict[str, Any], scene: Scene, kind: Kind, rows: list[dict[str, Any]],
           view: _View, features: bool, press: Callable[[str], None]) -> None:
+    """The release pressed, with the way through the rest. Beside the cards in Full."""
     ids = [str(one.get("vps_file_id") or "") for one in rows]
     index = ids.index(view.pressed) if view.pressed in ids else 0
-    with ui.element("div").classes("manager-card-pair"):
-        with ui.column().classes("gap-1 manager-card"):
-            ui.label(t("manager.workbench.yours")).classes("manager-help")
-            if kind.mine:
-                held = kind.mine[0]
-                tied = _record_of(kind, str(held.get("vps_file_id") or ""))
-                name = str(held.get("name") or "")
-                ui.label(_head(tied) if tied else short_name(name, scene.title)) \
-                    .classes("truncate").tooltip(name)
-                ui.label(_source_line(held.get("vps_file_id"))).classes("manager-help")
-                ui.label(t("manager.discovery.have")).classes("manager-have")
-            else:
-                panel.state(t("manager.view.missing"), "off")()
-        if not rows:
-            return
-        record = rows[index]
-        with ui.column().classes("gap-1 manager-card"):
-            with ui.row().classes("items-center gap-1 no-wrap w-full"):
-                ui.label(t("manager.discovery.card_of", n=index + 1, count=len(rows))) \
-                    .classes("manager-help grow")
-                panel.icon_action(
-                    t("word.previous"), lambda: press(ids[(index - 1) % len(ids)]),
-                    icon=verbs.EARLIER, hint=t("word.previous"), enabled=len(ids) > 1)()
-                panel.icon_action(
-                    t("word.next"), lambda: press(ids[(index + 1) % len(ids)]),
-                    icon=verbs.LATER, hint=t("word.next"), enabled=len(ids) > 1)()
-                offered = context.get("hosted", {}).get(ids[index])
-                if offered is not None:
-                    _download(context, scene, offered)
-            src = str(record.get("img_url") or view.looked.get(ids[index]) or "")
-            if src:
-                with ui.element("div").classes("manager-tile-art"):
-                    _art(src, "image", kind.glyph)
-            ui.label(_head(record)).classes("truncate")
-            ui.label(_detail(record, features=features)).classes("manager-help")
-            _authors(context, record)
+    record = rows[index]
+    with ui.column().classes("gap-1 manager-kind-card"):
+        with ui.row().classes("items-center gap-1 no-wrap w-full"):
+            ui.label(t("manager.discovery.card_of", n=index + 1, count=len(rows))) \
+                .classes("manager-help grow")
+            panel.icon_action(
+                t("word.previous"), lambda: press(ids[(index - 1) % len(ids)]),
+                icon=verbs.EARLIER, hint=t("word.previous"), enabled=len(ids) > 1)()
+            panel.icon_action(
+                t("word.next"), lambda: press(ids[(index + 1) % len(ids)]),
+                icon=verbs.LATER, hint=t("word.next"), enabled=len(ids) > 1)()
+            offered = context.get("hosted", {}).get(ids[index])
+            if offered is not None:
+                _download(context, scene, offered)
+        src = str(record.get("img_url") or view.looked.get(ids[index]) or "")
+        if src:
+            with ui.element("div").classes("manager-tile-art"):
+                _art(src, "image", kind.glyph)
+        ui.label(_head(record)).classes("truncate")
+        ui.label(_detail(record, features=features)).classes("manager-help")
+        _authors(context, record)
 
 
 def _authors(context: dict[str, Any], record: dict[str, Any]) -> None:
@@ -539,36 +689,25 @@ def _caption(scene: Scene, pick: Pick) -> str:
     return t("manager.discovery.tile_caption", size=size, source=source) if size else source
 
 
-def _tiles(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
+def _offers(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
+    """The pictures the media sources offer, a row each."""
     tray = scene.tray
-    with ui.element("div").classes("manager-media-tiles"):
-        if kind.held:
-            version = str(kind.slot.get("version") or "")
-            src = art.media(scene.game_id, kind.media, version=version, size=art.PANEL)
-            with ui.column().classes("gap-1 manager-tile manager-tile--yours"):
-                with ui.element("div").classes("manager-tile-art") as plate:
-                    _art(src, kind.held_family, kind.glyph)
-                _enlarges(plate, partial(
-                    mediaview.open_viewer, art.media(scene.game_id, kind.media, version=version),
-                    kind.media, kind.label))
-                with ui.row().classes("items-center gap-2 no-wrap"):
-                    ui.label(t("manager.discovery.have")).classes("manager-have")
-                    ui.label(_source_line(kind.slot.get("matched_to"))) \
-                        .classes("manager-help truncate")
-        for offer in kind.offers:
-            pick = discovery_get.pick_of(offer)
-            src = str(offer.get("url") or "")
-            with ui.column().classes("gap-1 manager-tile"):
-                with ui.element("div").classes("manager-tile-art") as plate:
-                    _art(src, kind.family, kind.glyph)
-                _enlarges(plate, partial(mediaview.open_viewer, src, pick.kind, kind.label))
-                with ui.row().classes("items-center gap-1 no-wrap w-full"):
-                    ui.label(_caption(scene, pick)).classes("manager-help truncate grow")
-                    discovery_get.end(
-                        tray, pick, partial(_get_picture, context, scene, kind, pick),
-                        discovery_get.try_again(context, tray, scene.game_id, pick))
-                if discovery_pictures.newer(kind, offer):
-                    discovery_pictures.set_aside(context, scene, kind)
+    for offer in kind.offers:
+        pick = discovery_get.pick_of(offer)
+        src = str(offer.get("url") or "")
+        with ui.column().classes("gap-0 w-full min-w-0"):
+            with ui.element("div").classes("manager-rel"):
+                with ui.element("div").classes("manager-rel-pic") as pic:
+                    candidates.thumb(src, kind.glyph, t("manager.discovery.no_picture"),
+                                     kind.family)
+                if src:
+                    _enlarges(pic, partial(mediaview.open_viewer, src, pick.kind, kind.label))
+                ui.label(_caption(scene, pick)).classes("truncate grow min-w-0")
+                discovery_get.end(
+                    tray, pick, partial(_get_picture, context, scene, kind, pick),
+                    discovery_get.try_again(context, tray, scene.game_id, pick))
+            if discovery_pictures.newer(kind, offer):
+                discovery_pictures.set_aside(context, scene, kind)
 
 
 def _get_picture(context: dict[str, Any], scene: Scene, kind: Kind, pick: Pick) -> None:

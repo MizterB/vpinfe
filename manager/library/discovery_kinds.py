@@ -14,7 +14,7 @@ from typing import Any
 
 from common import icons
 from common.failures import why
-from common.games import opened_pages
+from common.games import asset_registry, opened_pages
 from common.i18n import t
 from common.media.media_specs import MEDIA_SPECS, media_family
 from manager.kit import candidates, offload
@@ -63,6 +63,11 @@ class Kind:
     opened: dict[str, dict[str, Any]] = field(default_factory=dict)
     # The picture a source has published to replace the one VPinFE placed in this slot.
     change: dict[str, Any] = field(default_factory=dict)
+    # The Games pane's rows for the files the game holds of this kind, which its Replace and
+    # Remove act on.
+    rows: list[dict[str, Any]] = field(default_factory=list)
+    # What the Games pane's file panel reads of each of those asset files, by row id.
+    details: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def label(self) -> str:
@@ -173,6 +178,32 @@ async def _detail(library: Any, game_id: str, kind: str) -> dict[str, Any]:
         return {}
 
 
+async def _asset_detail(library: Any, game_id: str, row: dict[str, Any]) -> dict[str, Any]:
+    path = str(row.get("path") or "")
+    if not path:
+        return {}
+    try:
+        return await offload.io(library.asset_detail, game_id, path) or {}
+    except Exception:  # noqa: BLE001 - the card is drawn without its size
+        logger.debug("manager: could not read %s for %s", path, game_id, exc_info=True)
+        return {}
+
+
+async def _lens_rows(library: Any, game_id: str) -> tuple[list[dict[str, Any]],
+                                                           list[dict[str, Any]]]:
+    """The asset and media rows the Games pane draws for this game, the files it holds."""
+    if not game_id:
+        return [], []
+    try:
+        assets, media = await asyncio.gather(offload.io(library.files_of, "asset", game_id),
+                                             offload.io(library.files_of, "media", game_id))
+    except Exception:  # noqa: BLE001 - the cards are drawn without Replace and Remove
+        logger.debug("manager: could not read the files %s holds", game_id, exc_info=True)
+        return [], []
+    return ([one for one in assets if one.get("present")],
+            [one for one in media if one.get("present") and int(one.get("page") or 1) == 1])
+
+
 def _newest(context: dict[str, Any], kind: Kind) -> Pick | None:
     """The newest release of the kind that a source which downloads can get and the game
     does not hold."""
@@ -277,6 +308,19 @@ async def read(context: dict[str, Any]) -> Scene:
         for one, found in zip(holding, await asyncio.gather(
                 *(_detail(library, game_id, one.media) for one in holding)), strict=True):
             one.detail = found
+        asset_rows, media_rows = await _lens_rows(library, game_id)
+        for one in files:
+            if one.listed_as != TABLE_LISTING:
+                lens = {asset_registry.lens_kind(name) for name in discovery_get.of_listing(
+                    one.listed_as)[0]}
+                one.rows = [row for row in asset_rows if row.get("kind") in lens]
+        placed = [(one, file) for one in files for file in one.rows]
+        for (one, file), found in zip(placed, await asyncio.gather(
+                *(_asset_detail(library, game_id, file) for _one, file in placed)),
+                strict=True):
+            one.details[str(file["id"])] = found
+        for one in media:
+            one.rows = [row for row in media_rows if row.get("kind") == one.media]
     newest = [(one, pick) for one in files if one.missing
               if (pick := _newest(context, one)) is not None]
     scene = Scene(counted, in_library, game_id, str(row["id"]), tray, files, media, sources,

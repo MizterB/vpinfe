@@ -213,7 +213,7 @@ class NewerTileOnThePaneTests(unittest.IsolatedAsyncioTestCase):
         with _PAGE:
             body = ui.column()
             with body:
-                discovery_list._tiles({"library": mock.Mock(), "state": {}}, scene, kind)
+                discovery_list._offers({"library": mock.Mock(), "state": {}}, scene, kind)
 
         labels = [one.text for one in body.descendants() if isinstance(one, ui.button)]
 

@@ -446,3 +446,19 @@ def asset_acts(library: Any, files: list[File], state: dict[str, Any],
     if scripts:
         offered.append(panel.Verb(t("word.delete"), delete_scripts, danger=True))
     return offered
+
+
+# --- one held file ----------------------------------------------------------------
+
+REPLACE = "replace"
+REMOVE = "remove"
+
+
+def held_acts(library: Any, one: File, inventory: str, state: dict[str, Any],
+              after: After) -> dict[str, panel.Verb]:
+    """Replace and Remove for a file the game holds, the very verbs the Games pane offers it,
+    by `REPLACE` and `REMOVE`. A verb the pane does not offer for this file is absent."""
+    acts = media_acts if inventory == vps_kinds.MEDIA else asset_acts
+    words = {t("manager.files.replace"): REPLACE, t("word.remove"): REMOVE}
+    return {words[verb.label]: verb for verb in acts(library, [one], state, after)
+            if verb.label in words}

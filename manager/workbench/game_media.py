@@ -16,10 +16,11 @@ from common.games import file_move as moved_files
 from common.i18n import t
 from common.media.media_specs import PAGED_KINDS, media_family, media_label_map
 from manager.devices import plays_on
-from manager.kit import art, confirm, deeplink, media_ownership, offload, panel, verbs, when
+from manager.kit import art, confirm, deeplink, media_ownership, offload, panel, verbs
 from manager.kit.on_page import on_page
 from manager.library import (
     file_acts,
+    file_facts,
     file_move,
     media_fill,
     mediamap,
@@ -251,35 +252,6 @@ _BLANK_ICON = {"image": "image", "video": "movie",
                "audio": "graphic_eq", "doc": "description"}
 
 
-def _spec(detail: dict[str, Any]) -> str:
-    """Size, shape, running time and date on one line - what tells two files of a kind
-    apart when both look right in a thumbnail."""
-    parts = []
-    if detail.get("width") and detail.get("height"):
-        parts.append(t("manager.workbench.width_by_height", width=detail["width"],
-                       height=detail["height"]))
-    if detail.get("duration_s"):
-        parts.append(running_time(float(detail["duration_s"])))
-    name = str(detail.get("file") or "")
-    if detail.get("format"):
-        parts.append(str(detail["format"]))
-    elif "." in name:
-        parts.append(name.rsplit(".", 1)[1].upper())
-    size = mediasource._size(detail.get("size_bytes"))
-    if size:
-        parts.append(size)
-    if detail.get("modified"):
-        parts.append(when.ago(detail["modified"]))
-    return " \u00b7 ".join(parts)
-
-
-def running_time(seconds: float) -> str:
-    """As a player shows it. Never 0:00 - a sound that is there runs for something."""
-    minutes, rest = divmod(max(1, round(seconds)), 60)
-    hours, minutes = divmod(minutes, 60)
-    return f"{hours}:{minutes:02}:{rest:02}" if hours else f"{minutes}:{rest:02}"
-
-
 def _used_as(candidate: dict[str, Any]) -> str:
     """Who a file in a slot's detail answers for: its own tier while some table is shown
     it, otherwise Unused."""
@@ -420,7 +392,7 @@ def _slot(context: dict[str, Any], kind: str, entry: dict[str, Any],
                         for one in refused:
                             ui.label(one.label) \
                                 .classes("manager-tier manager-tier--warn").tooltip(one.why)
-                spec = _spec(detail)
+                spec = file_facts.media_spec(detail)
                 if spec:
                     ui.label(spec).classes("manager-help")
                 _provenance(context, detail.get("via") or entry.get("via"), borrowed)

@@ -44,7 +44,7 @@ AREAS: dict[str, tuple[str, ...]] = {
                 "assets", "media", "media_fill", "media_rotate", "mediamap", "mediapages",
                 "mediasource", "mediaview", "pictures", "backglass_view", "record",
                 "release_match", "vps_match", "import_dialog", "import_report", "uploads",
-                "file_acts", "file_move", "move_picker", "move_plan", "game_acts",
+                "file_acts", "file_facts", "file_move", "move_picker", "move_plan", "game_acts",
                 "row_drag", "tageditor", "text_editor", "wizard_settle"),
     "settings": ("settings", "sections", "attract", "binding_editor", "binding_table",
                  "chrome_options", "commands", "displays", "dmd_panel", "dof", "folders",

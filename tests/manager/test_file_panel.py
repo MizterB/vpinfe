@@ -7,7 +7,7 @@ from typing import Any
 
 from common.i18n import t
 from manager.kit import art, grid, media_ownership
-from manager.library import file_acts
+from manager.library import file_acts, file_facts
 from manager.workbench import core, file, game_media, rail
 
 
@@ -103,12 +103,12 @@ class TheLineUnderIt(unittest.TestCase):
         self.assertEqual(t("manager.workbench.inert_asset"), self._said("pov", 0, 2))
 
     def test_a_folder_counts_its_files(self) -> None:
-        said = file._asset_spec({"folder": True, "files": 12, "size_bytes": 2048})
+        said = file_facts.asset_spec({"folder": True, "files": 12, "size_bytes": 2048})
 
         self.assertTrue(said.startswith("12 files"), said)
 
     def test_a_file_says_its_format(self) -> None:
-        self.assertTrue(file._asset_spec({"format": "VBS", "size_bytes": 41})
+        self.assertTrue(file_facts.asset_spec({"format": "VBS", "size_bytes": 41})
                         .startswith("VBS"))
 
 

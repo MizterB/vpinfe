@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 from common.i18n import t
+from common.online import vps_kinds
 from manager.library import file_acts
 
 
@@ -125,6 +126,35 @@ class AssetFiles(unittest.TestCase):
         made = _asset_acts(_asset("a", binding="orphaned"))
 
         self.assertEqual([one.label for one in made], [t("word.remove")])
+
+
+class HeldFiles(unittest.TestCase):
+    """Replace and Remove for the one file a Discovery card holds, by key."""
+
+    def _held(self, inventory: str, row: dict[str, Any]) -> dict[str, Any]:
+        library = _library()
+        (one,) = file_acts.files_of(library, [row])
+        return file_acts.held_acts(library, one, inventory, {}, AsyncMock())
+
+    def test_a_media_file_offers_replace_and_a_danger_remove(self) -> None:
+        made = self._held(vps_kinds.MEDIA, _media("a"))
+
+        self.assertEqual(set(made), {file_acts.REPLACE, file_acts.REMOVE})
+        self.assertEqual(made[file_acts.REPLACE].label, t("manager.files.replace"))
+        self.assertTrue(made[file_acts.REMOVE].danger)
+
+    def test_an_asset_offers_the_same_two(self) -> None:
+        made = self._held(vps_kinds.ASSET, _asset("a"))
+
+        self.assertEqual(set(made), {file_acts.REPLACE, file_acts.REMOVE})
+
+    def test_the_menu_acts_that_are_not_replace_or_remove_are_left_out(self) -> None:
+        made = self._held(vps_kinds.MEDIA, _media("a"))
+
+        self.assertNotIn(t("manager.media_rotate.turn"), [one.label for one in made.values()])
+
+    def test_a_file_the_pane_offers_nothing_for_has_neither(self) -> None:
+        self.assertEqual(self._held(vps_kinds.MEDIA, _media("a", via="orphan")), {})
 
 
 if __name__ == "__main__":
