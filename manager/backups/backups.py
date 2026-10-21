@@ -123,6 +123,8 @@ COLUMNS = [
                            **{":getQuickFilterText":
                               "params => [(params.data || {}).name, (params.data || {}).holds]"
                               ".filter(Boolean).join(' ')"}),
+    grid_module.column("table", t("word.table"), 200,
+                       help=t("manager.backups.table.help")),
     grid_module.column("kind", t("word.kind"), 150,
                        help=t("manager.backups.kind_column.help"),
                        **grid_module.choice_filter(_choices(KIND_WORDS))),
@@ -186,7 +188,7 @@ VIEWS: dict[str, list[str] | views.Preset] = {
         [kept_copies.KIND_ASSET], ("name", "taken", "reason", "size", "gone", "file"),
         help=t("manager.backups.assets_view.help")),
     "manager.view.backups_tables": _by_kind(
-        [kept_copies.KIND_TABLE], ("name", "taken", "reason", "size", "gone", "file"),
+        [kept_copies.KIND_TABLE], ("name", "table", "taken", "reason", "size", "gone", "file"),
         help=t("manager.backups.tables_view.help")),
     "manager.view.backups_launchers": _by_kind(
         [kept_copies.KIND_LAUNCHER], ("name", "taken", "reason", "size", "gone", "note"),
@@ -222,6 +224,7 @@ def rows(found: list[dict[str, Any]], *, parts: bool = False) -> list[dict[str, 
         "subject_kind": one.get("subject_kind") or "",
         "kind": one.get("kind") or "",
         "file": one.get("file") or "",
+        "table": one.get("label") or "",
         "path": one.get("path") or "",
         "taken": one.get("taken") or "",
         "taken_text": when.local_seconds(one.get("taken")),
@@ -444,7 +447,8 @@ def _copy_path(path: str) -> Callable[[Callable[[], Any]], None]:
 
 
 def _named(rows_on: list[dict[str, Any]]) -> list[str]:
-    names = ["  ".join(part for part in (one["name"], one["file"]) if part) or one["id"]
+    names = ["  ".join(part for part in (one["name"], one["table"] or one["file"]) if part)
+             or one["id"]
              for one in rows_on]
     if len(names) <= NAMED_AT_MOST:
         return names
@@ -828,7 +832,8 @@ async def contents(context: dict[str, Any]) -> None:
         shown.clear()
         needle = str(finds.get(row["id"], "")).strip().lower()
         found = [one for one in context["parts"]
-                 if not needle or needle in " ".join((one["name"], one["file"])).lower()]
+                 if not needle
+                 or needle in " ".join((one["name"], one["table"], one["file"])).lower()]
         with shown:
             for part in found[:PARTS_SHOWN]:
                 _part_line(context["library"], part, refresh)

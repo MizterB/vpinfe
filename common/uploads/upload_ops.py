@@ -31,6 +31,7 @@ from common.uploads.asset_analyzer_service import (
 from common.uploads.asset_import_service import (
     ImportPlan,
     PlannedItem,
+    SwapKeptError,
     build_import_plan,
     build_media_slot_plan,
     build_readme_plan,
@@ -435,6 +436,9 @@ def _run(plan: ImportPlan, source: Path, declared: dict,
                                      details={"blocked": blocked})
     try:
         report = execute_import_plan(plan, source, declared=declared)
+    except SwapKeptError as exc:
+        raise service_errors.RefusedError(
+            why(exc), details={"replaced_tables": exc.replaced}) from exc
     except (ValueError, FileNotFoundError) as exc:
         raise service_errors.RefusedError(why(exc)) from exc
     upload_session_service.cleanup_session(upload_id)

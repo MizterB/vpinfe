@@ -144,8 +144,6 @@ def _restore_file(one: Copy, place: str, path: Path) -> Restored:
     if place == PLACE_TABLE and launch_state.running(held.game_id, game.game_dir_name):
         raise service_errors.BlockedError(t("error.games.table_running"))
     game_dir = Path(str(game.full_path_game))
-    if place == PLACE_TABLE and table_entry.is_entry(held.relative):
-        return _restore_table_entry(one, game, game_dir, path, held.relative)
     target = game_dir.joinpath(*held.relative.split("/"))
     try:
         replaced = (media_files.keep(held.folder, held.game_id, target, held.relative,
@@ -161,20 +159,6 @@ def _restore_file(one: Copy, place: str, path: Path) -> Restored:
     media_ops.reread(game_dir)
     asset_ops.settle_if_backglass(held.game_id, target)
     return Restored(one, _kept(_kept_copy(str(replaced) if replaced else None, place)))
-
-
-def _restore_table_entry(one: Copy, game: Any, game_dir: Path, path: Path,
-                         relative: str) -> Restored:
-    """Put a deleted table's record back on its file, which must be in the game's folder
-    and not yet recorded."""
-    filename = relative.removesuffix(table_entry.SUFFIX)
-    if not (game_dir / filename).is_file():
-        raise service_errors.NotFoundError(t("error.backups.entry_needs_file"))
-    record = table_entry.read(path)
-    if record is None or not MetaConfig(str(meta_file_path(game))).restore_table(record):
-        raise service_errors.RefusedError(t("error.backups.entry_taken"))
-    media_ops.reread(game_dir)
-    return Restored(one)
 
 
 def _restore_record(one: Copy, path: Path) -> Restored:
@@ -341,7 +325,10 @@ def delete(copy_id: str) -> Copy:
     if place == PLACE_THEME:
         shutil.rmtree(path)
     else:
+        record = table_entry.beside_path(path) if place == PLACE_TABLE else None
         archive.remove(path) if place == PLACE_ARCHIVE else path.unlink()
+        if record is not None:
+            record.unlink(missing_ok=True)
         if place in (PLACE_MEDIA, PLACE_ASSET, PLACE_TABLE):
             media_files.prune(path)
         for each in members:

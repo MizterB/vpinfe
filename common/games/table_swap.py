@@ -282,6 +282,8 @@ def replace(game_id: str, table_id: str, path: str, *, carry: Iterable[str] | No
     displaced = [target for file, target in moves.items()
                  if target.is_file() and not _one_file(file, target)]
     copies = _keep(held, [old, *leaving, *displaced])
+    table_entry.keep(held.game_id, held.filename, held.entry,
+                     describe(held.entry, held.filename), REASON_REPLACE)
 
     try:
         with atomic_write.staged_for(new) as staged:
@@ -332,8 +334,9 @@ def delete(game_id: str, table_id: str) -> dict[str, Any]:
     """
     held = _held(game_id, table_id)
     files = [held.folder / held.filename, *named_files(held.folder, held.filename).values()]
-    copies = [*_keep(held, files, REASON_DELETE),
-              table_entry.keep(held.game_id, held.filename, held.entry, REASON_DELETE)]
+    copies = _keep(held, files, REASON_DELETE)
+    table_entry.keep(held.game_id, held.filename, held.entry,
+                     describe(held.entry, held.filename), REASON_DELETE)
     try:
         for each in files:
             each.unlink(missing_ok=True)

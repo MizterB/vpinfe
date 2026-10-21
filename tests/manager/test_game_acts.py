@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import unittest
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from nicegui import ui
 
@@ -322,6 +322,54 @@ class DrawnIntoAMenu(unittest.TestCase):
                                 panel.Verb("Collections", draw=draw)], shut)
 
         self.assertEqual([shut], given)
+
+
+async def _inline(call, *args, **kwargs):
+    return call(*args, **kwargs)
+
+
+class DeletingATableFile(unittest.IsolatedAsyncioTestCase):
+    """Delete from Disk keeps a copy of each file, and the notice offers them back."""
+
+    async def deleted(self, kept: list[dict[str, Any]]) -> tuple[MagicMock, MagicMock]:
+        self.notified = MagicMock()
+        library = MagicMock()
+        library.table_swap_plan.return_value = {"label": "1.1 · Rascal", "filename": "a.vpx",
+                                                "files": [], "patched": []}
+        library.delete_table_file.return_value = {"kept": kept}
+        offered = MagicMock()
+        table = _table("a", form="contained")
+        verbs = game_acts.table_acts(
+            library, [game_acts.Target("afm", "Attack from Mars", table, [table, _table("b")])],
+            _after, {}, None)
+        run = next(one for one in verbs if one.label == "Delete from Disk...").run
+        assert run is not None
+        with patch.object(game_acts.offload, "io", _inline), \
+                patch.object(game_acts.run, "io_bound", _inline), \
+                patch.object(game_acts.confirm, "ask", AsyncMock(return_value=True)), \
+                patch.object(game_acts.undo, "offer", offered), \
+                patch.object(game_acts.ui, "notify", self.notified):
+            with _PAGE:
+                await run()
+            if offered.called:
+                await offered.call_args.args[1]()
+        return library, offered
+
+    async def test_the_notice_offers_to_put_back_every_copy_that_was_kept(self) -> None:
+        library, offered = await self.deleted([{"id": "c1"}, {"id": "c2"}])
+
+        offered.assert_called_once()
+        self.assertIn("1.1 · Rascal", offered.call_args.args[0])
+        self.assertEqual(["c1", "c2"], [call.args[0] for call in
+                                         library.restore_backup.call_args_list])
+        library.restored_backups.assert_called_once()
+
+    async def test_a_delete_that_kept_nothing_only_says_so(self) -> None:
+        _library, offered = await self.deleted([])
+
+        offered.assert_not_called()
+        self.notified.assert_called_once()
+        self.assertIn("1.1 · Rascal", self.notified.call_args.args[0])
 
 
 if __name__ == "__main__":

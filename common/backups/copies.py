@@ -86,6 +86,9 @@ class Copy:
     within: str = ""
     # The VPinFE that wrote the backup, from its manifest. Empty for every other copy.
     version: str = ""
+    # What the table was called when a table's file was copied, by version and authors.
+    # Empty for every other copy.
+    label: str = ""
 
     def as_dict(self) -> dict:
         return asdict(self)

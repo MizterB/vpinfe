@@ -6,6 +6,7 @@ overwrite a file is something the user declines rather than undoes.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import tempfile
 import zipfile
@@ -361,6 +362,14 @@ def _new_games_under(location_id: str = "") -> str:
     if not found.path:
         raise ValueError(found.reason)
     return found.path
+
+
+class SwapKeptError(ValueError):
+    """An item failed after the table swap ran. `replaced` is what the swap did."""
+
+    def __init__(self, message: str, replaced: list[dict]) -> None:
+        super().__init__(message)
+        self.replaced = replaced
 
 
 @dataclass(frozen=True)
@@ -909,8 +918,13 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
                 raise RuntimeError(f"Unknown import action: {item.action}")
             imported.append(item.asset.kind)
     except Exception as exc:
-        if _is_rar_exec_error(exc):
-            raise ValueError(rar_tool_hint()) from exc
+        failure = ValueError(rar_tool_hint()) if _is_rar_exec_error(exc) else exc
+        if replaced and isinstance(failure, (ValueError, FileNotFoundError)):
+            with contextlib.suppress(Exception):
+                refresh_game(base)
+            raise SwapKeptError(why(failure), replaced) from exc
+        if failure is not exc:
+            raise failure from exc
         raise
     finally:
         source.close()

@@ -35,21 +35,22 @@ class Swapping:
         return cls(list(choice["tables"]), bool(choice.get("replace")),
                    str(choice.get("table") or ""), instead=instead)
 
-    def asked(self) -> dict[str, Any]:
-        """What the plan and the import are asked with, over the caller's own."""
+    def asked(self, table_on: bool = True) -> dict[str, Any]:
+        """What the plan and the import are asked with, over the caller's own. With the table
+        row unticked nothing is carried."""
         if not self.replace:
             return {"add_table": True, "replace_table": "", "carry": None, "instead": False}
-        return {"add_table": False, "replace_table": self.table, "carry": self.carry,
-                "instead": self.instead}
+        return {"add_table": False, "replace_table": self.table,
+                "carry": self.carry if table_on else [], "instead": self.instead}
 
     def label_of(self, table_id: str) -> str:
         found = next((one for one in self.tables if one["id"] == table_id), None)
         return str((found or {}).get("label") or "")
 
-    def settle(self, plan: dict[str, Any]) -> None:
+    def settle(self, plan: dict[str, Any], table_on: bool = True) -> None:
         """Take the plan's word for what is ticked, until the person ticks otherwise."""
         swap = swap_of(plan)
-        if self.replace and self.carry is None and swap is not None:
+        if table_on and self.replace and self.carry is None and swap is not None:
             self.carry = [str(one["kind"]) for one in swap["files"] if one["carry"]]
 
 
@@ -65,18 +66,26 @@ def new_name(plan: dict[str, Any], release_label: str = "") -> str:
                  if one.get("kind") == "table"), "")
 
 
-def title(plan: dict[str, Any], swapping: Swapping | None, release_label: str = "") -> str:
+def table_on(plan: dict[str, Any], chosen: dict[int, bool]) -> bool:
+    """Whether the table row of a replacing plan is ticked, which is true of any other plan."""
+    return all(chosen.get(int(one["index"]), True)
+               for one in plan.get("items") or () if one.get("swap"))
+
+
+def title(plan: dict[str, Any], swapping: Swapping | None, release_label: str = "",
+          on: bool = True) -> str:
     swap = swap_of(plan)
-    if swapping is None or not swapping.replace or swap is None:
+    if swapping is None or not swapping.replace or swap is None or not on:
         return ""
     return t("manager.import_swap.title", old=swap["label"],
              new=new_name(plan, release_label))
 
 
 def said(library: Any, swapped: dict[str, Any], *, old: str, new: str,
-         after: Callable[[], Any] | None = None) -> None:
+         after: Callable[[], Any] | None = None, partly: bool = False) -> None:
     """Tell what a swap did, with Undo swapping the table back to the file it replaced.
-    `after` redraws what shows the table once the Undo is done."""
+    `after` redraws what shows the table once the Undo is done. `partly` says another item of
+    the same import failed."""
     game_id = str(swapped["game"])
     table_id = str(swapped["table"]["id"])
     copies = [str(one["id"]) for one in swapped.get("kept") or ()]
@@ -89,21 +98,22 @@ def said(library: Any, swapped: dict[str, Any], *, old: str, new: str,
             if hasattr(answer, "__await__"):
                 await answer
 
+    line = t("manager.import_swap.replaced_partly" if partly else "manager.import_swap.replaced",
+             old=old, new=new)
     if not copies:
-        ui.notify(t("manager.import_swap.replaced", old=old, new=new), type="positive")
+        ui.notify(line, type="warning" if partly else "positive")
         return
-    undo.offer(t("manager.import_swap.replaced", old=old, new=new), back,
-               done=t("manager.import_swap.swapped_back", old=old))
+    undo.offer(line, back, done=t("manager.import_swap.swapped_back", old=old))
 
 
-def confirm_label(swapping: Swapping | None) -> str:
-    if swapping is None:
+def confirm_label(swapping: Swapping | None, on: bool = True) -> str:
+    if swapping is None or (swapping.replace and not on):
         return t("manager.import_dialog.import")
     return t("word.replace") if swapping.replace else t("manager.import_swap.keep_both")
 
 
 def draw(box: Any, plan: dict[str, Any], swapping: Swapping, *, game: str,
-         release_label: str, changed: Callable[[], Any]) -> None:
+         release_label: str, changed: Callable[[], Any], on: bool = True) -> None:
     """The section, drawn again into `box`. `changed` asks the plan again once an answer
     moves."""
     box.clear()
@@ -121,7 +131,9 @@ def draw(box: Any, plan: dict[str, Any], swapping: Swapping, *, game: str,
                 {one["id"]: one["label"] for one in swapping.tables}, swapping.table,
                 lambda e: _moved(swapping, str(e.value or ""), changed)))])
         swap = swap_of(plan)
-        if swap is not None:
+        if swap is not None and not on:
+            ui.label(t("manager.import_swap.stays", old=swap["label"])).classes("manager-help")
+        elif swap is not None:
             _cards(swap, new_name(plan, release_label))
             _carry(swap, swapping, new_name(plan, release_label), changed)
 

@@ -853,6 +853,7 @@ class Library:
 
     def restored_backups(self) -> None:
         self._forget_games()
+        self.tables.clear()
         self._table_rows = None
 
     def delete_backup(self, copy_id: str) -> None:

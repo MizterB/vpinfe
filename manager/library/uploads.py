@@ -414,7 +414,7 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
         if game_id:
             library.forget_media(game_id)
         await run.io_bound(library.refresh_after_import)
-        if on_imported is not None:
+        if on_imported is not None and not report.get("failed"):
             followed = on_imported(report, plan)
             if asyncio.iscoroutine(followed):
                 await followed

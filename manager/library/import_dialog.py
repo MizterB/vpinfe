@@ -203,8 +203,11 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
     base_title = (dropped_title(source, file_count) if new_folder
                   else t("manager.import_dialog.import_3", name=game_name))
 
+    def table_on() -> bool:
+        return import_swap.table_on(live["plan"], chosen)
+
     def asking() -> dict[str, Any]:
-        return {**asked, **(swapping.asked() if swapping else {})}
+        return {**asked, **(swapping.asked(table_on()) if swapping else {})}
 
     def items_of(shown: dict[str, Any]) -> list[dict[str, Any]]:
         return list(shown.get("items") or [])
@@ -215,10 +218,12 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
     def kept_choices(shown: dict[str, Any]) -> None:
         """The ticks a person made carried to the items of a fresh plan, matched by what
         the item is rather than its place in the list."""
-        was = {(one["kind"], one.get("name")): chosen.get(int(one["index"]), True)
-               for one in items_of(live["plan"])}
+        def key(one: dict[str, Any]) -> tuple[Any, ...]:
+            return one["kind"], one.get("name"), one.get("action")
+
+        was = {key(one): chosen.get(int(one["index"]), True) for one in items_of(live["plan"])}
         chosen.clear()
-        chosen.update({int(one["index"]): was.get((one["kind"], one.get("name")),
+        chosen.update({int(one["index"]): was.get(key(one),
                                                   bool(one.get("default_enabled", True)))
                        for one in items_of(shown)})
 
@@ -260,18 +265,21 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
             rows.clear()
             with rows:
                 for one in items_of(shown):
-                    _draw_row(one, shown, chosen, single(), recount,
+                    _draw_row(one, shown, chosen, single(),
+                              replan if one.get("swap") else recount,
                               upload_id if _pictured(one, source) else "")
-            heading.text = (import_swap.title(shown, swapping, release.label if release else "")
-                            or base_title)
+            on = import_swap.table_on(shown, chosen)
+            heading.text = (import_swap.title(shown, swapping, release.label if release else "",
+                                              on) or base_title)
             if swapping is not None and choice_box is not None:
                 import_swap.draw(choice_box, shown, swapping, game=game_name,
                                  release_label=release.label if release else "",
-                                 changed=replan)
-                go.text = import_swap.confirm_label(swapping)
+                                 changed=replan, on=on)
+                go.text = import_swap.confirm_label(swapping, on)
 
         @on_page
         async def replan() -> None:
+            go.disable()
             try:
                 fresh = await offload.io(library.upload_plan, upload_id, **asking(),
                                          vps_id=str(named["vps_id"] or ""))
@@ -283,9 +291,11 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
             kept_choices(fresh)
             live["plan"] = fresh
             if swapping is not None:
-                swapping.settle(fresh)
+                swapping.settle(fresh, import_swap.table_on(fresh, chosen))
             draw(fresh)
             recount()
+            if items_of(fresh):
+                go.enable()
 
         with frame.footer():
             frame.cancel(lambda: dialog.submit(False))
@@ -323,6 +333,9 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
         ui.notify(t("manager.import_dialog.import_failed"), caption=why(exc),
                   type="negative")
         await run.io_bound(library.abort_upload, upload_id)
+        kept = list((getattr(exc, "details", None) or {}).get("replaced_tables") or ())
+        if kept:
+            await _swap_kept(library, kept, swapping, live["plan"], release, on_done)
         return
     note.dismiss()
     swapped = list(report.get("replaced_tables") or ())
@@ -348,6 +361,25 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
             await answer
 
 
+@on_page
+async def _swap_kept(library: Any, kept: list[dict[str, Any]],
+                     swapping: import_swap.Swapping | None, plan: dict[str, Any],
+                     release: ReleaseMatch | None, on_done: Callable[..., Any] | None) -> None:
+    """A later item failed after the table swap ran. The swap stands, so the page is read
+    again and the notice still offers to put the old table back."""
+    report = {"imported": [], "replaced_tables": kept, "failed": True}
+    if on_done is not None:
+        answer = on_done(report)
+        if hasattr(answer, "__await__"):
+            await answer
+    for one in kept:
+        import_swap.said(library, one,
+                         old=swapping.label_of(swapping.table) if swapping else "",
+                         new=import_swap.new_name(plan, release.label if release else ""),
+                         after=(lambda: on_done(report)) if on_done is not None else None,
+                         partly=True)
+
+
 # Past this many rows a bundle is a list to read, not pictures to look at.
 PICTURES_UP_TO = 12
 
@@ -369,7 +401,7 @@ def _slot(item: dict[str, Any]) -> str:
 
 
 def _draw_row(item: dict[str, Any], plan: dict[str, Any], chosen: dict[int, bool],
-              single: bool, changed: Callable[[], None], upload_id: str = "") -> None:
+              single: bool, changed: Callable[[], Any], upload_id: str = "") -> None:
     """One thing that will land: its picture, what it is called, what it is for and what it
     does to what is there. Where it goes is the tooltip, since the slot says what the path
     would."""
@@ -379,9 +411,9 @@ def _draw_row(item: dict[str, Any], plan: dict[str, Any], chosen: dict[int, bool
         if not single:
             box = ui.checkbox(value=chosen[index]).props("dense")
 
-            def picked() -> None:
+            def picked() -> Any:
                 chosen[index] = bool(box.value)
-                changed()
+                return changed()
 
             box.on_value_change(picked)
         if upload_id or item.get("media_kind"):

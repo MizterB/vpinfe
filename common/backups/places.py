@@ -45,7 +45,7 @@ from common.kept_copies import (
     is_copy,
 )
 
-from . import archive
+from . import archive, table_entry
 from . import folder as backup_folder
 from . import media as media_files
 from .copies import (
@@ -374,13 +374,16 @@ def _file_copy(path: Path, names: dict[str, str], area: str) -> Copy | None:
     held = media_files.where(path)
     if held is None or held.area != area or path.is_symlink() or not path.is_file():
         return None
+    if area == media_files.TABLES and table_entry.is_entry(held.relative):
+        return None
     kind, place = _AREA_COPIES[area]
     return Copy(
         id=make_id(place, path), subject_kind=SUBJECT_GAME, subject_id=held.game_id,
         subject_name=names.get(held.game_id, held.game_id), kind=kind, file=held.relative,
         path=str(path), taken=iso_from_stamp(backup_stamp(path)), written_by="",
         reason=_reason_of_name(path.name), note="", size=_size(path),
-        gone=held.game_id not in names)
+        gone=held.game_id not in names,
+        label=table_entry.label_beside(path) if area == media_files.TABLES else "")
 
 
 def _file_copies(game_id: str = "") -> list[Copy]:

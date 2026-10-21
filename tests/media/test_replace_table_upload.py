@@ -148,6 +148,62 @@ class ReplaceTableRouteTests(ReplaceCase):
         self.assertEqual(b"old", (self.game / "Foo 1.1.vpx").read_bytes())
 
 
+class CompanionsTests(ReplaceCase):
+    """A drop that brings an ini beside its table."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        upload_ops.abort(self.upload)
+        (self.root / "incoming" / "Foo 1.2.ini").write_bytes(b"new ini")
+        self.upload = upload_ops.begin_from(str(self.root / "incoming"))["id"]
+        self.addCleanup(upload_ops.abort, self.upload)
+
+    def kinds(self, plan: dict) -> list[str]:
+        return sorted(one["kind"] for one in plan["items"])
+
+    def test_a_kind_the_drop_brings_is_not_carried_unless_ticked(self) -> None:
+        self.assertEqual(["ini", "table"], self.kinds(self.plan()))
+
+    def test_a_carried_kind_leaves_the_drops_own_file_out(self) -> None:
+        self.assertEqual(["table"], self.kinds(self.plan(carry=["ini"])))
+
+    def test_with_nothing_carried_the_drops_companions_stay_in_the_plan(self) -> None:
+        plan = self.plan(carry=[])
+
+        self.assertEqual(["ini", "table"], self.kinds(plan))
+        self.assertTrue(all(one["default_enabled"] for one in plan["items"]))
+
+    def test_a_failure_after_the_swap_ran_says_what_was_swapped(self) -> None:
+        real = asset_import_service._extract_replace
+
+        def refuse_the_ini(source, entry, dest):
+            if dest.suffix == ".ini":
+                raise ValueError("no room")
+            real(source, entry, dest)
+
+        with mock.patch.object(asset_import_service, "_extract_replace", refuse_the_ini):
+            response = self.client.post(f"/uploads/{self.upload}/import",
+                                        json={**self.asked, "carry": []})
+
+        self.assertEqual(400, response.status_code, response.text)
+        error = response.json()["error"]
+        self.assertIn("no room", error["message"])
+        swapped = error["details"]["replaced_tables"][0]
+        self.assertEqual("t-old", swapped["table"]["id"])
+        self.assertTrue(swapped["kept"])
+        self.assertTrue((self.game / "Foo 1.2.vpx").exists())
+        self.assertFalse((self.game / "Foo 1.1.vpx").exists())
+
+    def test_a_failure_with_no_swap_carries_no_details(self) -> None:
+        with mock.patch.object(asset_import_service, "_extract_replace",
+                               side_effect=ValueError("no room")):
+            response = self.client.post(f"/uploads/{self.upload}/import",
+                                        json={**self.asked, "add_table": True})
+
+        self.assertEqual(400, response.status_code, response.text)
+        self.assertNotIn("replaced_tables", response.json()["error"].get("details") or {})
+
+
 class SwapRoutesTests(ReplaceCase):
     path = f"/games/{GAME_ID}/tables/t-old"
 
@@ -193,7 +249,9 @@ class SwapRoutesTests(ReplaceCase):
         body = response.json()
         self.assertEqual(("t-old", True), (body["table"], body["deleted"]))
         self.assertEqual(
-            ["Foo 1.1.ini", "Foo 1.1.vbs", "Foo 1.1.vpx", "Foo 1.1.vpx.entry.json"],
+            ["Foo 1.1.ini", "Foo 1.1.vbs", "Foo 1.1.vpx"],
             sorted(Path(one["path"]).name.split(".vpinfe-")[0] for one in body["kept"]))
+        table = next(one for one in body["kept"] if one["file"] == "Foo 1.1.vpx")
+        self.assertEqual("1.1", table["label"])
         self.assertFalse((self.game / "Foo 1.1.vpx").exists())
         self.assertNotIn("t-old", json.loads(self.info.read_text())["tables"])

@@ -14,6 +14,8 @@ from unittest.mock import patch
 from common import service_errors
 from common.backups import folder as backup_folder
 from common.backups import ops as backup_ops
+from common.backups import places as backup_places
+from common.backups import table_entry
 from common.games import backglass_order, game_repository, table_ops, table_swap
 from common.host import launch_state
 from tests.support.library import TempTree, fake_game, game_info, write_game
@@ -70,13 +72,18 @@ class SwapCase(TempTree):
 
     def kept(self) -> list[str]:
         return sorted(path.name.split(".vpinfe-")[0] for path in self.backups.rglob("*")
-                      if path.is_file())
+                      if path.is_file() and ".entry.json" not in path.name)
+
+    def kept_records(self) -> list[str]:
+        return sorted(path.name.split(".vpinfe-")[0] for path in self.backups.rglob("*")
+                      if path.is_file() and ".entry.json" in path.name)
 
     def assert_kept(self, *names: str) -> None:
         self.assertEqual(self.kept(), sorted(names))
 
     def kept_bytes(self) -> list[bytes]:
-        return sorted(path.read_bytes() for path in self.backups.rglob("*") if path.is_file())
+        return sorted(path.read_bytes() for path in self.backups.rglob("*")
+                      if path.is_file() and ".entry.json" not in path.name)
 
     def record(self) -> dict:
         return json.loads((self.folder / f"{FOLDER}.info").read_text())
@@ -431,38 +438,72 @@ class RestoreADeletedTableTests(SwapCase):
         self.assertNotIn("t1", tables)
         self.assertEqual(tables["t9"]["rating"], 1)
 
-    def test_a_file_copied_some_other_way_has_no_record_to_bring(self) -> None:
+    def test_restoring_a_replaced_tables_copy_leaves_the_record_that_is_there(self) -> None:
         done = table_swap.replace(GAME_ID, "t1", str(self.arrives))
+        before = self.record()["tables"]["t1"]
 
         backup_ops.restore(done["kept"][0]["id"])
 
-        self.assertEqual(set(self.record()["tables"]), {"t1", "t2"})
+        self.assertEqual(self.record()["tables"]["t1"], before)
 
-    def test_the_record_alone_goes_back_onto_a_file_that_is_there(self) -> None:
+    def test_a_file_copy_with_no_record_beside_it_brings_back_only_the_file(self) -> None:
         copies = self.deleted()
-        self.put(OLD, b"old")
+        for record in self.backups.rglob("*.entry.json.vpinfe-*"):
+            record.unlink()
 
-        backup_ops.restore(copies[f"{OLD}.entry.json"]["id"])
+        backup_ops.restore(copies[OLD]["id"])
 
-        self.assertEqual(self.record()["tables"]["t1"]["rating"], 4)
-        self.assertNotIn(f"{OLD}.entry.json", self.names())
-
-    def test_the_record_waits_for_its_file(self) -> None:
-        copies = self.deleted()
-
-        with self.assertRaises(service_errors.NotFoundError):
-            backup_ops.restore(copies[f"{OLD}.entry.json"]["id"])
-
+        self.assertEqual((self.folder / OLD).read_bytes(), b"old")
         self.assertNotIn("t1", self.record()["tables"])
 
-    def test_the_record_is_refused_where_the_file_already_has_one(self) -> None:
-        copies = self.deleted()
-        self.put(OLD, b"old")
-        self.info["tables"] = {"t9": {"id": "t9", "filename": OLD}}
-        (self.folder / f"{FOLDER}.info").write_text(json.dumps(self.info))
+    def test_a_record_is_found_for_a_name_with_brackets(self) -> None:
+        stamped = "20260101T000000Z"
+        file_copy = self.backups / f"Cactus [VPW].vpx.vpinfe-{stamped}-delete"
+        entry = self.backups / f"Cactus [VPW].vpx.entry.json.vpinfe-{stamped}-delete"
+        file_copy.write_bytes(b"x")
+        entry.write_text("{}")
 
-        with self.assertRaises(service_errors.RefusedError):
-            backup_ops.restore(copies[f"{OLD}.entry.json"]["id"])
+        self.assertEqual(table_entry.beside_path(file_copy), entry)
+
+    def test_the_record_is_not_a_copy_of_its_own(self) -> None:
+        copies = self.deleted()
+
+        self.assertEqual(set(copies), {OLD})
+        listed = {one.file for one in backup_places.scan()}
+        self.assertNotIn(f"{OLD}.entry.json", listed)
+
+    def test_a_copy_names_the_table_it_was_of(self) -> None:
+        copies = self.deleted()
+
+        self.assertEqual(copies[OLD]["label"], "1.1")
+
+    def test_a_replaced_tables_copy_names_it_too(self) -> None:
+        done = table_swap.replace(GAME_ID, "t1", str(self.arrives))
+
+        self.assertEqual(done["kept"][0]["label"], "1.1")
+
+    def test_a_file_named_for_the_table_has_no_name_of_its_own_to_show(self) -> None:
+        self.put("Cactus 1.1.ini")
+        done = table_swap.delete(GAME_ID, "t1")
+
+        ini = next(one for one in done["kept"] if one["file"] == "Cactus 1.1.ini")
+        self.assertEqual(ini["label"], "")
+
+    def test_removing_the_file_copy_removes_its_record(self) -> None:
+        copies = self.deleted()
+
+        backup_ops.delete(copies[OLD]["id"])
+
+        self.assertEqual(self.kept_records(), [])
+
+    def test_removing_one_tables_copy_leaves_another_tables_record(self) -> None:
+        copies = self.deleted()
+        other = {one["file"]: one for one in table_swap.delete(GAME_ID, "t2")["kept"]}
+
+        backup_ops.delete(copies[OLD]["id"])
+
+        self.assertEqual(self.kept_records(), ["Cactus Other.vpx.entry.json"])
+        self.assertIn("Cactus Other.vpx", other)
 
 
 class DeleteTests(SwapCase):
@@ -473,8 +514,9 @@ class DeleteTests(SwapCase):
         done = table_swap.delete(GAME_ID, "t1")
 
         self.assertEqual(self.names(), ["Cactus Other.vpx", "Cactus.directb2s", f"{FOLDER}.info"])
-        self.assert_kept(OLD, "Cactus 1.1.ini", f"{OLD}.entry.json")
-        self.assertEqual(len(done["kept"]), 3)
+        self.assert_kept(OLD, "Cactus 1.1.ini")
+        self.assertEqual(self.kept_records(), [f"{OLD}.entry.json"])
+        self.assertEqual(len(done["kept"]), 2)
 
     def test_the_entry_goes_and_the_default_is_no_longer_this_table(self) -> None:
         table_swap.delete(GAME_ID, "t1")
@@ -506,8 +548,9 @@ class DeleteTests(SwapCase):
     def test_the_record_is_kept_with_the_file(self) -> None:
         done = table_swap.delete(GAME_ID, "t1")
 
-        copy = next(one for one in done["kept"] if one["file"] == f"{OLD}.entry.json")
-        kept = json.loads(Path(copy["path"]).read_text())
+        copy = next(one for one in done["kept"] if one["file"] == OLD)
+        kept = table_entry.beside(Path(copy["path"]))
+        assert kept is not None
         self.assertEqual((kept["id"], kept["rating"], kept["hidden"], kept["tags"]),
                          ("t1", 4, True, ["mine"]))
 

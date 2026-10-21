@@ -441,10 +441,25 @@ def table_acts(library: Any, targets: list[Target], after: After, state: dict[st
                 lines=[plan["filename"], *(one["file"] for one in plan["files"]),
                        *([made] if made else [])]):
             return
-        if await write([first], library.delete_table_file, lambda item: (item.id,),
-                       t("manager.table_swap.delete_failed")) is not None:
-            ui.notify(t("manager.table_swap.deleted", label=label), type="positive")
+        answers = await write([first], library.delete_table_file, lambda item: (item.id,),
+                              t("manager.table_swap.delete_failed"))
+        if answers is None:
+            return
+        copies = [str(one["id"]) for one in (answers[0] or {}).get("kept") or ()]
+
+        async def put_back() -> None:
+            for each in copies:
+                await run.io_bound(library.restore_backup, each, reread=False)
+            await run.io_bound(library.restored_backups)
+            library.forget_media(first.game_id)
             await after([first.game_id], True)
+
+        await after([first.game_id], True)
+        if copies:
+            undo.offer(t("manager.table_swap.deleted", label=label), put_back,
+                       done=t("manager.table_swap.put_back", label=label))
+        else:
+            ui.notify(t("manager.table_swap.deleted", label=label), type="positive")
 
     @on_page
     async def placed() -> None:
