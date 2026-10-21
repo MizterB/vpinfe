@@ -39,6 +39,7 @@ from common.games import (
     table_ops,
     tables,
 )
+from common.games.asset_resolver import VPX_ASSET_KINDS as _PER_TABLE_KINDS
 from common.games.game import Game
 from common.games.game_metadata import (
     load_game_meta,
@@ -61,7 +62,7 @@ CARRY_UPDATE = ("ini", "backglass", "pov", "scv", "nix")
 CARRY_INSTEAD = ("backglass", "scv", "nix")
 
 _NAMED_FOR_TABLE = (asset_resolver.RESOLUTION_DEDICATED, asset_resolver.RESOLUTION_SUPERSEDED)
-_FOLDER_FALLBACK = frozenset(kind.key for kind in asset_resolver.VPX_ASSET_KINDS
+_FOLDER_FALLBACK = frozenset(kind.key for kind in _PER_TABLE_KINDS
                              if kind.folder_fallback)
 
 
