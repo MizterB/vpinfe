@@ -298,7 +298,8 @@ def discovery_home(days: int) -> dict[str, Any]:
                          formats=launchers.playable_formats(
                              launchers.get_launcher_store().launchers()),
                          library=library_games(),
-                         opened=opened_pages.all_recent())
+                         opened=opened_pages.all_recent(),
+                         unmatched_games=_unmatched_games())
 
 
 def library_games() -> list[dict[str, Any]]:
@@ -312,6 +313,25 @@ def library_games() -> list[dict[str, Any]]:
                 for game_id, game in game_repository.catalog().items()]
     except Exception:  # noqa: BLE001 - one shelf of Home
         logger.warning("Could not read the library's games for Home", exc_info=True)
+        return []
+
+
+def _unmatched_games() -> list[dict[str, Any]]:
+    """The library's games with no VPS match, as `{game_id, name, manufacturer, year}`. One
+    declared to be in no catalog is not among them: that is an answer, not a gap. Empty where
+    they cannot be read, so Home goes without the shelf that needs them."""
+    from common.games import auto_match as matching
+
+    try:
+        out = []
+        for game_id, game in sorted(game_repository.catalog().items()):
+            if matching.unmatched(normalize_meta(game.meta_config or {})):
+                row = game_repository.game_to_row(game)
+                out.append({"game_id": game_id, "name": row["name"],
+                            "manufacturer": row["manufacturer"], "year": row["year"]})
+        return out
+    except Exception:  # noqa: BLE001 - one shelf of Home
+        logger.warning("Could not read the library's unmatched games for Home", exc_info=True)
         return []
 
 

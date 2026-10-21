@@ -86,6 +86,7 @@ class ShelfHarness(unittest.IsolatedAsyncioTestCase):
     names the `found` it starts from as `FOUND`."""
 
     FOUND: dict[str, Any] = {}
+    UNMATCHED: list[dict[str, Any]] = []
 
     def setUp(self) -> None:
         self.client = mock.Mock()
@@ -99,6 +100,8 @@ class ShelfHarness(unittest.IsolatedAsyncioTestCase):
         self.library.load_kept_kinds()
         self.found = self.FOUND
         self.games: list[dict[str, Any]] = []
+        self.journal: list[dict[str, Any]] = []
+        self.unmatched = list(self.UNMATCHED)
         self.state: dict[str, Any] = {}
         self.selected: list[Any] = []
         self.spied: dict[str, Any] = {}
@@ -118,7 +121,8 @@ class ShelfHarness(unittest.IsolatedAsyncioTestCase):
     def _answer(self, days: int) -> dict[str, Any]:
         return vps_home.home(self.found, KEPT, days,
                              marks=vps_marks.Marks(self.client.discovery_marks()),
-                             formats=("VPX",), library=self.games)
+                             formats=("VPX",), library=self.games, opened=self.journal,
+                             unmatched_games=self.unmatched)
 
     async def asyncSetUp(self) -> None:
         was = core.loop

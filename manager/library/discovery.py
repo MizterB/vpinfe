@@ -58,6 +58,7 @@ from manager.library import (
     discovery_releases,
     discovery_search,
     import_dialog,
+    vps_match,
 )
 
 logger = logging.getLogger("vpinfe.manager.library.discovery")
@@ -468,6 +469,20 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         return state["open_on"](needs.duplicates_opens() if finding == vps_home.DUPLICATES
                                 else needs.no_tables_opens())
 
+    def see_unmatched() -> Any:
+        """Games, on its Unmatched view, which also lists the games with no likely entry."""
+        from manager.library import games
+        from manager.overview import needs
+        return state["open_on"](needs.Opens("games", games.UNMATCHED))
+
+    async def match_game(game: dict[str, Any]) -> bool:
+        """The Match picker on this game, which says what it picked once it is done. Whether it
+        changed the match; the catalog is read again only then."""
+        if not await vps_match.walk(library, [game]):
+            return False
+        library.forget_catalog()
+        return True
+
     def see_updates(game_ids: list[str]) -> Any:
         """Games, narrowed to the games with an update."""
         from manager.library import games
@@ -503,7 +518,8 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         body, home, library=library, scope=SCOPE, view_presets=VIEWS, catalog=catalog,
         reread=reread, on_select=on_select, see_new=see_new, see_missing=see_missing,
         see_updates=see_updates, see_dont_have=see_dont_have, see_family=see_family,
-        see_health=see_health, see_picture=see_picture,
+        see_health=see_health, see_unmatched=see_unmatched, match_game=match_game,
+        see_picture=see_picture,
         fix_scripts=fix_scripts,
         open_view=to_view, open_releases_view=to_releases_view, open_marks=to_marks,
         open_subject=go_to, marking=discovery_marks.Marking(library, redraw_home))

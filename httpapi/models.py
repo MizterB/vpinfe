@@ -4296,6 +4296,35 @@ class HomeOpened(ApiModel):
     games: list[HomeOpenedGame] = []
 
 
+class HomeLikely(ApiModel):
+    """The VPS entry a `HomeUnmatchedGame` is likely to be."""
+
+    vps_id: str
+    game: str
+    img_url: str = ""
+    manufacturer: str = ""
+    year: str = ""
+
+
+class HomeUnmatchedGame(ApiModel):
+    """A game of the library with no VPS match, by `game_id`, and the entry it is likely to
+    be: the one of the same title (accents, case, punctuation and a parenthesised part
+    ignored) listed in the game's year or a year either side."""
+
+    game_id: str
+    game: str
+    manufacturer: str = ""
+    year: str = ""
+    suggestion: HomeLikely
+
+
+class HomeUnmatched(ApiModel):
+    """`count` games with a likely entry, by name, and `games` the first twelve."""
+
+    count: int = 0
+    games: list[HomeUnmatchedGame] = []
+
+
 class HomeUpdateMove(ApiModel):
     """One thing of a game that has a later version. `source` is `vps` for a release the
     library's file is tied to, which VPS now lists at `now` where it listed `then` when the
@@ -4360,6 +4389,7 @@ class DiscoveryHome(ApiModel):
     family: HomeFamily = HomeFamily()
     health: HomeHealth = HomeHealth()
     opened: HomeOpened = HomeOpened()
+    unmatched: HomeUnmatched = HomeUnmatched()
     updates: HomeUpdates = HomeUpdates()
 
 

@@ -2,8 +2,8 @@
 library with a later version of something they hold, what VPS added lately, the games the
 library holds that lack a kind VPS lists, the games VPS lists that it has none of, the ones
 among them that share a title with a game it holds, the games of the library that need a
-look, the ones whose release page was opened and not imported, whose work it holds, and the
-views it has saved.
+look, the ones with no VPS match that look like an entry, the ones whose release page was
+opened and not imported, whose work it holds, and the views it has saved.
 
 A tile opens its game in the pane, an author's name opens the author's page, and See All
 opens a grid on a named view of the same question. The counts on Your Views need the whole
@@ -232,6 +232,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          see_dont_have: Callable[[], Any],
          see_family: Callable[[], Any],
          see_health: Callable[[str], Any],
+         see_unmatched: Callable[[], Any],
+         match_game: Callable[[dict[str, Any]], Awaitable[bool]],
          see_picture: Callable[[str, str], Any],
          fix_scripts: Callable[[list[str]], Any],
          open_view: Callable[[str], Any],
@@ -244,8 +246,9 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
     answers for another window. `see_new(days, chip)`, `see_missing(game_ids)` and
     `see_updates(game_ids)` open the grid on the shelf's question, `see_dont_have()` and
-    `see_family()` Browse on the games the shelf draws from, `see_health(finding)` Games on the
-    view that lists a Library Health finding's games, `see_picture(vps_id, kind)`
+    `see_family()` Browse on the games the shelf draws from, `see_unmatched()` the Games grid
+    on its Unmatched view, `match_game(game)` the Match picker on one game, `see_health(finding)`
+    Games on the view that lists a Library Health finding's games, `see_picture(vps_id, kind)`
     a game's pane on the section of that media kind, `open_view(id)` on a saved view of
     Browse, `open_releases_view(id)` on one of Releases, `open_marks(view)` the Marks grid on
     its Ignored or Wanted view, `open_subject` an author's page, and `fix_scripts(folders)`
@@ -274,6 +277,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         lacking_box = ui.column().classes("w-full gap-2")
         dont_have_box = ui.column().classes("w-full gap-2")
         family_box = ui.column().classes("w-full gap-2")
+        unmatched_box = ui.column().classes("w-full gap-2")
         health_box = ui.column().classes("w-full gap-2")
         opened_box = ui.column().classes("w-full gap-2")
         authors_box = ui.column().classes("w-full gap-2")
@@ -430,6 +434,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_lacking()
         draw_dont_have()
         draw_family()
+        draw_unmatched()
         draw_health()
         draw_opened()
         draw_authors()
@@ -459,6 +464,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_wanted()
         draw_dont_have()
         draw_family()
+        draw_unmatched()
         draw_health()
         draw_opened()
         draw_authors()
@@ -598,6 +604,45 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                 ui.label(t("manager.discovery.family.held", made=game_tables.made(held[0]))
                          if len(held) == 1 and game_tables.made(held[0])
                          else t("manager.discovery.family.held_many", count=len(held))) \
+                    .classes("text-xs manager-help truncate")
+
+    def draw_unmatched() -> None:
+        unmatched_box.clear()
+        likely = shown["home"]["unmatched"]
+        if not likely["games"]:
+            return
+        with unmatched_box:
+            with _heading():
+                ui.label(t("manager.discovery.unmatched")).classes(
+                    "manager-fact-heading shrink-0").tooltip(t("manager.discovery.unmatched.help"))
+                ui.space()
+                with _end():
+                    panel.link(t("manager.discovery.see_all"), to=ADDRESS,
+                               on_click=see_unmatched)()
+            row = ui.row().classes("manager-shelf w-full px-3")
+            for game in likely["games"]:
+                unmatched_tile(row, game)
+
+    async def match(game: dict[str, Any]) -> None:
+        """The Match picker on the game, then the shelves again if it changed the match: a game
+        just matched is off this one."""
+        if await match_game({"id": game["game_id"], "name": game["game"]}):
+            await refresh()
+
+    def unmatched_tile(parent: Any, game: dict[str, Any]) -> None:
+        with parent, ui.element("div").classes("manager-shelf-tile") as card:
+            card.props("tabindex=0 role=button")
+            card.on("click", lambda _e, one=game: match(one))
+            card.on("keydown.enter", lambda _e, one=game: match(one))
+            candidates.thumb(game["suggestion"]["img_url"], icons.TABLES,
+                             t("manager.discovery.no_picture"))
+            with ui.column().classes("gap-0 min-w-0"):
+                ui.label(t("word.game")).classes("text-xs manager-label")
+                ui.label(game["game"]).classes("manager-shelf-name")
+                if made := game_tables.made(game):
+                    ui.label(made).classes("text-xs manager-help truncate")
+                ui.label(t("manager.discovery.unmatched.looks_like",
+                           made=game_tables.made(game["suggestion"]))) \
                     .classes("text-xs manager-help truncate")
 
     def health_findings() -> dict[str, int]:
@@ -801,6 +846,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     draw_lacking()
     draw_dont_have()
     draw_family()
+    draw_unmatched()
     draw_health()
     draw_opened()
     draw_authors()

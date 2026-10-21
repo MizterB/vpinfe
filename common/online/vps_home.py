@@ -321,6 +321,59 @@ def opened_games(found: dict[str, Any], journal: Iterable[Mapping[str, Any]],
     return out
 
 
+def _year(value: Any) -> int | None:
+    text = str(value).strip()
+    return int(text) if re.fullmatch(r"\d{4}", text) else None
+
+
+def suggestion(game: Mapping[str, Any], by_title: Mapping[str, list[dict[str, Any]]],
+               marks: vps_marks.Marks | None = None) -> dict[str, Any] | None:
+    """The entry `game` is likely to be: the one whose normalized title is the game's and whose
+    year is within one of the game's, the nearest year first, then the same maker, then the
+    entry id. An ignored entry is never offered. None where the game says no year, since a
+    title alone does not pick between versions of it. `by_title` is `found`'s named entries
+    by `title_key`."""
+    marks = marks or vps_marks.Marks()
+    year = _year(game.get("year"))
+    if year is None:
+        return None
+    maker = str(game.get("manufacturer") or "").strip().casefold()
+    near = []
+    for entry in by_title.get(title_key(str(game.get("name") or "")), ()):
+        listed = _year(entry.get("year"))
+        if (listed is not None and abs(listed - year) <= 1
+                and not marks.game_ignored(str(entry["vps_id"]))):
+            made = str(entry.get("manufacturer") or "").strip().casefold()
+            near.append((abs(listed - year), not (maker and maker == made),
+                         str(entry["vps_id"]), entry))
+    if not near:
+        return None
+    best = min(near, key=lambda one: one[:3])[3]
+    return {"vps_id": best["vps_id"], "game": (best.get("name") or "").strip(),
+            "img_url": best.get("img_url") or "",
+            "manufacturer": (best.get("manufacturer") or "").strip(),
+            "year": str(best.get("year") or "")}
+
+
+def unmatched(found: dict[str, Any], games: Iterable[Mapping[str, Any]],
+              marks: vps_marks.Marks | None = None) -> list[dict[str, Any]]:
+    """The library's games with no VPS match that have a likely entry, by name and year. `games`
+    are the library's unmatched games, each `{game_id, name, manufacturer, year}`. Listed by
+    name; a game with no likely entry is left to the Games grid's Unmatched view."""
+    by_title: dict[str, list[dict[str, Any]]] = {}
+    for row in found.get("rows") or []:
+        if key := title_key(str(row.get("name") or "")):
+            by_title.setdefault(key, []).append(row)
+    out = []
+    for game in games:
+        if likely := suggestion(game, by_title, marks):
+            out.append({"game_id": game["game_id"], "game": str(game.get("name") or "").strip(),
+                        "manufacturer": str(game.get("manufacturer") or "").strip(),
+                        "year": str(game.get("year") or "").strip(), "suggestion": likely})
+    out.sort(key=lambda one: (one["game"].casefold(), one["game_id"]))
+    return out
+
+
 def _same_game(listed: Mapping[str, Any], offered: Mapping[str, Any]) -> bool:
     """Whether a record from VPS and one from a source are one game: the same library id, or
     where VPS's has none, the same entry."""
@@ -359,7 +412,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
          updates: list[dict[str, Any]] | None = None,
          formats: Collection[str] = (),
          library: Iterable[Mapping[str, Any]] = (),
-         opened: Iterable[Mapping[str, Any]] = ()) -> dict[str, Any]:
+         opened: Iterable[Mapping[str, Any]] = (),
+         unmatched_games: Iterable[Mapping[str, Any]] = ()) -> dict[str, Any]:
     """Every shelf. `found` is `library_vps_state.discovery`'s answer, `kept` the VPS kinds
     the library collects, and `days` the window of the New shelf. `media` is the games a
     source can fill a slot of, by media kind, as `media_fill.offered_listing` answers. A kind
@@ -377,7 +431,8 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     the journal of release pages opened, and the shelf lists every game of it the library
     still lacks.
     `updates` is what `library_updates.found` answers: the games with a later version of
-    something they hold."""
+    something they hold. `unmatched_games` is the library's games with no VPS match, for
+    the shelf that names the entry each is likely to be."""
     marks = marks or vps_marks.Marks()
     shelf = [one for one in arrivals_in(found, days, kept, today)
              if not marks.release_ignored(one["id"], one["vps_id"])]
@@ -406,10 +461,12 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     lacked = dont_have(found, marks, formats)
     related = family(found, marks, formats)
     pages = opened_games(found, opened, marks)
+    likely = unmatched(found, unmatched_games, marks)
     return {"counted": found.get("counted") or "", "days": days, "since": since(days, today),
             "new": new, "authors": authors_collected(found, shelf), "missing": missing,
             "wanted": wanted, "dont_have": {"count": len(lacked), "games": lacked[:SHELF_SHOWN]},
             "family": {"count": len(related), "games": related[:SHELF_SHOWN]},
             "health": health(found, library, marks),
             "opened": {"count": len(pages), "games": pages},
+            "unmatched": {"count": len(likely), "games": likely[:SHELF_SHOWN]},
             "updates": vps_updates.shelf(updates or [], marks, cut=vps_updates.SHELF_SHOWN)}

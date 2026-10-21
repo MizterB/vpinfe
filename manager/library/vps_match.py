@@ -128,8 +128,8 @@ async def ask(library: Any, game: dict[str, Any], place: str = "",
 
 
 @on_page
-async def walk(library: Any, games: list[dict[str, Any]]) -> None:
-    """Work through these games' matches, one picker at a time."""
+async def walk(library: Any, games: list[dict[str, Any]]) -> int:
+    """Work through these games' matches, one picker at a time. How many it changed."""
     several = len(games) > 1
 
     async def ask_one(game: dict[str, Any], place: str) -> Any:
@@ -152,6 +152,7 @@ async def walk(library: Any, games: list[dict[str, Any]]) -> None:
     # thirty is noise covering the thing you are looking at.
     ui.notify(t("manager.vps_match.match_set", count=changed) if changed
               else t("manager.vps_match.nothing_changed"), type="positive" if changed else "info")
+    return changed
 
 
 def _seed(game: dict[str, Any]) -> str:

@@ -1041,6 +1041,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
                       reread=reread, on_select=self._select, see_new=mock.Mock(),
                       see_missing=mock.Mock(), see_updates=mock.Mock(),
                       see_dont_have=mock.Mock(), see_family=mock.Mock(), see_health=mock.Mock(),
+                      see_unmatched=mock.Mock(), match_game=mock.AsyncMock(),
                       see_picture=mock.Mock(), fix_scripts=mock.Mock(), open_view=mock.Mock(),
                       open_releases_view=mock.Mock(), open_marks=mock.Mock(),
                       open_subject=mock.Mock(),

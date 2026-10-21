@@ -8,10 +8,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest import mock
 
-from common.online import vps_home, vps_marks
+from common.online import vps_home
 from manager.kit import dropdown
 from tests.support.home_shelf import (
-    KEPT,
     PEOPLE,
     ShelfHarness,
     entry,
@@ -52,11 +51,6 @@ class OpenedShelf(ShelfHarness):
     def setUp(self) -> None:
         super().setUp()
         self.journal = [page("o2", minutes=5), page("o1", hours=2)]
-
-    def _answer(self, days: int) -> dict[str, Any]:
-        return vps_home.home(self.found, KEPT, days,
-                             marks=vps_marks.Marks(self.client.discovery_marks()),
-                             formats=("VPX",), opened=self.journal)
 
     async def test_the_shelf_lists_the_games_whose_page_was_opened(self) -> None:
         words = words_of(await self._draw())
