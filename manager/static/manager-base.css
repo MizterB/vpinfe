@@ -2950,6 +2950,10 @@ input.manager-path-input { padding-right: 0.6ch; }
    a 1100px box says the answer might be a sentence. The floor is for the caret and the
    longest name the set happens to hold, not a target. */
 .manager-edit-select { flex: 0 1 auto; min-width: var(--select-min); }
+/* A number set aside from a dropdown's name: dim, at the end of the row in the open list
+   and after the name in the box. */
+.manager-select-count { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.q-field__native .manager-select-count { margin-inline-start: 0.5em; }
 /* Beside the number it stands for, a select gives up its floor: the two are one value
    and fit where one does. */
 .manager-edit-select:has(+ .manager-edit-narrow:not(.hidden)) { min-width: 0; }

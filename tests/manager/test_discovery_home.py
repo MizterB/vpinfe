@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from nicegui import background_tasks, core, events, run, ui
 
+from common.i18n import number
 from common.online import vps_home, vps_marks
 from manager.kit import dropdown, views
 from manager.kit.data import Library
@@ -185,7 +186,10 @@ def _words(body: ui.element) -> list[str]:
 
 
 def _options(choice: dropdown.Select) -> list[str]:
-    return [str(label) for label in cast(dict[Any, Any], choice.options).values()]
+    """Each option as the open list reads it: the name, then its count where it has one."""
+    counts = cast(dict[Any, int], choice._counts)
+    return [f"{label} {number(counts[value])}" if value in counts else str(label)
+            for value, label in cast(dict[Any, Any], choice.options).items()]
 
 
 def _labels(body: ui.element) -> list[str]:
@@ -901,11 +905,13 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.media = {"backglass": [_offered("i9", "zz", "Zed")]}
         body = await self._draw()
         kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
-                      and any(opt.startswith("Backglass Asset") for opt in _options(one)))
+                      and {"b2sFiles", "backglass"} <= set(cast(dict[Any, Any], one.options)))
 
         self.assertEqual(sorted(opt for opt in _options(kinds) if opt.startswith("Backglass")),
-                         ["Backglass Asset 1", "Backglass Media 1"])
+                         ["Backglasses 1", "Backglasses 1"])
         self.assertIn("backglass", kinds.options)
+        self.assertEqual(kinds._shown, {"b2sFiles": "Backglasses (Asset)",
+                                        "backglass": "Backglasses (Media)"})
         self.assertEqual(self._see_alls(body), 2)
 
     async def test_the_missing_from_list_is_assets_then_media_each_by_name(self) -> None:
@@ -913,7 +919,7 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
                       "backglass": [_offered("i8", "yy", "Why")]}
         body = await self._draw()
         kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
-                      and any(opt.startswith("Backglass Asset") for opt in _options(one)))
+                      and {"b2sFiles", "backglass"} <= set(cast(dict[Any, Any], one.options)))
 
         shown = [str(one["label"]) for one in kinds._props["options"]]
         headings = [i for i, one in enumerate(kinds._props["options"]) if one.get("section")]
@@ -921,9 +927,9 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         assets, media = shown[headings[0] + 1:headings[1]], shown[headings[1] + 1:]
         self.assertEqual(assets, sorted(assets, key=str.casefold))
         self.assertEqual(media, sorted(media, key=str.casefold))
-        self.assertTrue(all(text.startswith(("Backglass Asset", "ROMs", "Points"))
+        self.assertTrue(all(text.startswith(("Backglasses", "ROMs", "Points"))
                             for text in assets))
-        self.assertIn("Backglass Media 1", media)
+        self.assertIn("Backglasses", media)
 
     async def test_the_two_playfield_videos_keep_a_tab_each_under_their_own_name(self) -> None:
         self.media = {"playfield_fss": [_offered("i1", "g1", "Alien")],

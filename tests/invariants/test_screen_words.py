@@ -60,6 +60,7 @@ ASSETS_PAGE = "the Assets page, of the files a table loads"
 ASSET = {
     "manager.discovery.gap.assets": LOADS,
     "manager.discovery.gap.backglass_asset": LOADS,
+    "manager.discovery.gap.backglasses_asset": LOADS,
     "config.library.hidden_asset_kinds.label": LOADS,
     "manager.assets.assets": LOADS,
     "manager.assets.assets_missing": LOADS,

@@ -151,6 +151,8 @@ _MEDIA_GAPS = {
 }
 
 
+_BACKGLASSES = ("b2sFiles", "backglass")
+
 # What a move of a source other than the spreadsheet is called on a tile, by the kind of file.
 _MOVE_WORDS = {script_fixes.KIND: "manager.discovery.update.script_fix"}
 
@@ -226,6 +228,18 @@ def _gap_words(kind: str) -> str:
     if kind in vps_home.GAP_KINDS:
         return _kind_words(kind)[1]
     return t(_MEDIA_GAPS[kind]) if kind in _MEDIA_GAPS else media_label_map().get(kind, kind)
+
+
+def _gap_listed(kind: str) -> str:
+    """What the Missing From list calls a tab: `_gap_words`, except that both Backglass tabs
+    are Backglasses there, each told apart by the heading it sits under."""
+    return t("manager.discovery.gap.backglasses") if kind in _BACKGLASSES else _gap_words(kind)
+
+
+def _gap_boxed(kind: str) -> str:
+    """What the closed Missing From box calls a tab, where no heading is in view."""
+    return t("manager.discovery.gap.backglasses_asset" if kind == "b2sFiles"
+             else "manager.discovery.gap.backglasses_media")
 
 
 def _gap_section(kind: str) -> str:
@@ -399,12 +413,9 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             menu_on(card, discovery_marks.NEW, release, release["listing"])
 
     def chip_words() -> dict[str, str]:
-        out = {}
-        for chip, shelf in shown["home"]["new"].items():
-            if shelf["count"] or chip == vps_home.ALL:
-                word = t(_CHIP_WORDS[chip]) if chip in _CHIP_WORDS else _kind_words(chip)[1]
-                out[chip] = t("manager.discovery.counted", name=word, count=shelf["count"])
-        return out
+        return {chip: t(_CHIP_WORDS[chip]) if chip in _CHIP_WORDS else _kind_words(chip)[1]
+                for chip, shelf in shown["home"]["new"].items()
+                if shelf["count"] or chip == vps_home.ALL}
 
     def draw_shelf() -> None:
         kinds_slot.clear()
@@ -415,6 +426,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         if shown["home"]["new"][vps_home.ALL]["count"]:
             with kinds_slot:
                 dropdown.Select(words, value=shown["chip"], look=dropdown.OUTLINED,
+                                counts={chip: shown["home"]["new"][chip]["count"]
+                                        for chip in words},
                                 on_change=lambda event: pick_chip(event.value)
                                 ).classes(KINDS_WIDTH)
             with see_all_slot:
@@ -476,7 +489,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                    if gap["count"]}
         return dict(sorted(counted.items(),
                            key=lambda one: (one[0] not in vps_home.ASSET_GAPS,
-                                            _gap_words(one[0]).casefold())))
+                                            _gap_listed(one[0]).casefold())))
 
     def draw_lacking() -> None:
         box = boxes[discovery_shelves.MISSING]
@@ -492,10 +505,10 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                 ui.space()
                 with _end():
                     dropdown.Select(
-                        {tab: t("manager.discovery.counted", name=_gap_words(tab), count=count)
-                         for tab, count in tabs.items()}, value=listing,
+                        {tab: _gap_listed(tab) for tab in tabs}, value=listing,
                         look=dropdown.OUTLINED, on_change=lambda event: pick_lack(event.value),
-                        sections={tab: _gap_section(tab) for tab in tabs}
+                        sections={tab: _gap_section(tab) for tab in tabs}, counts=tabs,
+                        shown={tab: _gap_boxed(tab) for tab in tabs if tab in _BACKGLASSES}
                     ).classes(GAPS_WIDTH)
                     lacking_see_all = ui.element("div").classes("contents")
             lacking_tiles = ui.row().classes("manager-shelf w-full px-3")
