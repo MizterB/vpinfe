@@ -46,6 +46,13 @@ class FeatureSwitchTests(unittest.IsolatedAsyncioTestCase):
         await settings._identity_page(self.library, "host", Mock(), self.state, install_id)
         await self.region.call_args.args[0]()
 
+    def _version_context(self) -> dict[str, Any]:
+        """What the Version rows were asked with."""
+        call = self.version_rows.await_args
+        assert call is not None
+        context: dict[str, Any] = call.args[0]
+        return context
+
     async def _page(self) -> dict[str, Any]:
         """The feature switches the page drew, by feature."""
         await self._draw()
@@ -194,14 +201,14 @@ class FeatureSwitchTests(unittest.IsolatedAsyncioTestCase):
                        if entry[0] is panel.HEADING and entry[1] == "Version")
         self.assertEqual(entries[heading + 1], ("Version", "v3.0.0"))
         self.assertEqual(entries[heading + 2][0], "Channel")
-        context = self.version_rows.await_args.args[0]
+        context = self._version_context()
         self.assertEqual(context["local_device_id"], "inst-1")
         self.assertEqual(context["device"], {"device_id": "inst-1", "display_name": "Cab"})
         self.assertIs(context["library"], self.library)
 
     async def test_check_now_draws_the_part_again(self) -> None:
         await self._draw("inst-1")
-        await self.version_rows.await_args.args[0]["rebuild"]()
+        await self._version_context()["rebuild"]()
 
         self.region.return_value.refill.assert_called_once_with()
 
