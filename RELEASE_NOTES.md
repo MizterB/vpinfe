@@ -80,7 +80,12 @@ next section first.
   and sets your library against them. The comparison runs on its own at start-up and when the
   spreadsheet changes, and shows which games you hold and which files you are missing, and
   Releases lists each file newest first. Search by author, maker
-  or theme, and filter by kind, format or when it was added.
+  or theme, and filter by kind, format or when it was added. Discovery opens on Home, a set
+  of shelves that each answer a question: which of your games have a newer version, what was
+  added lately, what a game of yours still lacks, which games you don't have, which games
+  share a title with one you hold, which games to match, which need a look, and which pages
+  you opened and did not import. Each shelf can be switched off and the shelves put in order
+  under Settings > Library > Discovery.
 - **Manager** - Collections are smart (filled by rules on letter, theme, type, manufacturer,
   year, rating, tags, favorite and played) or hand-picked, ordered and capped as you choose.
   Tags are your own words on games and tables, with rename, merge, color and a clear-out for
