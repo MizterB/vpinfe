@@ -1,9 +1,10 @@
 """A game's file, kept before something replaces it.
 
 A copy lives at `<backups folder>/<area>/<game id>/<where the file sat in the game folder>/
-<name>.vpinfe-<stamp>-<reason>`. The area is `media` for a picture or video and `assets` for
-a script, settings file or note. The game id is the first part, so a renamed game folder does
-not strand its copies, and the rest is enough to put the file back with no record beside it.
+<name>.vpinfe-<stamp>-<reason>`. The area is `media` for a picture or video, `assets` for a
+script, settings file or note, and `tables` for a table and the files named for it. The game
+id is the first part, so a renamed game folder does not strand its copies, and the rest is
+enough to put the file back with no record beside it.
 """
 
 from __future__ import annotations
@@ -22,7 +23,8 @@ from .copies import REASON_TURN
 
 MEDIA = "media"
 ASSETS = "assets"
-AREAS = (MEDIA, ASSETS)
+TABLES = "tables"
+AREAS = (MEDIA, ASSETS, TABLES)
 
 
 @dataclass(frozen=True)

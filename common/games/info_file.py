@@ -28,13 +28,17 @@ from common.games.tables import (
     ADDED_KEY,
     DEFAULT_TABLE_KEY,
     DETECT_KEYS,
+    FORM_CONTAINED,
+    PARSED_KEYS,
     TABLE_FILENAME_KEY,
     TABLE_ID_KEY,
     TABLE_PATH_KEY,
     TABLES_KEY,
     adopted_entry,
     contained_entry,
+    entry_filename,
     entry_for_filename,
+    entry_form,
     entry_from_parsed,
     entry_key,
     entry_native_key,
@@ -636,6 +640,56 @@ class MetaConfig:
 
         self.data[TABLES_KEY] = entries
         self.write_config()
+
+    def swap_table(self, table_id: str, filename: str, parsed: dict | None) -> bool:
+        """Another file became this table. The entry keeps its id and everything a person
+        recorded on it - plays, rating, tags, hidden, the default - and takes the new
+        file's name and what it says about itself.
+
+        The old file's tie and the patch that made it are dropped; a declined tie stays.
+        A file that could not be read leaves the entry unparsed, so enrichment reads it again.
+        """
+        entries = self._entries_by_id()
+        entry = entries.get(table_id)
+        if not isinstance(entry, dict) or entry_form(entry) != FORM_CONTAINED:
+            return False
+        was = entry_filename(entry)
+        entry[TABLE_FILENAME_KEY] = filename
+        entry.pop(ABSENT_SINCE_KEY, None)
+        if parsed:
+            entry.update(entry_from_parsed(parsed))
+        else:
+            for key in (*PARSED_KEYS, *DETECT_KEYS):
+                entry.pop(key, None)
+        source = entry.get("source")
+        if isinstance(source, dict):
+            for key in ("base", "patch"):
+                source.pop(key, None)
+            if not ties.declined(source):
+                ties.untie(source)
+            if not source:
+                entry.pop("source")
+        vpinfe = self.data.get(VPINFE_SECTION)
+        if isinstance(vpinfe, dict) and vpinfe.get(DEFAULT_TABLE_KEY) == was:
+            vpinfe[DEFAULT_TABLE_KEY] = table_id
+        self.write_config()
+        return True
+
+    def drop_table(self, table_id: str) -> bool:
+        """Take a table's record out because its file has been deleted on purpose.
+
+        Unlike `forget_table` this does not wait for discovery to find the file gone: the
+        caller has just removed it. A game whose default this was offers its next table.
+        """
+        entries = self._entries_by_id()
+        if not isinstance(entries.get(table_id), dict):
+            return False
+        was = entry_filename(entries.pop(table_id))
+        vpinfe = self.data.get(VPINFE_SECTION)
+        if isinstance(vpinfe, dict) and str(vpinfe.get(DEFAULT_TABLE_KEY, "")) in (table_id, was):
+            vpinfe[DEFAULT_TABLE_KEY] = ""
+        self.write_config()
+        return True
 
     def record_patch_source(self, filename: str, base_file: str, base_hash: str,
                             patch_format: str) -> None:

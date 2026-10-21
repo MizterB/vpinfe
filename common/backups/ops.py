@@ -45,6 +45,7 @@ from .copies import (
     PLACE_GAME,
     PLACE_MEDIA,
     PLACE_RECORDS,
+    PLACE_TABLE,
     PLACE_THEME,
     PLACE_VPX_2X,
     REASON_RESTORE,
@@ -115,7 +116,7 @@ def restore(copy_id: str) -> Restored:
         return _restore_record(one, path)
     if place == PLACE_THEME:
         return _restore_theme(one, path)
-    if place in (PLACE_MEDIA, PLACE_ASSET):
+    if place in (PLACE_MEDIA, PLACE_ASSET, PLACE_TABLE):
         return _restore_file(one, place, path)
     return _restore_launcher(one, place, path)
 
@@ -137,8 +138,11 @@ def _restore_file(one: Copy, place: str, path: Path) -> Restored:
     held = media_files.where(path)
     if held is None:
         raise service_errors.NotFoundError(t("error.backups.gone"))
-    game_dir = Path(str(game_lens.game_for_writing(held.game_id).full_path_game))
-    target = game_dir.joinpath(*held.relative.split("/"))
+    game = game_lens.game_for_writing(held.game_id)
+    if place == PLACE_TABLE and launch_state.running(held.game_id, game.game_dir_name):
+        raise service_errors.BlockedError(t("error.games.table_running"))
+    game_dir = Path(str(game.full_path_game))
+    target =game_dir.joinpath(*held.relative.split("/"))
     try:
         replaced = (media_files.keep(held.folder, held.game_id, target, held.relative,
                                      REASON_RESTORE, area=held.area)
@@ -318,7 +322,7 @@ def delete(copy_id: str) -> Copy:
         shutil.rmtree(path)
     else:
         archive.remove(path) if place == PLACE_ARCHIVE else path.unlink()
-        if place in (PLACE_MEDIA, PLACE_ASSET):
+        if place in (PLACE_MEDIA, PLACE_ASSET, PLACE_TABLE):
             media_files.prune(path)
         for each in members:
             pending.drop(each.id)

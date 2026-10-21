@@ -254,10 +254,7 @@ def delete_from_disk(game_id: str) -> dict:
     game = game_lens.game_for_writing(game_id)
     folder = Path(str(game.full_path_game))
     wanted = path_state.canonical(str(folder))
-    running = launch_state.current()
-    if running.launching and (running.game_id == game_id
-                              or (not running.game_id
-                                  and running.game_name == game.game_dir_name)):
+    if launch_state.running(game_id, game.game_dir_name):
         raise service_errors.BlockedError(t("error.games.delete_running"),
                                           details={"path": str(folder)})
     for place in library_folders.answering():

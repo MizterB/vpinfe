@@ -64,6 +64,14 @@ def current() -> LaunchState:
         return _state
 
 
+def running(game_id: str, game_name: str) -> bool:
+    """Whether this game is the one launched. A launch that recorded no id is matched by
+    the name it was started under."""
+    now = current()
+    return now.launching and (now.game_id == game_id
+                              or (not now.game_id and now.game_name == game_name))
+
+
 def _replace(new_state: LaunchState) -> LaunchState:
     """Swap the state and announce it, if it actually changed.
 

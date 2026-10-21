@@ -60,6 +60,7 @@ from .copies import (
     KIND_PLAYERS,
     KIND_RECORDS,
     KIND_SETTINGS,
+    KIND_TABLE,
     KIND_THEME,
     PLACE_ARCHIVE,
     PLACE_ASSET,
@@ -67,6 +68,7 @@ from .copies import (
     PLACE_GAME,
     PLACE_MEDIA,
     PLACE_RECORDS,
+    PLACE_TABLE,
     PLACE_THEME,
     PLACE_VPX_2X,
     REASON_EDIT,
@@ -358,7 +360,8 @@ def _theme_copies() -> list[Copy]:
 
 # What a copy kept in each area is, and where its id says it is kept.
 _AREA_COPIES = {media_files.MEDIA: (KIND_MEDIA, PLACE_MEDIA),
-                media_files.ASSETS: (KIND_ASSET, PLACE_ASSET)}
+                media_files.ASSETS: (KIND_ASSET, PLACE_ASSET),
+                media_files.TABLES: (KIND_TABLE, PLACE_TABLE)}
 
 def _game_names() -> dict[str, str]:
     return {game_id_of(game): str(game.game_dir_name) for game in game_repository.all_games()}
@@ -378,8 +381,8 @@ def _file_copy(path: Path, names: dict[str, str], area: str) -> Copy | None:
 
 
 def _file_copies(game_id: str = "") -> list[Copy]:
-    """The media and asset copies of every game, or of one: a game's own are under its id
-    alone."""
+    """The media, asset and table copies of every game, or of one: a game's own are under its
+    id alone."""
     if game_id and Path(game_id).name != game_id:
         return []
     found: list[Copy] = []
@@ -398,6 +401,10 @@ def media_copy(path: Path) -> Copy | None:
 
 def asset_copy(path: Path) -> Copy | None:
     return _file_copy(path, _game_names(), media_files.ASSETS)
+
+
+def table_copy(path: Path) -> Copy | None:
+    return _file_copy(path, _game_names(), media_files.TABLES)
 
 
 # --- Back up now -----------------------------------------------------------------------
@@ -556,4 +563,6 @@ def find(copy_id: str) -> Copy | None:
         return media_copy(path)
     if place == PLACE_ASSET:
         return asset_copy(path)
+    if place == PLACE_TABLE:
+        return table_copy(path)
     return None

@@ -1,9 +1,9 @@
 """Carrying the backups already taken into a new backups folder.
 
-A backup is a zip beside the others in the folder, or a copy of a game's file under `media/`
-or `assets/`. Both move as files, by the same path they have in the folder, and nothing else
-in the old folder is touched. A file whose name is taken in the new folder is left where it
-is: a backup is never replaced.
+A backup is a zip beside the others in the folder, or a copy of a game's file under `media/`,
+`assets/` or `tables/`. Both move as files, by the same path they have in the folder, and
+nothing else in the old folder is touched. A file whose name is taken in the new folder is
+left where it is: a backup is never replaced.
 """
 
 from __future__ import annotations

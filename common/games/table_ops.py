@@ -168,6 +168,17 @@ def set_rating(game_id: str, table_id: str, rating: Any) -> dict:
     return row_or_refuse(game, table_id)
 
 
+def refuse_unplayable_release(release: dict, entry: dict, table_id: str,
+                              vps_file_id: str) -> None:
+    """Refuse a release filed under a format the app playing this entry does not play."""
+    if release and not release_fits(release, entry):
+        raise service_errors.RefusedError(
+            t("error.games.release_other_format",
+              app=apps.app_name(tables.app_of(entry) or apps.default_app().id),
+              format=vps_formats.name(str(release.get("tableFormat") or ""))),
+            details={"table": table_id, "vps_file_id": vps_file_id})
+
+
 def set_source(game_id: str, table_id: str, vps_file_id: str) -> dict:
     """Bind one table to the upstream release a person says it is, or record that it is none.
 
@@ -180,12 +191,7 @@ def set_source(game_id: str, table_id: str, vps_file_id: str) -> dict:
     wanted = str(vps_file_id or "").strip()
     release = find_vps_release(wanted) if wanted else {}
     entry = table_entries(load_game_meta(game)).get(table_id) or {}
-    if release and not release_fits(release, entry):
-        raise service_errors.RefusedError(
-            t("error.games.release_other_format",
-              app=apps.app_name(tables.app_of(entry) or apps.default_app().id),
-              format=vps_formats.name(str(release.get("tableFormat") or ""))),
-            details={"table": table_id, "vps_file_id": wanted})
+    refuse_unplayable_release(release, entry, table_id, wanted)
     set_table_source(game, filename, vps_file_id)
     game = reread_game(game)
     return row_or_refuse(game, table_id)

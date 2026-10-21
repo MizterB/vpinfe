@@ -60,6 +60,7 @@ KIND_WORDS = {
     kept_copies.KIND_ARCHIVE: "manager.backups.kind.backup",
     kept_copies.KIND_MEDIA: "manager.backups.kind.media",
     kept_copies.KIND_ASSET: "manager.backups.kind.asset",
+    kept_copies.KIND_TABLE: "manager.backups.kind.table",
 }
 REASON_WORDS = {
     kept_copies.REASON_UPGRADE: "manager.backups.reason.upgrade",
@@ -183,6 +184,9 @@ VIEWS: dict[str, list[str] | views.Preset] = {
     "manager.view.backups_assets": _by_kind(
         [kept_copies.KIND_ASSET], ("name", "taken", "reason", "size", "gone", "file"),
         help=t("manager.backups.assets_view.help")),
+    "manager.view.backups_tables": _by_kind(
+        [kept_copies.KIND_TABLE], ("name", "taken", "reason", "size", "gone", "file"),
+        help=t("manager.backups.tables_view.help")),
     "manager.view.backups_launchers": _by_kind(
         [kept_copies.KIND_LAUNCHER], ("name", "taken", "reason", "size", "gone", "note"),
         help=t("manager.backups.launchers_view.help")),

@@ -34,6 +34,7 @@ KIND_THEME = "theme"
 KIND_ARCHIVE = "backup"
 KIND_MEDIA = "media"
 KIND_ASSET = "asset"
+KIND_TABLE = "table"
 
 # Why it was taken.
 REASON_UPGRADE = "upgrade"
@@ -61,6 +62,7 @@ PLACE_THEME = "theme"
 PLACE_ARCHIVE = "archive"
 PLACE_MEDIA = "media"
 PLACE_ASSET = "asset"
+PLACE_TABLE = "table"
 PLACE_MEMBER = "member"
 
 
