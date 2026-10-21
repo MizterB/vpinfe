@@ -1448,6 +1448,8 @@
   "manager.binding_table.slowed": "{row} will move one at a time on {binding} instead of scrolling.",
   "manager.binding_table.slowed_by": "{hold} is mapped to {holder}, so {row} will move one at a time on {binding}.",
   "manager.binding_table.elsewhere_note": "Buttons wired to the VPinFE device are tried on that device",
+  "manager.binding_table.no_frontend": "The frontend is closed, so its controller is not heard",
+  "manager.binding_table.no_frontend_fix": "Open the Frontend Windows, or the Manager on the controller's device",
   "manager.binding_table.share": {
     "one": "Use for both",
     "other": "Use for all"

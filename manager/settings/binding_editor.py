@@ -39,6 +39,7 @@ LISTEN_JS = """(() => {
   const down = new Map();          // token -> when it went down
   const heard = [];                // in the order they arrived
   const already = new Set();       // buttons down before this began, ignored until let go
+  const remote = new Set();        // pad buttons the cabinet reports down, not this browser's
   let longest = 0;
   let device = '';
   let ringTimer = 0;
@@ -51,6 +52,7 @@ LISTEN_JS = """(() => {
     ? document.querySelector('[data-row="' + CSS.escape(listen.row) + '"]') : null;
   const clear = () => {
     down.clear();
+    remote.clear();
     heard.length = 0;
     longest = 0;
     device = '';
@@ -163,7 +165,7 @@ LISTEN_JS = """(() => {
       pad.buttons.forEach((b, i) => {
         const seat = pad.index + ':' + i;
         const token = %(pad_token)s;
-        if (!b.pressed) { already.delete(seat); left(token); return; }
+        if (!b.pressed) { already.delete(seat); if (!remote.has(token)) left(token); return; }
         if (!already.has(seat)) arrived('pad', token);
       });
     }
@@ -191,6 +193,12 @@ LISTEN_JS = """(() => {
     if (row && row.dataset.row === listen.row && e.target.closest('.manager-chip-holder')
         && !e.target.closest('.manager-chip-remove')) e.stopPropagation();
   }, true);
+  // A button on the cabinet's controller, reported by the frontend while this listens.
+  listen.relay = (token, isDown) => {
+    if (!active()) return;
+    if (isDown) { remote.add(token); arrived('pad', token); }
+    else { remote.delete(token); left(token); }
+  };
   listen.stop = stop;
 })()"""
 

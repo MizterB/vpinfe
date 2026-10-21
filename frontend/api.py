@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 from common import events
@@ -65,6 +66,9 @@ if TYPE_CHECKING:
 
 
 logger =logging.getLogger("vpinfe.frontend.api")
+
+# A pad button in the form a Manager stores: `pad:standard/button:4`, `pad:2/button:0`.
+_PAD_BUTTON = re.compile(r"pad:(?:standard|\d{1,3})/button:\d{1,3}")
 
 _FILTER_OPTION_KEYS = {
     "letters": "letters",
@@ -191,6 +195,9 @@ API_INTERNAL_METHODS = {
     # What the person set for attract mode, asked by core when it starts its timers.
     # A theme reads its own `attract` block from its config.json instead.
     'get_attract_config',
+    # The controller window's report of a button pressed while a Manager on another
+    # device is listening. A theme calling it would type into that Manager's field.
+    'pad_capture',
 }
 
 
@@ -713,6 +720,14 @@ class API:
     def take_picture(self) -> dict[str, Any]:
         """Take Picture pressed while a table runs: freezes it, or takes the picture."""
         return freeze.take_picture()
+
+    def pad_capture(self, token: Any, phase: Any) -> dict[str, Any]:
+        """A controller button went down or up while a Manager on another device listens."""
+        token = str(token or "")
+        if not _PAD_BUTTON.fullmatch(token) or phase not in ("down", "up"):
+            return {"relayed": False}
+        events.emit(events.PAD_CAPTURE_PRESS, token=token, phase=phase)
+        return {"relayed": True}
 
     def resume_play(self) -> dict[str, Any]:
         """Back pressed while a table runs: resumes it where it is frozen."""

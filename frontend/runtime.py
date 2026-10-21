@@ -30,6 +30,7 @@ from frontend import (
     ext_data,
     input_events,
     library_resolver,
+    pad_capture,
     play_events,
     preview,
     showing,
@@ -127,6 +128,7 @@ def create_api_instances(iniconfig: ConfigStore,
     # every launch message three times.
     play_events.register(ws_bridge, frontend_browser, iniconfig)
     input_events.register(ws_bridge)
+    pad_capture.register(ws_bridge)
     key_reader.register()
     metrics.register()
     freeze.register()

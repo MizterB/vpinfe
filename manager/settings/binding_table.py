@@ -20,7 +20,7 @@ from common.config import input_registry
 from common.i18n import t
 from manager.kit import confirm, panel, verbs
 from manager.kit.on_page import on_page
-from manager.settings import binding_editor
+from manager.settings import binding_editor, pad_relay
 
 logger = logging.getLogger("vpinfe.manager.settings.binding_table")
 
@@ -264,6 +264,10 @@ class Table:
             self.line.on("listen", self._listening, js_handler="(e) => emit(e.detail)")
             self.line.on("captured", self._captured, js_handler="(e) => emit(e.detail)")
             ui.run_javascript(binding_editor.listen_js(self.line.id))
+            self._client = ui.context.client
+            self._frontend_up = pad_relay.frontend_up()
+            with self.container:
+                ui.timer(pad_relay.REFRESH_S, self._keep_listening)
         self._draw_live()
         self.draw()
 
@@ -404,6 +408,7 @@ class Table:
     def _draw_listening(self, row: Row) -> None:
         """What the row is listening for, and how a chord and a hold are made."""
         before, after = _around("manager.binding_table.press_for", row.label)
+        self._frontend_up = pad_relay.frontend_up()
         with self.line, ui.element("div").classes("manager-binding-live manager-binding-live--on"):
             ui.icon(verbs.LISTEN)
             if before:
@@ -416,6 +421,10 @@ class Table:
                        else "manager.binding_table.chord")).classes("manager-binding-live-hint")
             ui.label(t("manager.binding_table.click_away")) \
                 .classes("manager-binding-live-key manager-binding-live-end")
+        if self.elsewhere and not self._frontend_up:
+            with self.line:
+                ui.label(t("manager.binding_table.no_frontend")).classes("manager-help")
+                ui.label(t("manager.binding_table.no_frontend_fix")).classes("manager-help")
 
     def _mark(self) -> None:
         """Draw the row that is listening as the one."""
@@ -469,10 +478,29 @@ class Table:
         if self.listening:
             self.lit = ""
             self._light()
+            self._ask_cabinet()
         else:
             self.live = Live()
+            pad_relay.disarm(self._client)
         self._mark()
         self._draw_live()
+
+    def _ask_cabinet(self) -> None:
+        """A Manager on another device cannot hear the cabinet's controller, so the frontend
+        is asked to report it."""
+        if self.elsewhere:
+            pad_relay.arm(self._client)
+
+    async def _keep_listening(self) -> None:
+        """Keeps the ask alive, and redraws when the frontend opens or closes under it."""
+        if self.container.is_deleted:
+            pad_relay.disarm(self._client)
+            return
+        if not self.listening or not self.elsewhere:
+            return
+        self._ask_cabinet()
+        if pad_relay.frontend_up() != self._frontend_up:
+            self._draw_live()
 
     @on_page
     async def _captured(self, event: Any) -> None:
@@ -481,6 +509,7 @@ class Table:
         row = self.by_name.get(str(heard.get("row") or ""))
         token = str(heard.get("token") or "").strip()
         self.listening = ""
+        pad_relay.disarm(self._client)
         self._mark()
         if row is not None and token:
             # A press that began at the keyboard ends there: the redraw replaces the label

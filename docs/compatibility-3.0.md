@@ -1556,6 +1556,15 @@ forward to them, so a theme written against master gets its answer.
 VPinPlay multi-player page.
 Covered by `tests/host/test_addresses.py` and `tests/invariants/test_parity.py`.
 
+**PAR-109 - Core relays the cabinet's controller to a Manager on another device.** One
+WebSocket method, `pad_capture`, refused to themes like `get_paging_state`. While a Manager
+on another device listens for a controller button, the cabinet's window reports each
+button through it instead of acting on it.
+*Why:* a browser only hears the controllers of its own device, so a Manager opened
+elsewhere cannot hear the cabinet's controller without the cabinet's window passing it on.
+Covered by `tests/js/pad-capture.test.js`, `tests/js/internal-methods.test.js` and
+`tests/api/test_pad_capture.py`.
+
 ## Explicitly *not* exceptions
 
 The theme-facing payload (`tables_json` keys, media path fields, stable values) and

@@ -496,6 +496,7 @@ const INTERNAL_METHODS = new Set([
   "set_player_rating",
   "get_player_rating",
   "get_attract_config",
+  "pad_capture",
 ]);
 
 // By the ids `common/host/frontend_browser.py` knows.
@@ -1628,6 +1629,10 @@ class VPinFECore {
     // the same path a keystroke reaches it.
     if (message.type === "InputAction") {
       if (this.isController()) this.#applyRemoteInput(message);
+      return;
+    }
+    if (message.type === "CaptureArm") {
+      this.#armCapture(!!message.armed, Number(message.ttl_ms) || 0);
       return;
     }
     if (message.type === "SelectionRequest") {
@@ -3702,6 +3707,36 @@ class VPinFECore {
     }
   }
 
+  // While a Manager on another device listens for a button, the controller's buttons go to
+  // it and do nothing here. Armed for `ttlMs` and re-armed by each message; buttons already
+  // down when it starts are ignored until let go, as the Manager's own listener does.
+  #armCapture(armed, ttlMs) {
+    clearTimeout(this._captureTimer);
+    if (!armed) {
+      this._captureArmed = false;
+      return;
+    }
+    if (!this._captureArmed) {
+      // What was held or waiting never sees its release now, so it is dropped here.
+      this.#loseFocus();
+      this._inputsDown?.clear();
+      this._captureIgnored = new Set();
+      [...navigator.getGamepads()].filter(Boolean).forEach((gp) => gp.buttons.forEach((b, i) => {
+        if (b.pressed) this._captureIgnored.add(gp.index + ":" + i);
+      }));
+    }
+    this._captureArmed = true;
+    this._captureTimer = setTimeout(() => this.#armCapture(false, 0), ttlMs || 6000);
+  }
+
+  #relayCapture(pad, index, isPressed, wasPressed, standard) {
+    if (isPressed === wasPressed) return;
+    const seat = pad + ":" + index;
+    if (isPressed ? this._captureIgnored.has(seat) : this._captureIgnored.delete(seat)) return;
+    const token = standard ? "pad:standard/button:" + index : "pad:" + pad + "/button:" + index;
+    this.callInternal("pad_capture", token, isPressed ? "down" : "up").catch(() => {});
+  }
+
   #updateGamepads() {
     const gamepads = navigator.getGamepads();
     for (let i = 0; i < gamepads.length; i++) {
@@ -3717,6 +3752,11 @@ class VPinFECore {
         const wasPressed = this.previousButtonStates[i][index];
         const isPressed = button.pressed;
 
+        if (this._captureArmed) {
+          this.#relayCapture(i, index, isPressed, wasPressed, standard);
+          this.previousButtonStates[i][index] = isPressed;
+          return;
+        }
         if (this.frontendInputEnabled && isPressed !== wasPressed) {
           // Both edges: a chord is about what is held, so it has to hear the release -
           // and so does the hold, which is why a held flipper can scroll the wheel at

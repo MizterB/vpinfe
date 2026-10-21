@@ -1860,6 +1860,8 @@
   "manager.binding_table.moved": "31cd0e4b6fbc",
   "manager.binding_table.moves_back": "7b01e5344235",
   "manager.binding_table.no_action": "61ada49e7b40",
+  "manager.binding_table.no_frontend": "30a4186431c3",
+  "manager.binding_table.no_frontend_fix": "3b67e5c994cc",
   "manager.binding_table.no_hold": "7274afcf6142",
   "manager.binding_table.nothing": "47dbebec5d65",
   "manager.binding_table.nothing_mapped": "99a869bd3c4e",
