@@ -3702,8 +3702,6 @@
   "manager.setup.glass.use_it": "Use It",
   "manager.setup.glass.use_it_hint": "Use the size the screen reports",
   "manager.setup.how_question": "How do you play?",
-  "manager.setup.keys.group_fix": "Run this on the cabinet, then sign in again and restart VPinFE.",
-  "manager.setup.keys.restart": "Restart VPinFE after allowing it.",
   "manager.setup.appearance.lead": "You can change this later in Settings › Appearance.",
   "manager.setup.appearance.title": "How should the Manager look?",
   "manager.setup.not_finished": "Setup isn't finished",

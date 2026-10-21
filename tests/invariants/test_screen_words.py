@@ -27,7 +27,6 @@ CABINET = {
     "manager.screens.hint_cabinet": "where a screen sits in the physical cabinet",
     "manager.setup.glass.typical": "the physical cabinet's usual playfield tilt",
     "manager.setup.cabinet": "the physical cabinet, Setup's own How you play answer",
-    "manager.setup.keys.group_fix": "the physical cabinet, where the command has to be run",
     "manager.themes.both": "a theme made for a cabinet or a desktop",
     "manager.themes.cabinet": "a theme made for a cabinet rather than a desktop",
     "manager.themes.made_for.help": "what a theme is made for: a cabinet, a desktop or both",
