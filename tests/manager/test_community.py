@@ -407,7 +407,7 @@ class PressingAVerb(unittest.IsolatedAsyncioTestCase):
                 patch.object(ext_lists.offload, "io", io), \
                 patch.object(ext_lists, "ApiClient", return_value=Mock(ext_post=post)), \
                 patch.object(ext_lists.ui, "notify", notify), \
-                patch.object(ext_lists.ui.navigate, "to", navigate):
+                patch.object(ext_lists.link_tab, "open_link", navigate):
             await cast(Any, ext_lists.run_verb).__wrapped__(
                 {"name": "site"}, VERBED, verb, [{"id": "a"}, {"id": 2}], renewed)
         return ask, post, notify, navigate, again
@@ -441,7 +441,7 @@ class PressingAVerb(unittest.IsolatedAsyncioTestCase):
         _ask, _post, notify, navigate, again = await self.press(
             VERBED["verbs"][1], answer={"message": "Flagged 2", "url": "https://example.test/x"})
 
-        navigate.assert_called_once_with("https://example.test/x", new_tab=True)
+        navigate.assert_called_once_with("https://example.test/x")
         notify.assert_called_once_with("Flagged 2")
         again.assert_called_once()
 

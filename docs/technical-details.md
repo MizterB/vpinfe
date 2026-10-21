@@ -108,6 +108,7 @@ Runtime state written by VPinFE, not shown as a setting.
 | `times` | choice (24h, 12h) | `24h` | How a time of day is written, where the Manager shows one |
 | `relative_dates` | bool | `true` | Anything from the last month says how long ago it was, whatever the format |
 | `units` | choice (region, cm, in) | `region` | How the Manager writes a length. By default this device's country decides |
+| `open_links` | choice (new, reuse) | `new` | Where a link to another site opens. Your browser picks tab or window. |
 | `hidden_overview` | list |  | Overview rows that stay quiet. A row left on reports whatever it finds. |
 | `discovery_shelf_order` | list |  | Top to bottom order of Discovery's Home shelves. Set on the Discovery page. |
 | `hidden_discovery_shelves` | list |  | Shelves Discovery's Home leaves out. Set on the Discovery page. |

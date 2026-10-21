@@ -29,6 +29,7 @@ from manager.kit import (
     deeplink,
     game_tables,
     grid,
+    link_tab,
     offload,
     panel,
     play_facts,
@@ -1240,7 +1241,7 @@ async def run_act(context: dict[str, Any], account: dict[str, Any], key: str) ->
         ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
         return
     if said.get("url"):
-        ui.navigate.to(str(said["url"]), new_tab=True)
+        link_tab.open_link(str(said["url"]))
     if said.get("message"):
         ui.notify(str(said["message"]))
     await context["rebuild"]()

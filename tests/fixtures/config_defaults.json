@@ -54,6 +54,7 @@
     "relative_dates": "true",
     "times": "24h",
     "units": "region",
+    "open_links": "new",
     "hidden_overview": "",
     "discovery_shelf_order": "",
     "hidden_discovery_shelves": ""

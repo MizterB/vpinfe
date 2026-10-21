@@ -251,8 +251,10 @@ EDITOR_CAPTURE_COMMAND = "capture_command"
 # VPinFE's own browser options, picked from the list rather than typed: the names a
 # person would have to match are the ones VPinFE starts a window with.
 EDITOR_CHROME_LEAVE_OUT = "chrome_leave_out"
+# A choice that also has to reach the pages already open, which a plain write does not.
+EDITOR_OPEN_LINKS = "open_links"
 EDITORS = (EDITOR_BINDING, EDITOR_MANAGER_APPEARANCE, EDITOR_FRONTEND_THEME, EDITOR_THUMBNAIL,
-           EDITOR_CAPTURE_COMMAND, EDITOR_CHROME_LEAVE_OUT)
+           EDITOR_CAPTURE_COMMAND, EDITOR_CHROME_LEAVE_OUT, EDITOR_OPEN_LINKS)
 
 # What a folder setting's files are, for `ConfigOption.moves_with`.
 MOVES_BACKUPS = "backups"
@@ -580,6 +582,14 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             default="region",
             choices=("region", "cm", "in"),
             group=setting_groups.MEASUREMENTS,
+        ),
+        ConfigOption(
+            "open_links",
+            type="choice",
+            default="new",
+            choices=("new", "reuse"),
+            editor=EDITOR_OPEN_LINKS,
+            group=setting_groups.LINKS,
         ),
         # Switches on the Manager page, so the schema does not also draw it as a line of text.
         ConfigOption("hidden_overview", type="list", default="", home="vpinfe.manager",

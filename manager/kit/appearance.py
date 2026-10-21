@@ -10,7 +10,7 @@ from typing import Any
 from nicegui import ui
 
 from common.config.paths import bundled
-from manager.kit import place
+from manager.kit import link_tab, place
 
 LOGO = "/static/img/vpinfe-logo.png"
 
@@ -773,6 +773,7 @@ def apply_flair(mode: str = DEFAULT_MODE) -> None:
     ui.add_head_html(f'<link rel="stylesheet" href="{BASE_HREF}">')
     ui.add_body_html(f"<script>{PATH_ENDS_JS}</script>")
     ui.add_body_html(f"<script>{place.PLACE_JS}</script>")
+    ui.add_body_html(f"<script>{link_tab.script(link_tab.configured())}</script>")
 
 
 def apply_surface(name: str) -> None:

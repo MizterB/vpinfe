@@ -121,7 +121,8 @@ next section first.
   easily undo, and System > Backups lists, restores or clears them. A backup of your whole
   setup can be taken at any time and carried to another device.
 - **Manager** - Settings save as you change them, with a tag on the ones that wait for a
-  restart or a reopen. Metrics shows the processor, memory, graphics card and disks of a machine, and Logs shows
+  restart or a reopen. Open Links In, under Manager settings, sends every link to another
+  site to one tab you keep using, or to a new tab each time. Metrics shows the processor, memory, graphics card and disks of a machine, and Logs shows
   what VPinFE has been doing as a stream or as a digest that collapses repeats.
 - **Frontend** - Screens are placed by dragging each one onto the part of your cabinet it
   belongs to, including a topper. Any key or controller button can be bound to an action,

@@ -30,6 +30,7 @@ from manager.kit import (
     deeplink,
     game_tables,
     grid,
+    link_tab,
     offload,
     panel,
     renderers,
@@ -490,7 +491,7 @@ async def told(said: Any, again: Callable[[], Any]) -> None:
     and the line read again."""
     said = said if isinstance(said, dict) else {}
     if web(said.get("url")):
-        ui.navigate.to(web(said["url"]), new_tab=True)
+        link_tab.open_link(web(said["url"]))
     if said.get("message"):
         ui.notify(str(said["message"]))
     await again()

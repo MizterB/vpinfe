@@ -55,6 +55,7 @@ from manager.kit import (
     confirm,
     deeplink,
     folder_picker,
+    link_tab,
     offload,
     panel,
     undo,
@@ -192,12 +193,28 @@ def _thumbnail(option: dict, value: Any, save: Callable[[Any], Any], *,
                         disabled=not writable)
 
 
+def _open_links(option: dict, value: Any, save: Callable[[Any], Any], *,
+                writable: bool = True, **_: Any) -> Callable[[], None]:
+    """The two ways a link to another site can open. The page script reads the choice on
+    every click, so the pages already open are told when it is saved."""
+    named = option.get("choice_labels") or {}
+    offered = {choice: named.get(choice, choice) for choice in option.get("choices") or ()}
+
+    @on_page
+    async def chosen(event: Any) -> None:
+        if await save(event.value):
+            ui.run_javascript(link_tab.change_js(link_tab.way(event.value)))
+
+    return panel.select(offered, link_tab.way(value), chosen, disabled=not writable)
+
+
 EDITORS: dict[str, Callable[..., Callable[[], None]]] = {
     config_schema.EDITOR_MANAGER_APPEARANCE: appearance_picker.tiles,
     config_schema.EDITOR_FRONTEND_THEME: _frontend_theme,
     config_schema.EDITOR_THUMBNAIL: _thumbnail,
     config_schema.EDITOR_CAPTURE_COMMAND: recording.command_editor,
     config_schema.EDITOR_CHROME_LEAVE_OUT: chrome_options.leave_out,
+    config_schema.EDITOR_OPEN_LINKS: _open_links,
 }
 
 
