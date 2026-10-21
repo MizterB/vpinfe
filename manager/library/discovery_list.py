@@ -85,8 +85,10 @@ def _last_opened(kind: Kind, scene: Scene) -> tuple[str, str]:
     return "", ""
 
 
-def _source_line() -> str:
-    return t("manager.discovery.source_line", source=t("manager.discovery.local"))
+def _source_line(vps_file_id: object) -> str:
+    """Who lists a held file: VPS where it is tied to a release, else Local."""
+    return t("manager.discovery.source_line", source=t(
+        "manager.discovery.vps" if vps_file_id else "manager.discovery.local"))
 
 
 def _enlarges(box: ui.element, show: Callable[[], None]) -> None:
@@ -286,7 +288,7 @@ def _have(context: dict[str, Any], scene: Scene, kind: Kind, held: dict[str, str
         with ui.column().classes("gap-0 grow min-w-0"):
             ui.label(_head(record) if record else short_name(name, scene.title)) \
                 .classes("truncate").tooltip(name)
-            ui.label(_source_line()).classes("manager-help truncate")
+            ui.label(_source_line(held.get("vps_file_id"))).classes("manager-help truncate")
         with ui.row().classes("items-center gap-1 no-wrap shrink-0"):
             if kind.records:
                 panel.icon_action(
@@ -471,7 +473,7 @@ def _card(context: dict[str, Any], scene: Scene, kind: Kind, rows: list[dict[str
                 name = str(held.get("name") or "")
                 ui.label(_head(tied) if tied else short_name(name, scene.title)) \
                     .classes("truncate").tooltip(name)
-                ui.label(_source_line()).classes("manager-help")
+                ui.label(_source_line(held.get("vps_file_id"))).classes("manager-help")
                 ui.label(t("manager.discovery.have")).classes("manager-have")
             else:
                 panel.state(t("manager.view.missing"), "off")()
@@ -551,7 +553,8 @@ def _tiles(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
                     kind.media, kind.label))
                 with ui.row().classes("items-center gap-2 no-wrap"):
                     ui.label(t("manager.discovery.have")).classes("manager-have")
-                    ui.label(_source_line()).classes("manager-help truncate")
+                    ui.label(_source_line(kind.slot.get("matched_to"))) \
+                        .classes("manager-help truncate")
         for offer in kind.offers:
             pick = discovery_get.pick_of(offer)
             src = str(offer.get("url") or "")
