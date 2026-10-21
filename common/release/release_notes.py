@@ -43,6 +43,12 @@ def is_release(version: str) -> bool:
     return bool(_RELEASE.match(str(version or "").strip()))
 
 
+def is_prerelease(version: str) -> bool:
+    """Whether this names a release that leads up to another, like `v3.0.0-beta.2`."""
+    found = _RELEASE.match(str(version or "").strip())
+    return bool(found and found.group(4))
+
+
 def _key(version: str) -> tuple:
     found = _RELEASE.match(str(version or "").strip())
     if not found:

@@ -429,12 +429,12 @@ jobs:
             release/manifest.json
           )
 
-          # A beta or rc tag publishes as a prerelease. That is the whole beta
-          # channel: the in-app updater asks /releases/latest, which GitHub
-          # defines as the newest non-prerelease, so testers grab these from the
-          # releases page while every installed copy keeps updating to stable.
+          # A tag with a suffix (-beta.N, -rc.N) publishes as a prerelease. The
+          # in-app updater on the stable channel asks /releases/latest, which
+          # GitHub defines as the newest non-prerelease, so only installs set to
+          # the beta channel are offered these.
           flags=()
-          if [[ "${GITHUB_REF_NAME}" == *-beta* || "${GITHUB_REF_NAME}" == *-rc* ]]; then
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
             flags+=(--prerelease)
           fi
 

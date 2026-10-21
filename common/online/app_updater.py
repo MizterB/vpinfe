@@ -7,25 +7,33 @@ import json
 import logging
 import os
 import platform
-import re
 import shutil
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 import requests
 
 from common import service_errors, timestamps
 from common.atomic_write import STAGED_PREFIX, STAGED_SUFFIX, staged_for, write_atomic
-from common.config.paths import LOG_DIR, UPDATE_CHECK_PATH, UPDATES_DIR, bundled
+from common.config.config_access import cfg_get
+from common.config.paths import (
+    LOG_DIR,
+    UPDATE_CHECK_PATH,
+    UPDATES_DIR,
+    bundled,
+    get_ini_config,
+)
 from common.i18n import t
 from common.online.update_scripts import (
     _build_posix_update_script,
     _build_windows_bootstrap_script,
     _build_windows_update_script,
 )
+from common.release import release_notes
 from common.security.http_client import download_file, get_json, unreachable
 from common.vpinfe_version import get_version
 
@@ -34,6 +42,10 @@ logger = logging.getLogger("vpinfe.common.online.app_updater")
 
 LAST_UPDATE_LOG = LOG_DIR / "last_update.log"
 LATEST_RELEASE_URL = "https://api.github.com/repos/vpinfe/vpinfe/releases/latest"
+# GitHub's "latest" leaves prereleases out, so the beta channel reads the list instead.
+RELEASES_URL = "https://api.github.com/repos/vpinfe/vpinfe/releases?per_page=10"
+STABLE, BETA = "stable", "beta"
+CHANNEL_SETTING = ("device", "update_channel")
 USER_AGENT = "VPinFE-Updater"
 CHECK_EVERY_SECONDS = 24 * 60 * 60
 RETRY_AFTER_FAILURE_SECONDS = 60 * 60
@@ -77,14 +89,29 @@ def _resolve_manifest_asset(manifest: dict, triplet: str | None) -> tuple[str | 
     return None, None
 
 
-def _parse_tag_version(tag: str) -> tuple[int, int, int] | None:
-    match = re.match(r"^v?(\d+)\.(\d+)\.(\d+)$", (tag or "").strip())
-    if not match:
-        return None
-    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+def channel() -> str:
+    """Which releases this install follows: `stable`, or `beta` to take a prerelease too."""
+    kept = cfg_get(get_ini_config(), *CHANNEL_SETTING, STABLE).strip().lower()
+    return kept if kept in (STABLE, BETA) else STABLE
 
 
-def _request_json(url: str) -> dict:
+def _highest(releases: object) -> dict:
+    """The newest published release in a `/releases` listing, by version. GitHub orders
+    that list by commit date, so a fix tagged on an older line can sit above a newer one."""
+    best: dict | None = None
+    for candidate in releases if isinstance(releases, list) else []:
+        if not isinstance(candidate, dict) or candidate.get("draft"):
+            continue
+        tag = str(candidate.get("tag_name") or "")
+        if release_notes.is_release(tag) and (
+                best is None or release_notes.newer(tag, str(best["tag_name"]))):
+            best = candidate
+    if best is None:
+        raise UpdateError(t("error.instance.latest_unreadable"))
+    return best
+
+
+def _request_json(url: str) -> Any:
     logger.debug("Fetching JSON from %s", url)
     payload = get_json(url, timeout=15, headers={"User-Agent": USER_AGENT})
     if isinstance(payload, dict):
@@ -213,7 +240,7 @@ def get_install_context() -> dict:
         context["reason"] = "source_build"
         return context
 
-    if _parse_tag_version(version) is None:
+    if not release_notes.is_release(version):
         context["reason"] = "non_release_build"
         return context
 
@@ -273,9 +300,17 @@ def get_install_context() -> dict:
     return context
 
 
-def _get_release_payload() -> dict:
-    payload = _request_json(LATEST_RELEASE_URL)
-    logger.debug("Latest release payload tag_name=%s", payload.get("tag_name"))
+def _get_release_payload(followed: str) -> dict:
+    if followed == BETA:
+        payload = _highest(_request_json(RELEASES_URL))
+    else:
+        payload = _request_json(LATEST_RELEASE_URL)
+        # GitHub leaves out what is flagged as a prerelease; one tagged as such and not
+        # flagged still has to stay off the stable channel.
+        if payload.get("prerelease") or release_notes.is_prerelease(
+                str(payload.get("tag_name") or "")):
+            raise UpdateError(t("error.instance.latest_unreadable"))
+    logger.debug("Latest %s release payload tag_name=%s", followed, payload.get("tag_name"))
     return payload
 
 
@@ -319,16 +354,14 @@ def _judged(context: dict, release: dict, manifest: dict | None) -> dict | None:
         return result
     result["latest_version"] = latest_tag
 
-    current_ver = _parse_tag_version(context["current_version"])
-    latest_ver = _parse_tag_version(latest_tag)
-    if current_ver is None:
+    if not release_notes.is_release(context["current_version"]):
         result["update_available"] = None
         return result
-    if latest_ver is None:
+    if not release_notes.is_release(latest_tag):
         result["error"] = "latest_tag_unparseable"
         return result
 
-    result["update_available"] = latest_ver > current_ver
+    result["update_available"] = release_notes.newer(latest_tag, context["current_version"])
     if not result["update_available"] or not context["supported"]:
         return result
     if manifest is None:
@@ -378,7 +411,9 @@ def _keep(record: dict) -> None:
         logger.warning("Could not keep the update check", exc_info=True)
 
 
-def _fresh(record: dict, now: float) -> bool:
+def _fresh(record: dict, now: float, followed: str) -> bool:
+    if record.get("channel", STABLE) != followed:
+        return False
     if record.get("error"):
         since, within = record.get("attempted_at"), RETRY_AFTER_FAILURE_SECONDS
     else:
@@ -398,24 +433,35 @@ def _answer(context: dict, record: dict) -> dict | None:
     return answer
 
 
-def _ask(context: dict, before: dict | None) -> dict:
+def _kept_for(before: dict | None, followed: str) -> dict:
+    """What was kept, unless it answered for the other channel: that release is no answer
+    to this one."""
+    if before is None or before.get("channel", STABLE) != followed:
+        return {"channel": followed}
+    return before
+
+
+def _ask(context: dict, before: dict | None, followed: str) -> dict:
     """Asks GitHub and returns the record it kept."""
     now = timestamps.utc_now_iso()
     try:
-        release = _kept_release(_get_release_payload())
+        release = _kept_release(_get_release_payload(followed))
         manifest = (_get_release_manifest(release)
                     if _judged(context, release, None) is None else None)
-        record = {"release": release, "manifest": manifest,
+        record = {"release": release, "manifest": manifest, "channel": followed,
                   "checked_at": now, "attempted_at": now, "error": None}
     except UpdateError as exc:
         logger.debug("Could not check for updates: %s", exc)
-        record = {**(before or {}), "attempted_at": now, "error": "remote_check_failed"}
+        record = {**_kept_for(before, followed), "attempted_at": now,
+                  "error": "remote_check_failed"}
     except requests.RequestException as exc:
         unreachable(logger, "Could not check for updates", exc)
-        record = {**(before or {}), "attempted_at": now, "error": "remote_check_failed"}
+        record = {**_kept_for(before, followed), "attempted_at": now,
+                  "error": "remote_check_failed"}
     except Exception:
         logger.exception("Could not check for updates")
-        record = {**(before or {}), "attempted_at": now, "error": "remote_check_failed"}
+        record = {**_kept_for(before, followed), "attempted_at": now,
+                  "error": "remote_check_failed"}
     _keep(record)
     return record
 
@@ -426,18 +472,16 @@ def prepare_update() -> dict:
         logger.warning("Cannot update in place: %s", context["reason"])
         raise UpdateError(t("error.instance.no_self_update"))
 
-    release_payload = _get_release_payload()
+    release_payload = _get_release_payload(channel())
     latest_tag = (release_payload.get("tag_name") or "").strip()
-    current_ver = _parse_tag_version(context["current_version"])
-    latest_ver = _parse_tag_version(latest_tag)
 
-    if not latest_tag or latest_ver is None:
+    if not release_notes.is_release(latest_tag):
         logger.warning("The latest release's tag does not read as a version: %r",
                        latest_tag)
         raise UpdateError(t("error.instance.latest_unreadable"))
-    if current_ver is None:
+    if not release_notes.is_release(context["current_version"]):
         raise UpdateError(t("error.instance.unpublished"))
-    if latest_ver <= current_ver:
+    if not release_notes.newer(latest_tag, context["current_version"]):
         raise UpdateError(t("error.instance.already_latest"))
 
     manifest = _get_release_manifest(release_payload)
@@ -605,13 +649,14 @@ def check_now(refresh: bool = False) -> dict:
     """
     try:
         context = get_install_context()
+        followed = channel()
         with _checking:
             record = _saved()
-            if not refresh and record is not None and _fresh(record, time.time()):
+            if not refresh and record is not None and _fresh(record, time.time(), followed):
                 kept = _answer(context, record)
                 if kept is not None:
                     return kept
-            record = _ask(context, record)
+            record = _ask(context, record, followed)
         answer = _answer(context, record) or {
             **_blank(context), "checked_at": record.get("checked_at") or None,
             "error": record.get("error") or "check_failed"}

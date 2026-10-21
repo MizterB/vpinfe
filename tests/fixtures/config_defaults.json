@@ -62,7 +62,8 @@
     "features": "library,frontend,devices,overview",
     "language": "auto",
     "name": "",
-    "setup_pending": "false"
+    "setup_pending": "false",
+    "update_channel": "stable"
   },
   "dof": {
     "config_tool_api_key": "",

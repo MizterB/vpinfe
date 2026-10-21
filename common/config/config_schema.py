@@ -1076,6 +1076,12 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
             choices=("auto",) + i18n.available(),
             legacy=(("general", "language"),),
         ),
+        ConfigOption(
+            "update_channel",
+            type="choice",
+            default="stable",
+            choices=("stable", "beta"),
+        ),
     ),
     *in_section(
         "network",

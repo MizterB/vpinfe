@@ -15,6 +15,7 @@ through one renderer - what differs is only which install answers.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import os
@@ -43,6 +44,7 @@ from common.i18n import size, t
 from common.media.media_specs import media_label_map
 from common.online import theme_source_checks as online_checks
 from common.settings import feature_checks
+from common.vpinfe_version import get_version
 from manager.backups import backups_move
 from manager.devices import browser_state
 from manager.extensions import ext_page
@@ -96,6 +98,7 @@ SOURCES_NOTE = t("manager.settings.sources_note")
 DISCOVERY_PAGE = "library.discovery"
 # The setting that shows the number of games with an update on the rail.
 SHOW_COUNT = "show_update_count"
+VERSION_WAIT = 2.0
 
 # This install's, unlike the checks: a device row is about the machine it is read on.
 OVERVIEW_NOTE = t("manager.settings.overview_note")
@@ -2106,7 +2109,7 @@ async def _draw_system_page(library: Library, redraw: Callable[[], None], body: 
         with body:
             page_head(key)
             await _identity_page(library, str(discovery.get("display_name") or ""),
-                                 redraw, state or {})
+                                 redraw, state or {}, str(discovery.get("install_id") or ""))
         return
     if key.startswith(ext_page.PREFIX):
         drawn = _extension_region(redraw, key, state or {})
@@ -2435,7 +2438,8 @@ def _install_label(install: dict) -> str:
 
 async def _identity_page(library: Library, reported: str,
                          redraw: Callable[[], None],
-                         state: dict[str, Any] | None = None) -> None:
+                         state: dict[str, Any] | None = None,
+                         install_id: str = "") -> None:
     """What this install is called, and what it is for."""
     try:
         values = await offload.io(library.config_values)
@@ -2446,7 +2450,8 @@ async def _identity_page(library: Library, reported: str,
     on = _listed(held.get("features"))
 
     async def rename(text: str) -> None:
-        await _write(library, "device", "name", text.strip())
+        if await _write(library, "device", "name", text.strip()):
+            held["name"] = text.strip()
 
     @on_page
     async def flip(name: str, wanted_on: bool) -> None:
@@ -2467,45 +2472,98 @@ async def _identity_page(library: Library, reported: str,
     def flipper(name: str) -> Callable[[Any], Any]:
         return lambda event: flip(name, bool(event.value))
 
-    language = config_schema.option("device", "language")
-    waiting = Waiting(library, await _waiting(library))
+    async def draw() -> None:
+        language = config_schema.option("device", "language")
+        waiting = Waiting(library, await _waiting(library))
+
+        @on_page
+        async def relanguage(event: Any) -> None:
+            # The language is read when the install starts, so a saved change waits for a
+            # restart, and the chip beside the select says so.
+            if await _write(library, "device", "language", event.value):
+                held["language"] = event.value
+                await waiting.refresh()
+
+        spoken = str(held.get("language") or (language.default if language else ""))
+        # A language set by hand to one the list lacks is still the one in use.
+        offered = dict.fromkeys((*(language.choices if language else ()), spoken))
+        entries: list[tuple[Any, Any]] = [
+            (panel.HEADING, t("word.identity")),
+            # The name it reports with nothing set is its hostname, so the placeholder is
+            # that answer rather than the word for it.
+            (t("word.name"), panel.field(str(held.get("name") or ""),
+                                                     rename,
+                                 placeholder=reported)),
+            panel.note(t("manager.settings.name_note")),
+        ]
+        if language is not None:
+            entries.append((language.label or humanize(language.key),
+                            waiting.beside(
+                                panel.select({value: language.choice_labels.get(value, value)
+                                              for value in offered},
+                                             spoken, relanguage),
+                                {"section": language.section, "key": language.key})))
+            if language.description:
+                entries.append(panel.note(language.description))
+        entries += await _version_entries(library, held, reported, install_id,
+                                          part.refill)
+        entries += [
+            (panel.HEADING, t("manager.settings.features")),
+            panel.intro(t("manager.settings.features_note")),
+        ]
+        for name in install_identity.FEATURES:
+            entries.append((t(install_identity.LABELS[name]),
+                            panel.switch(name in on, flipper(name))))
+            entries.append(panel.note(t(FEATURE_NOTES[name])))
+        entries += _setup_entries()
+        panel.facts(ui, entries)
+
+    # The version can be asked of GitHub, and a change here draws this part in place.
+    part = panel.region(draw)
+    part()
+    await part.refilled()
+
+
+async def _version_entries(library: Library, held: dict[str, Any], reported: str,
+                           install_id: str, refill: Callable[[], None]) -> list[tuple[Any, Any]]:
+    """The version this install runs and where its updates come from, drawn by the same
+    rows the Devices page gives it."""
+    from manager.devices import devices as devices_page
+
+    async def rebuild() -> None:
+        refill()
+
+    context = {"device": {"device_id": install_id,
+                          "display_name": str(held.get("name") or reported)},
+               "local_device_id": install_id, "library": library, "rebuild": rebuild}
+    asking = asyncio.ensure_future(devices_page.version_rows(context))
+    await asyncio.wait({asking}, timeout=VERSION_WAIT)
+    if asking.done():
+        rows = asking.result()
+    else:
+        # GitHub is slow to answer. The page draws with what is running and fills in the
+        # rest when the answer is kept, so the fields below it do not wait.
+        rows = [(t("word.version"), get_version())]
+        asking.add_done_callback(lambda _: refill())
+    entries: list[tuple[Any, Any]] = [(panel.HEADING, t("word.version")), *rows]
+    channel = config_schema.option("device", "update_channel")
+    if channel is None:
+        return entries
 
     @on_page
-    async def relanguage(event: Any) -> None:
-        # The language is read when the install starts, so a saved change waits for a
-        # restart, and the chip beside the select says so.
-        if await _write(library, "device", "language", event.value):
-            await waiting.refresh()
+    async def rechannel(event: Any) -> None:
+        if await _write(library, "device", "update_channel", event.value):
+            held["update_channel"] = event.value
+        refill()
 
-    entries: list[tuple[Any, Any]] = [
-        (panel.HEADING, t("word.identity")),
-        # The name it reports with nothing set is its hostname, so the placeholder is
-        # that answer rather than the word for it.
-        (t("word.name"), panel.field(str(held.get("name") or ""),
-                                                 rename,
-                             placeholder=reported)),
-        panel.note(t("manager.settings.name_note")),
-    ]
-    if language is not None:
-        entries.append((language.label or humanize(language.key),
-                        waiting.beside(
-                            panel.select({value: language.choice_labels.get(value, value)
-                                          for value in language.choices},
-                                         str(held.get("language") or language.default),
-                                         relanguage),
-                            {"section": language.section, "key": language.key})))
-        if language.description:
-            entries.append(panel.note(language.description))
-    entries += [
-        (panel.HEADING, t("manager.settings.features")),
-        panel.intro(t("manager.settings.features_note")),
-    ]
-    for name in install_identity.FEATURES:
-        entries.append((t(install_identity.LABELS[name]),
-                        panel.switch(name in on, flipper(name))))
-        entries.append(panel.note(t(FEATURE_NOTES[name])))
-    entries += _setup_entries()
-    panel.facts(ui, entries)
+    entries.append((channel.label or humanize(channel.key),
+                    panel.select({value: channel.choice_labels.get(value, value)
+                                  for value in channel.choices},
+                                 str(held.get("update_channel") or channel.default),
+                                 rechannel)))
+    if channel.description:
+        entries.append(panel.note(channel.description))
+    return entries
 
 
 def _setup_entries() -> list[tuple[Any, Any]]:

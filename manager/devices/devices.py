@@ -1437,6 +1437,13 @@ async def software_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
     device = _of(context)
     if away(context):
         return [*away_rows(context), *_browser_rows(device, context.get("reach"))]
+    return [*await version_rows(context), *_browser_rows(device, context.get("reach"))]
+
+
+async def version_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
+    """The version it runs, whether a newer one is out, and when that was last asked.
+    For a device that answers; `software_rows` handles one that does not."""
+    device = _of(context)
     client = client_for(context)
     update = context.get("update")
     ask = update_checker(is_local(context), client)
@@ -1449,9 +1456,8 @@ async def software_rows(context: dict[str, Any]) -> list[tuple[Any, Any]]:
                         device_label(device), exc_info=True)
             update, why = None, _why(exc)
         context["update"] = update
-    return [*_software_rows(device, is_local(context), client, update,
-                            _check_now(context, ask) if ask is not None else None, why),
-            *_browser_rows(device, context.get("reach"))]
+    return _software_rows(device, is_local(context), client, update,
+                          _check_now(context, ask) if ask is not None else None, why)
 
 
 def _check_now(context: dict[str, Any], ask: Callable[..., Any]) -> Callable[[], Any]:
