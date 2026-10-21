@@ -74,12 +74,12 @@ class TheRowAndTheTabItLinksTo(unittest.TestCase):
     those games."""
 
     def test_a_media_kind_the_vps_lists_is_counted_under_the_tab_that_holds_both(self):
-        self.assertEqual("b2sFiles", sections.home_tab("backglass"))
         self.assertEqual("wheelArtFiles", sections.home_tab("wheel"))
         self.assertEqual("topperFiles", sections.home_tab("topper"))
 
     def test_a_media_kind_the_vps_does_not_list_has_a_tab_of_its_own(self):
         self.assertEqual("playfield", sections.home_tab("playfield"))
+        self.assertEqual("backglass", sections.home_tab("backglass"))
 
     def test_the_link_opens_the_games_the_tab_lists(self):
         row, opens = drawn_row("backglass", 7, 10, ("g1", "g2"))
@@ -129,7 +129,7 @@ class EachRowIsGivenItsTabsGames(unittest.TestCase):
         return kept
 
     def test_the_games_come_from_the_tab_the_kind_is_counted_under(self):
-        kept = self.rows({"b2sFiles": {"game_ids": ["b"]}, "playfield": {"game_ids": []}})
+        kept = self.rows({"backglass": {"game_ids": ["b"]}, "playfield": {"game_ids": []}})
 
         self.assertEqual(("b",), kept["backglass"])
         self.assertEqual((), kept["playfield"])

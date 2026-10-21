@@ -147,6 +147,7 @@ _MEDIA_GAPS = {
     "cab": "manager.discovery.gap.cab",
     "flyer": "manager.discovery.gap.flyer",
     "audio": "manager.discovery.gap.audio",
+    "backglass": "manager.discovery.gap.backglass",
 }
 
 
@@ -218,10 +219,19 @@ def fix_folders(item: dict[str, Any]) -> list[str]:
 
 def _gap_words(kind: str) -> str:
     """What a game lacks, in the plural a tab names it with: a VPS kind, which holds the
-    media kind filed with it, or a media kind with none."""
+    media kind filed with it, or a media kind with none. Backglass is both an asset and a
+    media kind, so each says which."""
+    if kind == "b2sFiles":
+        return t("manager.discovery.gap.backglass_asset")
     if kind in vps_home.GAP_KINDS:
         return _kind_words(kind)[1]
     return t(_MEDIA_GAPS[kind]) if kind in _MEDIA_GAPS else media_label_map().get(kind, kind)
+
+
+def _gap_section(kind: str) -> str:
+    """The heading a tab of games lacking `kind` sits under in the Missing From dropdown."""
+    return t("manager.discovery.gap.assets" if kind in vps_home.ASSET_GAPS
+             else "manager.discovery.gap.media")
 
 
 def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
@@ -286,6 +296,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     def menu_on(card: Any, shelf: str, item: dict[str, Any], listing: str) -> None:
         """The tile's right click and long press."""
         word = media_label_map().get(listing) or (_kind_words(listing)[0] if listing else "")
+        if listing in ("b2sFiles", "backglass"):
+            word = _gap_words(listing)
         with card:
             menu = ui.context_menu()
         panel.verb_menu(menu, marking.title(shelf, item), [
@@ -459,8 +471,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_tiles()
 
     def lacking_tabs() -> dict[str, int]:
-        return {listing: gap["count"] for listing, gap in shown["home"]["missing"].items()
-                if gap["count"]}
+        """The tabs with games in them, Assets then Media, each by name."""
+        counted = {listing: gap["count"] for listing, gap in shown["home"]["missing"].items()
+                   if gap["count"]}
+        return dict(sorted(counted.items(),
+                           key=lambda one: (one[0] not in vps_home.ASSET_GAPS,
+                                            _gap_words(one[0]).casefold())))
 
     def draw_lacking() -> None:
         box = boxes[discovery_shelves.MISSING]
@@ -478,7 +494,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                     dropdown.Select(
                         {tab: t("manager.discovery.counted", name=_gap_words(tab), count=count)
                          for tab, count in tabs.items()}, value=listing,
-                        look=dropdown.OUTLINED, on_change=lambda event: pick_lack(event.value)
+                        look=dropdown.OUTLINED, on_change=lambda event: pick_lack(event.value),
+                        sections={tab: _gap_section(tab) for tab in tabs}
                     ).classes(GAPS_WIDTH)
                     lacking_see_all = ui.element("div").classes("contents")
             lacking_tiles = ui.row().classes("manager-shelf w-full px-3")

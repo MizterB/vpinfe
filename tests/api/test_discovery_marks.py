@@ -368,15 +368,15 @@ class HomeTests(unittest.TestCase):
 
         def tab(*found: tuple[str, str, str, str]) -> dict[str, Any]:
             return vps_home.home(FOUND, KEPT, 7, TODAY, media=media, holders=holders,
-                                 marks=marks(*found))["missing"]["b2sFiles"]
+                                 marks=marks(*found))["missing"]["backglass"]
 
         self.assertEqual((tab()["count"], tab()["on_vps"], tab()["game_ids"]),
-                         (2, 1, ["gid1", "gid2"]))
-        left = tab(("ignored", "gap", "g1", "b2sFiles"))
+                         (2, 0, ["gid1", "gid2"]))
+        left = tab(("ignored", "gap", "g1", "backglass"))
         self.assertEqual((left["count"], left["on_vps"], left["game_ids"]), (1, 0, ["gid2"]))
         self.assertEqual([one["vps_id"] for one in left["games"]], ["g2"])
-        self.assertEqual(tab(("ignored", "gap", "g1", "backglass"))["count"], 2,
-                         "the media kind is not the key of a tab VPS also lists")
+        self.assertEqual(tab(("ignored", "gap", "g1", "b2sFiles"))["count"], 2,
+                         "the backglass file is not the key of the backglass pictures tab")
 
     def test_a_tab_only_a_source_fills_is_ignored_by_its_media_kind(self) -> None:
         media = {"playfield": [offered("gid1", "g1", "Alien", 1)]}

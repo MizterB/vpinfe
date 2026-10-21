@@ -21,6 +21,7 @@ from common import timestamps
 from common.online import (
     arrivals,
     vps_formats,
+    vps_kinds,
     vps_marked,
     vps_marks,
     vps_releases,
@@ -45,8 +46,12 @@ AUTHORS_SHOWN = 8
 # The most games a tab shows that only VPS lists. A game a source has a file for is always shown.
 GAPS_SHOWN = 8
 # The media kind a source files under what VPS lists as a kind: one tab holds both. A media
-# kind not named here has a tab of its own.
-MEDIA_OF = {"b2sFiles": "backglass", "wheelArtFiles": "wheel", "topperFiles": "topper"}
+# kind not named here has a tab of its own. Backglass pictures are not here: a b2s file is
+# an asset and a picture is media, so each has its own tab.
+MEDIA_OF = {"wheelArtFiles": "wheel", "topperFiles": "topper"}
+# The kinds in GAP_KINDS that are assets; the others are media.
+ASSET_GAPS = tuple(one for one in GAP_KINDS
+                   if vps_kinds.BY_LISTING[one].held_in == vps_kinds.ASSET)
 
 
 def since(days: int, today: date | None = None) -> str:

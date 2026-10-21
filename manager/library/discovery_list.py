@@ -23,7 +23,7 @@ from common.games import opened_pages
 from common.i18n import t
 from common.media.media_specs import IMAGE_FAMILY
 from common.online import vps_find, vps_kinds
-from manager.kit import art, candidates, deeplink, game_tables, panel, verbs, when
+from manager.kit import art, candidates, deeplink, game_tables, media_ownership, panel, verbs, when
 from manager.kit.on_page import on_page
 from manager.library import (
     discovery,
@@ -569,7 +569,8 @@ def _tiles(context: dict[str, Any], scene: Scene, kind: Kind) -> None:
 
 
 def _get_picture(context: dict[str, Any], scene: Scene, kind: Kind, pick: Pick) -> None:
-    said = t("manager.discovery.download_pic", kind=kind.label)
+    said = t("manager.discovery.download_pic", kind=kind.label,
+             source=media_ownership.source_name(pick.source))
     panel.icon_action(
         said, partial(discovery_get.get, context, scene.tray, scene.game_id, [pick]),
         icon=verbs.FROM_ONLINE, hint=said)()

@@ -1011,7 +1011,7 @@
     "other": "Download the newest release of each of the {count:n} kinds this game lacks?"
   },
   "manager.discovery.download_missing.confirm": "Download",
-  "manager.discovery.download_pic": "Download and use as your {kind}",
+  "manager.discovery.download_pic": "Download from {source} and use as your {kind}",
   "manager.discovery.take": "Take",
   "manager.discovery.taken": "Took the {kind} for {name}",
   "manager.discovery.take_failed": "Could not take the {kind}",
@@ -1307,6 +1307,10 @@
   "manager.discovery.gap.cab": "Cabs",
   "manager.discovery.gap.flyer": "Flyers",
   "manager.discovery.gap.audio": "Audio",
+  "manager.discovery.gap.backglass": "Backglass Media",
+  "manager.discovery.gap.backglass_asset": "Backglass Asset",
+  "manager.discovery.gap.assets": "Assets",
+  "manager.discovery.gap.media": "Media",
   "manager.discovery.views": "Your Views",
   "manager.discovery.views.count": {
     "one": "1 game",

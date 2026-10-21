@@ -412,7 +412,7 @@ class AskedTests(_Library):
         uncompared = {"counted": "", "rows": []}
 
         shelf = vps_home.home(uncompared, (), 7, media=media_fill.offered_listing())
-        on_shelf = {one["game_id"] for one in shelf["missing"]["b2sFiles"]["games"]}
+        on_shelf = {one["game_id"] for one in shelf["missing"]["backglass"]["games"]}
         in_needs_you = {game_id for game_id in blank
                         if not sections._a_source_fills(
                             "no_backglass", {"backglass"} if game_id in offered else set(),

@@ -19,7 +19,7 @@ from common.failures import why
 from common.i18n import t
 from common.media.media_specs import media_label_map
 from common.online import vps_marks
-from manager.kit import offload, panel, verbs
+from manager.kit import media_ownership, offload, panel, verbs
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
 from manager.library import discovery_get, discovery_marks
@@ -63,11 +63,12 @@ def take_button(library: Library, game: Mapping[str, Any], after: After) -> None
     if not game.get("take"):
         return
     word = media_label_map().get(str(game["take"]["kind"]), str(game["take"]["kind"]))
+    source = media_ownership.source_name(str(game["take"]["source"]))
     with ui.element("div").classes("shrink-0").on("click.stop", lambda: None) \
             .on("keydown.enter.stop", lambda: None):
         panel.icon_action(t("manager.discovery.take"), lambda: take(library, game, after),
                           icon=verbs.FROM_ONLINE,
-                          hint=t("manager.discovery.download_pic", kind=word))()
+                          hint=t("manager.discovery.download_pic", kind=word, source=source))()
 
 
 def newer(kind: Kind, offer: Mapping[str, Any]) -> bool:

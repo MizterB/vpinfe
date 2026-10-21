@@ -889,18 +889,41 @@ class DrivenHome(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("1 on VPS", _words(body))
 
     async def test_a_kind_is_one_tab_whichever_way_it_is_known(self) -> None:
+        self.media = {"wheel": [_offered("i9", "zz", "Zed")]}
+        body = await self._draw()
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
+                      and any(opt.startswith("Wheels") for opt in _options(one)))
+
+        self.assertEqual(sum(1 for opt in _options(kinds) if opt.startswith("Wheels")), 1)
+        self.assertNotIn("wheel", kinds.options)
+
+    async def test_the_backglass_file_and_the_backglass_picture_are_told_apart(self) -> None:
         self.media = {"backglass": [_offered("i9", "zz", "Zed")]}
         body = await self._draw()
         kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
-                      and "Backglasses 2" in _options(one))
+                      and any(opt.startswith("Backglass Asset") for opt in _options(one)))
 
-        self.assertEqual(sum(1 for text in _labels(body) if text.startswith("Backglass")), 2)
-        self.assertEqual(sum(1 for opt in _options(kinds) if opt.startswith("Backglass")), 1)
-        self.assertNotIn("backglass", kinds.options)
+        self.assertEqual(sorted(opt for opt in _options(kinds) if opt.startswith("Backglass")),
+                         ["Backglass Asset 1", "Backglass Media 1"])
+        self.assertIn("backglass", kinds.options)
         self.assertEqual(self._see_alls(body), 2)
-        self.assertIn("Zed", _words(body))
-        self.assertIn("1 from a source", _words(body))
-        self.assertIn("1 on VPS", _words(body))
+
+    async def test_the_missing_from_list_is_assets_then_media_each_by_name(self) -> None:
+        self.media = {"wheel": [_offered("i9", "zz", "Zed")],
+                      "backglass": [_offered("i8", "yy", "Why")]}
+        body = await self._draw()
+        kinds = next(one for one in body.descendants() if isinstance(one, dropdown.Select)
+                      and any(opt.startswith("Backglass Asset") for opt in _options(one)))
+
+        shown = [str(one["label"]) for one in kinds._props["options"]]
+        headings = [i for i, one in enumerate(kinds._props["options"]) if one.get("section")]
+        self.assertEqual(["Assets", "Media"], [shown[i] for i in headings])
+        assets, media = shown[headings[0] + 1:headings[1]], shown[headings[1] + 1:]
+        self.assertEqual(assets, sorted(assets, key=str.casefold))
+        self.assertEqual(media, sorted(media, key=str.casefold))
+        self.assertTrue(all(text.startswith(("Backglass Asset", "ROMs", "Points"))
+                            for text in assets))
+        self.assertIn("Backglass Media 1", media)
 
     async def test_the_two_playfield_videos_keep_a_tab_each_under_their_own_name(self) -> None:
         self.media = {"playfield_fss": [_offered("i1", "g1", "Alien")],

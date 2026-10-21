@@ -20,6 +20,7 @@ from common.online import vps_home, vps_kinds, vps_marks, vps_releases, vps_upda
 
 TODAY = date(2026, 10, 18)
 KEPT = ("tableFiles", "b2sFiles", "romFiles", "ruleFiles")
+KEPT_WHEELS = (*KEPT, "wheelArtFiles")
 PEOPLE = [{"name": "Alpha", "aliases": []}, {"name": "Beta", "aliases": []}]
 
 
@@ -50,6 +51,11 @@ FOUND: dict[str, Any] = {
          "held": [], "releases": {"tableFiles": [release("t3", "2026-10-17T11:00:00Z")]}},
     ],
 }
+
+
+WHEELS: dict[str, Any] = {**FOUND, "rows": [{
+    **FOUND["rows"][0], "listed": ["wheelArtFiles"],
+    "releases": {"wheelArtFiles": [release("w1", "2026-10-12T10:00:00Z")]}}]}
 
 
 def _ids(shelf: list[dict[str, Any]]) -> list[str]:
@@ -219,16 +225,26 @@ class LackingMediaTests(unittest.TestCase):
         self.assertEqual(shelf["playfield"]["count"], 1)
 
     def test_a_media_kind_and_the_vps_kind_of_the_same_thing_are_one_tab(self) -> None:
-        shelf = vps_home.home(FOUND, KEPT, 7, TODAY,
-                              media={"backglass": [offered("i1", "g1", "Alien")]})["missing"]
+        shelf = vps_home.home(WHEELS, KEPT_WHEELS, 7, TODAY,
+                              media={"wheel": [offered("i1", "g1", "Alien")]})["missing"]
 
-        self.assertEqual(list(shelf), ["b2sFiles", "romFiles"])
-        self.assertNotIn("backglass", shelf)
+        self.assertEqual(list(shelf), ["b2sFiles", "romFiles", "wheelArtFiles"])
+        self.assertNotIn("wheel", shelf)
+
+    def test_a_backglass_picture_is_not_the_backglass_file(self) -> None:
+        """A b2s file is an asset and a picture is media, so each has a tab of its own."""
+        shelf = vps_home.home(FOUND, KEPT, 7, TODAY,
+                              media={"backglass": [offered("i1", "g1", "Alien", 3)]})["missing"]
+
+        self.assertEqual(list(shelf), ["b2sFiles", "romFiles", "backglass"])
+        self.assertEqual((shelf["b2sFiles"]["count"], shelf["b2sFiles"]["games"][0]["source"]),
+                         (1, 0))
+        self.assertEqual((shelf["backglass"]["count"], shelf["backglass"]["on_vps"]), (1, 0))
 
     def test_a_game_both_name_is_one_tile_with_both_counts(self) -> None:
-        [alien] = vps_home.lacking(FOUND, "b2sFiles")
-        shelf = vps_home.home(FOUND, KEPT, 7, TODAY, media={"backglass": [
-            offered("i1", alien["vps_id"], "Alien", 3)]})["missing"]["b2sFiles"]
+        [alien] = vps_home.lacking(WHEELS, "wheelArtFiles")
+        shelf = vps_home.home(WHEELS, KEPT_WHEELS, 7, TODAY, media={"wheel": [
+            offered("i1", alien["vps_id"], "Alien", 3)]})["missing"]["wheelArtFiles"]
 
         self.assertEqual(shelf["count"], 1)
         self.assertEqual([(one["game_id"], one["vps"], one["source"]) for one in shelf["games"]],
@@ -255,10 +271,10 @@ class LackingMediaTests(unittest.TestCase):
 
     def test_see_all_names_every_game_the_tab_counts_each_once(self) -> None:
         holders = {"g1": ["a", "b"]}
-        shelf = vps_home.home(FOUND, KEPT, 7, TODAY, holders=holders, media={
-            "backglass": [offered("b", "g1", "Alien"), offered("c", "zz", "Zed")]})["missing"]
+        shelf = vps_home.home(WHEELS, KEPT_WHEELS, 7, TODAY, holders=holders, media={
+            "wheel": [offered("b", "g1", "Alien"), offered("c", "zz", "Zed")]})["missing"]
 
-        tab = shelf["b2sFiles"]
+        tab = shelf["wheelArtFiles"]
         self.assertEqual(sorted(tab["game_ids"]), ["a", "b", "c"])
         self.assertEqual(tab["count"], len(tab["game_ids"]))
         self.assertEqual(len(set(tab["game_ids"])), tab["count"])

@@ -1011,7 +1011,7 @@
     "other": "Đöŵñŀöàđ ţĥè ñèŵèšţ řèŀèàšè öƒ èàçĥ öƒ ţĥè {count:n} ķîñđš ţĥîš ĝàɱè ŀàçķš?"
   },
   "manager.discovery.download_missing.confirm": "Đöŵñŀöàđ",
-  "manager.discovery.download_pic": "Đöŵñŀöàđ àñđ ûšè àš ýöûř {kind}",
+  "manager.discovery.download_pic": "Đöŵñŀöàđ ƒřöɱ {source} àñđ ûšè àš ýöûř {kind}",
   "manager.discovery.take": "Ţàķè",
   "manager.discovery.taken": "Ţööķ ţĥè {kind} ƒöř {name}",
   "manager.discovery.take_failed": "Çöûŀđ ñöţ ţàķè ţĥè {kind}",
@@ -1307,6 +1307,10 @@
   "manager.discovery.gap.cab": "Çàƀš",
   "manager.discovery.gap.flyer": "Ƒŀýèřš",
   "manager.discovery.gap.audio": "Àûđîö",
+  "manager.discovery.gap.backglass": "Ɓàçķĝŀàšš Ḿèđîà",
+  "manager.discovery.gap.backglass_asset": "Ɓàçķĝŀàšš Àššèţ",
+  "manager.discovery.gap.assets": "Àššèţš",
+  "manager.discovery.gap.media": "Ḿèđîà",
   "manager.discovery.views": "Ýöûř Ṽîèŵš",
   "manager.discovery.views.count": {
     "one": "1 ĝàɱè",
