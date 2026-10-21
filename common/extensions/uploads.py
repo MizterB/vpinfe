@@ -25,11 +25,13 @@ UPLOADS_WRITE = "uploads:write"
 # What `plan` reads, and what `execute` reads on top. `game_id` stands where the routes
 # take `game_dir`; tests/extensions/test_uploads_offered.py holds both lists to the models.
 PLAN_KEYS = frozenset({"vps_id", "game_id", "rom_name", "allow_new_game", "media_kind",
-                       "asset_kind", "location_id", "add_table", "new_game_dir_name"})
+                       "asset_kind", "location_id", "add_table", "new_game_dir_name",
+                       "replace_table", "carry", "instead"})
 EXECUTE_KEYS = PLAN_KEYS | {"selected"}
 
-_TEXT = frozenset({"vps_id", "game_id", "rom_name", "media_kind", "asset_kind", "location_id"})
-_FLAGS = frozenset({"allow_new_game", "add_table"})
+_TEXT = frozenset({"vps_id", "game_id", "rom_name", "media_kind", "asset_kind", "location_id",
+                   "replace_table"})
+_FLAGS = frozenset({"allow_new_game", "add_table", "instead"})
 
 
 class ExtensionUploads:
@@ -122,6 +124,9 @@ class ExtensionUploads:
             right = isinstance(value, str)
         elif key == "new_game_dir_name":
             right = value is None or isinstance(value, str)
+        elif key == "carry":
+            right = value is None or (isinstance(value, list)
+                                      and all(isinstance(one, str) for one in value))
         else:
             right = isinstance(value, list) and all(
                 isinstance(one, int) and not isinstance(one, bool) for one in value)

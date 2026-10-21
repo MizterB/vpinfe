@@ -48,6 +48,7 @@ REASON_TURN = "turn"
 REASON_EDIT = "edit"
 REASON_MOVE = "move"
 REASON_REPLACE = "replace"
+REASON_DELETE = "delete"
 
 # Who wrote the file the copy holds. Empty where the file is not VPinFE's own.
 BY_2X = "2.x"

@@ -134,6 +134,17 @@ class ReplaceTests(SwapCase):
 
         self.assertEqual((self.folder / OLD).read_bytes(), b"old")
 
+    def test_a_name_that_differs_only_in_case_refused_by_the_entry_loses_nothing(self) -> None:
+        recased = self.offered / OLD.lower()
+        recased.write_bytes(b"newer")
+
+        with patch.object(table_swap.MetaConfig, "swap_table", return_value=False), \
+                self.assertRaises(service_errors.RefusedError):
+            table_swap.replace(GAME_ID, "t1", str(recased))
+
+        self.assertEqual([b"old"], [path.read_bytes() for path in self.folder.iterdir()
+                                    if path.name.lower() == OLD.lower()])
+
     def test_a_file_that_cannot_be_read_leaves_the_entry_to_be_read_again(self) -> None:
         entry = self.info["tables"]["t1"]
         entry.update({"file_hash": "stale", "rom": "oldrom", "detect_pinmame": True})
@@ -282,6 +293,11 @@ class PlanTests(SwapCase):
         self.assertEqual(brought["ini"], (False, True))
         self.assertEqual(brought["backglass"], (True, False))
 
+    def test_a_game_that_is_running_can_still_be_asked_what_a_swap_would_do(self) -> None:
+        self.running = launch_state.LaunchState(launching=True, game_id=GAME_ID)
+
+        self.assertEqual("t1", table_swap.plan(GAME_ID, "t1")["table"])
+
     def test_a_new_file_named_for_the_folder_cannot_take_the_shared_kinds(self) -> None:
         (self.offered / "Cactus.vpx").write_bytes(b"new")
 
@@ -389,6 +405,66 @@ class RestoreTests(SwapCase):
         self.assertNotIn(OLD, self.names())
 
 
+class RestoreADeletedTableTests(SwapCase):
+    def deleted(self) -> dict[str, dict]:
+        done = table_swap.delete(GAME_ID, "t1")
+        return {one["file"]: one for one in done["kept"]}
+
+    def test_restoring_the_file_brings_the_record_back_with_its_id(self) -> None:
+        copies = self.deleted()
+
+        backup_ops.restore(copies[OLD]["id"])
+
+        self.assertEqual((self.folder / OLD).read_bytes(), b"old")
+        brought = self.record()["tables"]["t1"]
+        self.assertEqual((brought["filename"], brought["rating"], brought["hidden"],
+                          brought["tags"]), (OLD, 4, True, ["mine"]))
+
+    def test_a_record_that_exists_is_left_as_it_is(self) -> None:
+        copies = self.deleted()
+        self.info["tables"] = {"t9": {"id": "t9", "filename": OLD, "rating": 1}}
+        (self.folder / f"{FOLDER}.info").write_text(json.dumps(self.info))
+
+        backup_ops.restore(copies[OLD]["id"])
+
+        tables = self.record()["tables"]
+        self.assertNotIn("t1", tables)
+        self.assertEqual(tables["t9"]["rating"], 1)
+
+    def test_a_file_copied_some_other_way_has_no_record_to_bring(self) -> None:
+        done = table_swap.replace(GAME_ID, "t1", str(self.arrives))
+
+        backup_ops.restore(done["kept"][0]["id"])
+
+        self.assertEqual(set(self.record()["tables"]), {"t1", "t2"})
+
+    def test_the_record_alone_goes_back_onto_a_file_that_is_there(self) -> None:
+        copies = self.deleted()
+        self.put(OLD, b"old")
+
+        backup_ops.restore(copies[f"{OLD}.entry.json"]["id"])
+
+        self.assertEqual(self.record()["tables"]["t1"]["rating"], 4)
+        self.assertNotIn(f"{OLD}.entry.json", self.names())
+
+    def test_the_record_waits_for_its_file(self) -> None:
+        copies = self.deleted()
+
+        with self.assertRaises(service_errors.NotFoundError):
+            backup_ops.restore(copies[f"{OLD}.entry.json"]["id"])
+
+        self.assertNotIn("t1", self.record()["tables"])
+
+    def test_the_record_is_refused_where_the_file_already_has_one(self) -> None:
+        copies = self.deleted()
+        self.put(OLD, b"old")
+        self.info["tables"] = {"t9": {"id": "t9", "filename": OLD}}
+        (self.folder / f"{FOLDER}.info").write_text(json.dumps(self.info))
+
+        with self.assertRaises(service_errors.RefusedError):
+            backup_ops.restore(copies[f"{OLD}.entry.json"]["id"])
+
+
 class DeleteTests(SwapCase):
     def test_the_table_and_its_files_go_and_are_kept(self) -> None:
         self.put("Cactus 1.1.ini")
@@ -397,8 +473,8 @@ class DeleteTests(SwapCase):
         done = table_swap.delete(GAME_ID, "t1")
 
         self.assertEqual(self.names(), ["Cactus Other.vpx", "Cactus.directb2s", f"{FOLDER}.info"])
-        self.assert_kept(OLD, "Cactus 1.1.ini")
-        self.assertEqual(len(done["kept"]), 2)
+        self.assert_kept(OLD, "Cactus 1.1.ini", f"{OLD}.entry.json")
+        self.assertEqual(len(done["kept"]), 3)
 
     def test_the_entry_goes_and_the_default_is_no_longer_this_table(self) -> None:
         table_swap.delete(GAME_ID, "t1")
@@ -416,10 +492,24 @@ class DeleteTests(SwapCase):
 
         self.assertEqual(self.record()["vpinfe"]["default_table"], "")
 
-    def test_the_kept_copy_is_the_file_as_it_was(self) -> None:
-        table_swap.delete(GAME_ID, "t1")
+    def test_every_copy_says_it_was_made_before_a_delete(self) -> None:
+        done = table_swap.delete(GAME_ID, "t1")
 
-        self.assertEqual(self.kept_bytes(), [b"old"])
+        self.assertEqual({"delete"}, {one["reason"] for one in done["kept"]})
+
+    def test_the_kept_copy_is_the_file_as_it_was(self) -> None:
+        done = table_swap.delete(GAME_ID, "t1")
+
+        copy = next(one for one in done["kept"] if one["file"] == OLD)
+        self.assertEqual(Path(copy["path"]).read_bytes(), b"old")
+
+    def test_the_record_is_kept_with_the_file(self) -> None:
+        done = table_swap.delete(GAME_ID, "t1")
+
+        copy = next(one for one in done["kept"] if one["file"] == f"{OLD}.entry.json")
+        kept = json.loads(Path(copy["path"]).read_text())
+        self.assertEqual((kept["id"], kept["rating"], kept["hidden"], kept["tags"]),
+                         ("t1", 4, True, ["mine"]))
 
     def test_a_record_that_cannot_be_written_is_a_refusal_and_the_game_is_read_again(self) -> None:
         with patch.object(table_swap.MetaConfig, "drop_table", side_effect=OSError("read only")), \
@@ -452,3 +542,109 @@ class DeleteTests(SwapCase):
 
         self.assertIn(OLD, self.names())
         self.assertIn("t1", self.record()["tables"])
+
+
+class UndoTests(SwapCase):
+    def test_the_old_file_is_back_in_the_tables_place_and_the_new_one_is_kept(self) -> None:
+        kept = self.swap()["kept"]
+
+        done = table_swap.undo(GAME_ID, "t1", [one["id"] for one in kept])
+
+        self.assertEqual((self.folder / OLD).read_bytes(), b"old")
+        self.assertNotIn(BEING, self.names())
+        self.assertEqual(self.record()["tables"]["t1"]["filename"], OLD)
+        self.assertEqual(done["table"]["id"], "t1")
+        self.assertIn(BEING, self.kept())
+
+    def test_what_followed_the_table_follows_it_back_and_what_stayed_in_backups_returns(
+            self) -> None:
+        self.put("Cactus 1.1.ini")
+        self.put("Cactus 1.1.vbs")
+        kept = self.swap()["kept"]
+        self.assertIn("Cactus 1.2.ini", self.names())
+
+        table_swap.undo(GAME_ID, "t1", [one["id"] for one in kept])
+
+        self.assertEqual(self.names(), sorted([
+            OLD, "Cactus 1.1.ini", "Cactus 1.1.vbs", "Cactus Other.vpx", f"{FOLDER}.info"]))
+
+    def test_the_entry_is_the_same_one_throughout(self) -> None:
+        kept = self.swap()["kept"]
+
+        table_swap.undo(GAME_ID, "t1", [one["id"] for one in kept])
+
+        entry = self.record()["tables"]["t1"]
+        self.assertEqual((entry["rating"], entry["hidden"], entry["tags"]),
+                         (4, True, ["mine"]))
+
+    def test_the_tie_the_swap_took_away_is_given_back(self) -> None:
+        done = self.swap()
+        self.assertIsNone(self.record()["tables"]["t1"].get("source"))
+
+        table_swap.undo(GAME_ID, "t1", [one["id"] for one in done["kept"]], done["source"])
+
+        self.assertEqual({"vps_file_id": "old-file", "confirmed_by": "user"},
+                         self.record()["tables"]["t1"]["source"])
+
+    def test_copies_that_are_gone_are_not_found(self) -> None:
+        kept = self.swap()["kept"]
+        for path in self.backups.rglob("*"):
+            if path.is_file():
+                path.unlink()
+
+        with self.assertRaises(service_errors.NotFoundError):
+            table_swap.undo(GAME_ID, "t1", [one["id"] for one in kept])
+
+        self.assertIn(BEING, self.names())
+
+    def test_a_copy_of_another_game_is_not_taken(self) -> None:
+        kept = self.swap()["kept"]
+
+        with self.assertRaises(service_errors.NotFoundError):
+            table_swap.undo("Another0001", "t1", [one["id"] for one in kept])
+
+
+class NamingTests(SwapCase):
+    def test_a_table_is_its_version_and_authors_from_the_release_it_is_tied_to(self) -> None:
+        with patch.object(table_swap, "find_vps_release",
+                          return_value={"version": "1.1.0", "authors": ["Rascal", "Mfuegemann"]}):
+            self.assertEqual(table_swap.describe(self.info["tables"]["t1"], OLD),
+                             "1.1.0 · Rascal, Mfuegemann")
+
+    def test_a_long_author_list_names_the_first_two_as_the_catalog_does(self) -> None:
+        release = {"version": "2.3", "authors": ["Dark", "G5k", "BorgDog", "Rawd"]}
+        with patch.object(table_swap, "find_vps_release", return_value=release):
+            self.assertEqual(table_swap.describe(self.info["tables"]["t1"], OLD), "2.3 · Dark, G5k")
+
+    def test_without_a_release_the_files_own_version_and_authors_name_it(self) -> None:
+        entry = {"version": "1.1", "authors": "Rascal", "source": {}}
+        with patch.object(table_swap, "find_vps_release", return_value={}):
+            self.assertEqual(table_swap.describe(entry, OLD), "1.1 · Rascal")
+
+    def test_without_either_the_file_name_does(self) -> None:
+        with patch.object(table_swap, "find_vps_release", return_value={}):
+            self.assertEqual(table_swap.describe({}, OLD), OLD)
+
+    def test_the_game_in_a_folder_is_found_by_its_folder(self) -> None:
+        self.assertEqual(table_swap.game_id_of(self.folder), GAME_ID)
+        self.assertEqual(table_swap.game_id_of(self.root / "nowhere"), "")
+
+    def test_the_tables_that_can_be_swapped_are_listed_with_the_one_the_game_plays_marked(
+            self) -> None:
+        self.info["tables"]["t1"]["hidden"] = False
+        (self.folder / f"{FOLDER}.info").write_text(json.dumps(self.info))
+
+        listed = table_swap.choices(GAME_ID)
+
+        self.assertEqual({one["id"]: (one["filename"], one["default"]) for one in listed},
+                         {"t1": (OLD, True), "t2": ("Cactus Other.vpx", False)})
+
+    def test_a_hidden_table_is_listed_but_the_game_plays_the_next_one(self) -> None:
+        listed = {one["id"]: one["default"] for one in table_swap.choices(GAME_ID)}
+
+        self.assertEqual(listed, {"t1": False, "t2": True})
+
+    def test_a_table_whose_file_is_gone_is_not_offered(self) -> None:
+        (self.folder / "Cactus Other.vpx").unlink()
+
+        self.assertEqual([one["id"] for one in table_swap.choices(GAME_ID)], ["t1"])

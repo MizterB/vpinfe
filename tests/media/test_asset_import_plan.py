@@ -18,6 +18,8 @@ from common.uploads.asset_import_service import (
     select_plan_items,
     vps_folder_name,
 )
+from tests.support.library import fake_game, game_info
+from tests.support.swaps import library_of
 from tests.support.uploads import blocked_reasons, make_zip, plan_kinds_by_action
 
 
@@ -44,6 +46,10 @@ class ImportPlanTests(unittest.TestCase):
             game_dir = Path(tmp) / "Foo (Bar 1999)"
             game_dir.mkdir()
             (game_dir / "Foo.vpx").write_bytes(b"x")
+            info = game_info("Foo", game_id="Foo00000001", tables={
+                "t1": {"id": "t1", "filename": "Foo.vpx"}})
+            (game_dir / "Foo (Bar 1999).info").write_text(json.dumps(info))
+            library_of(self, {"Foo00000001": fake_game(game_dir, game_dir.name, meta=info)})
             zip_path = Path(tmp) / "assets.zip"
             make_zip(zip_path, ["new.vpx", "MyPup/screens.pup", "MyPup/s1/a.mp4", "wheel.png"])
             analysis = analyze_path(zip_path)

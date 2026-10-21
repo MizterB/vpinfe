@@ -14,7 +14,7 @@ from typing import IO, Any
 
 from common import service_errors
 from common.failures import why
-from common.games import identity_claims, media_browse, media_placement, media_service
+from common.games import identity_claims, media_browse, media_placement, media_service, table_swap
 from common.games.asset_registry import spec_for
 from common.games.game_metadata import made_from
 from common.games.table_lens import table_settings
@@ -37,7 +37,6 @@ from common.uploads.asset_import_service import (
     execute_import_plan,
     find_vps_entry,
     only_kind,
-    replaced_table,
     require_plain_rom,
     select_plan_items,
     vps_folder_name,
@@ -114,8 +113,7 @@ def _replaces(plan: ImportPlan, item: PlannedItem) -> str:
         return ""   # a folder that does not exist yet has nothing to replace
     base = Path(plan.game_dir)
     if item.action == "replace_vpx":
-        replaced = replaced_table(base)
-        return t("asset.plan.replaces_named", name=replaced.name) if replaced else ""
+        return t("asset.plan.replaces_named", name=item.replaces) if item.replaces else ""
     if item.action == "replace_media":
         return _media_replaces(base, item)
     if item.action in {"replace_b2s", "copy"} and Path(item.destination).exists():
@@ -137,9 +135,8 @@ def _made_from_replaced(plan: ImportPlan, item: PlannedItem) -> list[str]:
     """The tables a patch made from the file this item deletes, by filename."""
     if item.action != "replace_vpx" or plan.new_game_dir_name:
         return []
-    game_dir = Path(plan.game_dir)
-    replaced = replaced_table(game_dir)
-    return made_from(table_settings(game_dir), replaced.name) if replaced else []
+    return (made_from(table_settings(Path(plan.game_dir)), item.replaces)
+            if item.replaces else [])
 
 
 def _plan_to_dict(plan: ImportPlan) -> dict:
@@ -165,11 +162,45 @@ def _plan_to_dict(plan: ImportPlan) -> dict:
                 "name": _item_name(item),
                 "replaces": _replaces(plan, item),
                 "made_from_it": _made_from_replaced(plan, item),
+                "swap": _swap_of(plan, item),
             }
             for index, item in enumerate(plan.items)
         ],
         "blocked": _blocked(plan),
+        "choice": _choice_of(plan),
     }
+
+
+def _swap_of(plan: ImportPlan, item: PlannedItem) -> dict | None:
+    """The table a replacing item takes the place of, and each file named for it with
+    whether it is carried to the new one. None for every other item."""
+    if item.action != "replace_vpx" or plan.new_game_dir_name:
+        return None
+    game_id = table_swap.game_id_of(Path(plan.game_dir))
+    if not game_id:
+        return None
+    found = table_swap.plan(game_id, item.table_id, item.destination, item.instead,
+                            brings=item.brings)
+    found["files"] = [{**one, "carry": one["kind"] in item.carry} for one in found["files"]]
+    return found
+
+
+def _choice_of(plan: ImportPlan) -> dict | None:
+    """What the confirmation offers a game that already has a table: replace one of them
+    or keep both. None for a new game, a drop with no table in it, or a game with no table
+    that can be swapped."""
+    if plan.new_game_dir_name or not plan.game_dir:
+        return None
+    joining = [one for one in plan.items if one.asset.kind == "table"]
+    if not joining:
+        return None
+    game_id = table_swap.game_id_of(Path(plan.game_dir))
+    held = table_swap.choices(game_id) if game_id else []
+    if not held:
+        return None
+    swap = next((one.table_id for one in joining if one.action == "replace_vpx"), "")
+    return {"tables": held, "replace": bool(swap),
+            "table": swap or next((one["id"] for one in held if one["default"]), held[0]["id"])}
 
 
 def _blocked(plan: ImportPlan) -> list[dict]:
@@ -336,6 +367,9 @@ def _built_plan(analysis: AnalysisResult, request: dict[str, Any]) -> ImportPlan
             allow_new_game=request.get("allow_new_game", False),
             location_id=request.get("location_id") or "",
             add_table=bool(request.get("add_table")),
+            replace_table=request.get("replace_table") or "",
+            carry=request.get("carry"),
+            instead=bool(request.get("instead")),
         )
     except ValueError as exc:
         # Nowhere to put it. Something a person fixes - a share to mount, a location to

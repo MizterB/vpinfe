@@ -65,6 +65,13 @@ def is_referenced(table: dict[str, Any] | None) -> bool:
     return str((table or {}).get("form") or "") == "referenced"
 
 
+def can_swap(table: dict[str, Any] | None) -> bool:
+    """Whether this entry's file can be replaced or deleted: it is in the game folder
+    and there."""
+    return (str((table or {}).get("form") or "") == "contained"
+            and bool((table or {}).get("available")) and not (table or {}).get("absent_since"))
+
+
 def can_forget(table: dict[str, Any] | None) -> bool:
     """Whether this entry's record can be dropped: anything the game folder does not hold.
     A table that is there only comes back at the next scan."""

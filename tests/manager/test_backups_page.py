@@ -230,8 +230,8 @@ class Views(unittest.TestCase):
 
     def test_the_file_name_is_the_last_column_and_only_the_views_of_a_games_files_show_it(
             self) -> None:
-        """A media, asset or table copy is of one file among a game's several, so its file is what it
-        is."""
+        """A media, asset or table copy is of one file among a game's several, so its file
+        is what it is."""
         self.assertEqual("file", backups._ALL[-1])
         shown = {"manager.view.backups_media", "manager.view.backups_assets",
                  "manager.view.backups_tables"}

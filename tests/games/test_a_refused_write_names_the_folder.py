@@ -29,8 +29,9 @@ from common.uploads.asset_import_service import (
     execute_import_plan,
     select_plan_items,
 )
-from tests.support.library import TempTree, fake_game, write_game
+from tests.support.library import TempTree, fake_game, game_info, write_game
 from tests.support.skips import needs_posix_permissions
+from tests.support.swaps import library_of
 
 GAME_ID = "Refused001"
 FOLDER = "Locked Game (Original 2024)"
@@ -183,6 +184,10 @@ class RenamedOnlyInCaseTests(TempTree):
         drop = self.root / "drop.zip"
         with zipfile.ZipFile(drop, "w") as archive:
             archive.writestr("Example.vpx", b"new")
+        info = game_info(self.folder.name, game_id="Game00000001",
+                         tables={"t1": {"id": "t1", "filename": "example.vpx"}})
+        (self.folder / f"{self.folder.name}.info").write_text(json.dumps(info))
+        library_of(self, {"Game00000001": fake_game(self.folder, self.folder.name, meta=info)})
         plan = build_import_plan(analyze_path(drop), game_dir=self.folder)
 
         with mock.patch("common.uploads.asset_import_service.refresh_game"):

@@ -1137,6 +1137,23 @@ class Library:
         self._forget_game(game_id)
         return result
 
+    def table_swap_plan(self, game_id: str, table_id: str) -> dict:
+        return self._client.table_swap_plan(game_id, table_id)
+
+    def delete_table_file(self, game_id: str, table_id: str) -> dict:
+        """Delete a table and its files. The game's tables, its media and its row change."""
+        result = self._client.delete_table_file(game_id, table_id)
+        self._forget_after_a_table_write(game_id)
+        self.forget_media(game_id)
+        return result
+
+    def swap_table_back(self, game_id: str, table_id: str, copies: list[str],
+                        source: dict | None = None) -> dict:
+        result = self._client.swap_table_back(game_id, table_id, copies, source)
+        self._forget_after_a_table_write(game_id)
+        self.forget_media(game_id)
+        return result
+
     def forget_media(self, game_id: str) -> None:
         """Every tier, not just the one written: a shared file changes what each build
         resolves, so leaving the per-build reads cached would show the old answer."""

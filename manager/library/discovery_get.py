@@ -629,7 +629,8 @@ async def _tie(library: Any, game_id: str, entry_id: str, folder: str, vps_file_
 
 async def _tie_tables(library: Any, game_id: str, vps_file_id: str,
                       report: dict[str, Any], plan: dict[str, Any]) -> None:
-    tables = list(report.get("added_tables") or ())
+    tables = [*(report.get("added_tables") or ()),
+              *(str(one["table"]["id"]) for one in report.get("replaced_tables") or ())]
     if not tables:
         names = {Path(str(item["destination"])).name for item in plan.get("items") or ()
                  if item.get("action") == "replace_vpx"}

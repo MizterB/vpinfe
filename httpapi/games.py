@@ -42,6 +42,7 @@ from common.games import (
     outside_links,
     picture_ops,
     table_ops,
+    table_swap,
     text_file,
 )
 from common.host import play_service
@@ -650,6 +651,30 @@ def contain_table(game_id: str, table_id: str) -> models.Table:
 def delete_table(game_id: str, table_id: str) -> models.TableForgotten:
     """No file is deleted, because there is none - what goes is the entry describing it."""
     return models.TableForgotten.model_validate(table_ops.forget(game_id, table_id))
+
+
+@router.get("/{game_id}/tables/{table_id}/swap", summary="What swapping or deleting a table moves",
+            dependencies=[requires(scopes.GAMES_READ)])
+def get_table_swap(game_id: str, table_id: str) -> models.SwapPlan:
+    """The table named by version and author, and the files named for it, which go with it
+    or are carried to the file that takes its place."""
+    return models.SwapPlan.model_validate(table_swap.plan(game_id, table_id))
+
+
+@router.delete("/{game_id}/tables/{table_id}/file", summary="Delete a table from disk",
+               dependencies=[requires(scopes.GAMES_WRITE)])
+def delete_table_file(game_id: str, table_id: str) -> models.TableDeleted:
+    """The file and every file named for it, after a copy of each goes to Backups. The
+    game plays its next table; a collection that named this one plays the game's default."""
+    return models.TableDeleted.model_validate(table_swap.delete(game_id, table_id))
+
+
+@router.post("/{game_id}/tables/{table_id}/swap_back", summary="Swap a table back to a kept file",
+             dependencies=[requires(scopes.GAMES_WRITE)])
+def swap_table_back(game_id: str, table_id: str,
+                    payload: models.TableSwapBack) -> models.TableSwapped:
+    return models.TableSwapped.model_validate(
+        table_swap.undo(game_id, table_id, payload.copies, payload.source))
 
 
 @router.post("/{game_id}/launch", summary="Launch a game on this play host",

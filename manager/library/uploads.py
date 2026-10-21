@@ -376,6 +376,7 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
                            game_dir: str = "", allow_new_game: bool = False,
                            media_kind: str = "", location_id: str = "",
                            asset_kind: str = "", add_table: bool = False,
+                           replace_table: str = "", instead: bool = False,
                            on_imported: Callable[[dict, dict], Any] | None = None,
                            release: import_dialog.ReleaseMatch | None = None) -> None:
     """From staged files to the import confirmation, and what follows a yes.
@@ -392,7 +393,8 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
         plan = await offload.io(library.upload_plan, upload_id, game_dir=game_dir,
                                 rom_name=rom_name, allow_new_game=allow_new_game,
                                 media_kind=media_kind, location_id=location_id,
-                                asset_kind=asset_kind, add_table=add_table)
+                                asset_kind=asset_kind, add_table=add_table,
+                                replace_table=replace_table, instead=instead)
     except Exception as exc:  # noqa: BLE001
         logger.warning("manager: upload %s has no destination", upload_id, exc_info=True)
         ui.notify(t("manager.uploads.no_destination"), caption=why(exc),
@@ -424,7 +426,8 @@ async def confirmed_import(library: Any, upload_id: str, analysis: dict[str, Any
         library, upload_id, plan, source=source, file_count=file_count, game_dir=game_dir,
         rom_name=rom_name,
         allow_new_game=allow_new_game, media_kind=media_kind, location_id=location_id,
-        asset_kind=asset_kind, add_table=add_table, declared=_declared(analysis, game_id),
+        asset_kind=asset_kind, add_table=add_table, replace_table=replace_table,
+        instead=instead, declared=_declared(analysis, game_id),
         release=release, on_done=done)
 
 

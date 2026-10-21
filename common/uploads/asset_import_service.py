@@ -7,7 +7,6 @@ overwrite a file is something the user declines rather than undoes.
 from __future__ import annotations
 
 import logging
-import os
 import tempfile
 import zipfile
 from collections.abc import Callable, Iterable, Mapping
@@ -17,13 +16,18 @@ from pathlib import Path, PurePosixPath
 from common import tokens
 from common.atomic_write import staged_for, write_atomic
 from common.failures import why
-from common.games import file_move, game_repository, library_folders, media_placement
+from common.games import (
+    asset_resolver,
+    file_move,
+    game_repository,
+    library_folders,
+    media_placement,
+    table_swap,
+)
 from common.games.asset_registry import ARCHIVE_EXTENSIONS, lens_kind, spec_for
 from common.games.formats.vpx_parser import VPXParser
 from common.games.game_repository import refresh_game
 from common.games.game_service import (
-    _find_directb2s_file,
-    _find_ini_file,
     _find_vpx_file,
     _safe_upload_name,
     ensure_dir,
@@ -57,6 +61,14 @@ class PlannedItem:
     action: str             # replace_vpx | add_table | replace_b2s | copy | zip_rom
                             # | extract_tree | replace_media | apply_patch | write_info
     default_enabled: bool = True
+    # A replace_vpx item names the table it puts the file in the place of, the file that
+    # table has now, the kinds of its own file carried to the new one, and the kinds the
+    # drop brings of its own.
+    table_id: str = ""
+    replaces: str = ""
+    carry: tuple[str, ...] = ()
+    brings: tuple[str, ...] = ()
+    instead: bool = False
 
 
 @dataclass(frozen=True)
@@ -351,15 +363,74 @@ def _new_games_under(location_id: str = "") -> str:
     return found.path
 
 
+@dataclass(frozen=True)
+class _Swap:
+    """The table a drop takes the place of."""
+
+    table_id: str
+    filename: str
+
+
+def _swap_target(base: Path, replace_table: str) -> _Swap | None:
+    """The table a drop replaces: the one named, else the game's default. None where the
+    game has no table that can be swapped, so the drop joins the others."""
+    game_id = table_swap.game_id_of(base)
+    if not game_id:
+        return None
+    held = table_swap.choices(game_id)
+    if replace_table:
+        found = next((one for one in held if one["id"] == replace_table), None)
+        if found is None:
+            raise ValueError(t("error.games.swap_not_contained"))
+    else:
+        found = next((one for one in held if one["default"]), None)
+    return _Swap(found["id"], found["filename"]) if found else None
+
+
+def _swapping(items: list[PlannedItem], blocked: list[BlockedItem], analysis: AnalysisResult,
+              base: Path, swap: _Swap, carry: Iterable[str] | None,
+              instead: bool) -> tuple[list[PlannedItem], list[BlockedItem]]:
+    """The table item made a swap of `swap`'s table, and the drop's own files of a kind that
+    is carried left out: the old file follows the table, and two cannot take one name."""
+    brings = {asset.kind for asset in analysis.assets
+              if asset.kind in asset_resolver.PER_TABLE_KINDS}
+    held = set(table_swap.named_files(base, swap.filename))
+    kept: list[PlannedItem] = []
+    refused = list(blocked)
+    for item in items:
+        if item.action != "replace_vpx":
+            kept.append(item)
+            continue
+        target = Path(item.destination)
+        if target.name != swap.filename and target.name.lower() != swap.filename.lower() \
+                and target.exists():
+            refused.append(BlockedItem(item.asset, t("error.games.file_exists")))
+            continue
+        chosen = (table_swap.default_carry(brings, instead) if carry is None else set(carry))
+        chosen = (chosen & held) - table_swap.shared_by_name(base, target.name)
+        kept.append(replace(item, table_id=swap.table_id, replaces=swap.filename,
+                            carry=tuple(sorted(chosen)), brings=tuple(sorted(brings)),
+                            instead=instead))
+    carried = {kind for one in kept for kind in one.carry}
+    return [one for one in kept
+            if not (one.action in ("replace_b2s", "copy") and one.asset.kind in carried
+                    and one.asset.kind in asset_resolver.PER_TABLE_KINDS)], refused
+
+
 def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
                       game_row: dict | None = None, rom_name: str = "",
                       allow_new_game: bool = False,
                       games_path: str | None = None,
-                      location_id: str = "", add_table: bool = False) -> ImportPlan:
+                      location_id: str = "", add_table: bool = False,
+                      replace_table: str = "", carry: Iterable[str] | None = None,
+                      instead: bool = False) -> ImportPlan:
     """Route detected assets to destinations for an existing game or a new game bundle.
 
-    For an existing game, a table in the drop replaces the game's table, or with
-    `add_table` joins it as one more.
+    For an existing game, a table in the drop takes the place of `replace_table`, or of the
+    game's default when none is named, or with `add_table` joins the game's tables as one
+    more. `carry` is the kinds of file named for the replaced table that follow it to the
+    new one; none given takes the defaults for an update, or for another release with
+    `instead`. A game the library does not hold has no table to replace, so its drop joins.
     """
     rom_name = require_plain_rom(rom_name)
     items: list[PlannedItem] = []
@@ -392,15 +463,18 @@ def build_import_plan(analysis: AnalysisResult, *, game_dir: Path | None = None,
             vpx_stem = ""
         sidecar_stem = (_arriving_stem(analysis.assets)
                         or _sidecar_stem(analysis.assets, base, vpx_stem))
+        swap = None if add_table else _swap_target(base, replace_table)
         for asset in _one_file_each(analysis.assets):
             planned = _plan_asset(asset, base, vpx_stem, rom_name,
                                   analysis.source_name,
-                                  game_kind_action="add_table" if add_table else "replace_vpx",
+                                  game_kind_action="replace_vpx" if swap else "add_table",
                                   sidecar_stem=sidecar_stem)
             if isinstance(planned, PlannedItem):
                 items.append(planned)
             else:
                 blocked.append(planned)
+        if swap:
+            items, blocked = _swapping(items, blocked, analysis, base, swap, carry, instead)
         items, blocked = _one_to_a_name(items, blocked)
         return ImportPlan(str(base), "", rom_name, tuple(items), tuple(blocked))
 
@@ -643,46 +717,30 @@ def _extract_replace(source: AssetSource, entry: SourceEntry, dest: Path) -> Non
         source.extract_member(entry.path, staged)
 
 
-def replaced_table(game_dir: Path) -> Path | None:
-    """The table a `replace_vpx` item deletes: the one the game plays by default."""
+def has_table(game_dir: Path) -> bool:
     try:
-        return _find_vpx_file(game_dir)
+        _find_vpx_file(game_dir)
     except FileNotFoundError:
-        return None
+        return False
+    return True
 
 
-def _replace_vpx_from_file(source: AssetSource, asset: DetectedAsset,
-                           base: Path) -> None:
-    entry = asset.entries[0]
-    safe = _safe_upload_name(_basename(entry.arcname))
-    if not safe.lower().endswith(".vpx"):
+def _swap_table(source: AssetSource, item: PlannedItem, base: Path) -> dict:
+    """Put the arriving table in the place of the one the item names, keeping its entry.
+    The answer is the game, the table's row and the copies of what went to Backups."""
+    entry = item.asset.entries[0]
+    name = _safe_upload_name(_basename(entry.arcname))
+    if not name.lower().endswith(".vpx"):
         raise ValueError(t("error.uploads.table_kind"))
-    new_vpx = base / safe
-    old_vpx = replaced_table(base)
-    old_b2s = _find_directb2s_file(base, old_vpx.stem) if old_vpx else None
-    old_ini = _find_ini_file(base, old_vpx.stem) if old_vpx else None
-
-    with staged_for(new_vpx) as staged:
+    game_id = table_swap.game_id_of(base)
+    if not game_id:
+        raise ValueError(t("error.games.swap_not_contained"))
+    with tempfile.TemporaryDirectory() as scratch:
+        staged = Path(scratch) / name
         source.extract_member(entry.path, staged)
-        if old_vpx and old_vpx.resolve() != new_vpx.resolve():
-            old_vpx.unlink()
-
-    if old_b2s and old_b2s.exists():
-        new_b2s = base / f"{new_vpx.stem}.directb2s"
-        if old_b2s.resolve() != new_b2s.resolve():
-            if new_b2s.exists():
-                new_b2s.unlink()
-            os.replace(old_b2s, new_b2s)
-    _record_replaced_table(base, new_vpx,
-                           old_vpx.name if old_vpx and old_vpx.name != new_vpx.name else None)
-
-    if old_ini and old_ini.exists():
-        new_ini = base / f"{new_vpx.stem}.ini"
-        if old_ini.resolve() != new_ini.resolve():
-            if new_ini.exists():
-                new_ini.unlink()
-            os.replace(old_ini, new_ini)
-    refresh_game(base)
+        swapped = table_swap.replace(game_id, item.table_id, str(staged), carry=item.carry,
+                                     instead=item.instead)
+    return {**swapped, "game": game_id}
 
 
 def _add_table_from_file(source: AssetSource, asset: DetectedAsset, base: Path,
@@ -732,20 +790,6 @@ def _import_media(source: AssetSource, asset: DetectedAsset, game_dir: Path) -> 
         media_placement.record_origin(game_dir, written)
     finally:
         scratch.unlink(missing_ok=True)
-
-
-def _record_replaced_table(game_dir: Path, vpx: Path, removed: str | None) -> None:
-    """Describe the new .vpx in the game's .info, and drop the entry for the one it
-    replaced. Best effort - the table is on disk either way.
-    """
-    try:
-        meta = MetaConfig(str(game_dir / f"{game_dir.name}.info"))
-        parsed = VPXParser().single_file_extract(str(vpx))
-        if parsed or removed:
-            meta.replace_table(removed, vpx.name, parsed)
-    except Exception:
-        logger.warning("Replaced the table with %s, but could not record it in the .info",
-                       vpx.name, exc_info=True)
 
 
 def _record_patched_table(game_dir: Path, vpx: Path, base_file: str, base_hash: str) -> None:
@@ -827,19 +871,20 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
     else:
         library_folders.writable_game_folder(base)
 
-    first_table = bool(plan.new_game_dir_name) or replaced_table(base) is None
+    first_table = bool(plan.new_game_dir_name) or not has_table(base)
     source = open_source(Path(source_path))
     imported: list[str] = []
     media_kinds: list[str] = []
     added: list[str] = []
+    replaced: list[dict] = []
     renamed: list[dict[str, str]] = []
     try:
-        for item in plan.items:
+        for item in sorted(plan.items, key=lambda one: one.action != "replace_vpx"):
             if progress_cb:
                 progress_cb(spec_for(item.asset.kind).label)
             dest = Path(item.destination)
             if item.action == "replace_vpx":
-                _replace_vpx_from_file(source, item.asset, base)
+                replaced.append(_swap_table(source, item, base))
             elif item.action == "add_table":
                 added.append(_add_table_from_file(source, item.asset, base, dest))
             elif item.action == "replace_b2s":
@@ -883,6 +928,7 @@ def execute_import_plan(plan: ImportPlan, source_path: Path,
         "media_kinds": media_kinds,
         "declared": declared_written,
         "added_tables": added,
+        "replaced_tables": replaced,
         "renamed": renamed,
     }
 

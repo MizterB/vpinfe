@@ -29,7 +29,7 @@ from manager.extensions import ext_verbs
 from manager.kit import confirm, game_tables, offload, panel, stars, undo, verbs
 from manager.kit import dialog as frame
 from manager.kit.on_page import on_page
-from manager.library import collection_adds, media_fill, vps_match
+from manager.library import collection_adds, getting_file, media_fill, vps_match
 from manager.library import record as recorder
 
 Refresh = Callable[[list[str]], Awaitable[None]]
@@ -413,6 +413,39 @@ def table_acts(library: Any, targets: list[Target], after: After, state: dict[st
                       type="positive")
             await after(games_of(applies), True)
 
+    async def replace_file() -> None:
+        game: dict[str, Any] = next(
+            (one for one in library.games if str(one.get("id")) == first.game_id), {})
+        getting_file.open_for(
+            library, game_id=first.game_id, game_dir=str(game.get("folder") or ""),
+            table_id=first.id,
+            title=t("manager.table_swap.replace_title",
+                    name=game_tables.name_among(first.table, first.siblings)),
+            on_done=partial(after, [first.game_id], False))
+
+    @on_page
+    async def delete_file() -> None:
+        try:
+            plan = await offload.io(library.table_swap_plan, first.game_id, first.id)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("manager.table_swap.delete_failed"), caption=why(exc), type="negative")
+            return
+        label = str(plan["label"])
+        made = game_tables.made_from_it_line(list(plan.get("patched") or []))
+        is_last = len(first.siblings) <= 1
+        if not await confirm.ask(
+                t("manager.table_swap.delete_question", label=label),
+                detail=[t("manager.table_swap.delete_detail"),
+                        t("manager.table_swap.delete_last" if is_last
+                          else "manager.table_swap.delete_next", name=first.game)],
+                lines=[plan["filename"], *(one["file"] for one in plan["files"]),
+                       *([made] if made else [])]):
+            return
+        if await write([first], library.delete_table_file, lambda item: (item.id,),
+                       t("manager.table_swap.delete_failed")) is not None:
+            ui.notify(t("manager.table_swap.deleted", label=label), type="positive")
+            await after([first.game_id], True)
+
     @on_page
     async def placed() -> None:
         await run.io_bound(library.reread_media, games_of(targets))
@@ -456,6 +489,13 @@ def table_acts(library: Any, targets: list[Target], after: After, state: dict[st
         offered.append(reset_game)
     if any(game_tables.can_forget(item.table) for item in targets):
         offered.append(panel.Verb(t("word.forget"), forget, danger=True))
+    swappable = any(game_tables.can_swap(item.table) for item in targets)
+    if swappable:
+        offered.insert(
+            len(offered) - sum(verb.danger for verb in offered),
+            panel.Verb(t("manager.table_swap.replace_file"), replace_file, one=True))
+        offered.append(panel.Verb(t("manager.table_swap.delete_file"), delete_file,
+                                  danger=True, one=True))
     offered += ext_verbs.offered(
         state, "table", [{"game_id": item.game_id, "table_id": item.id} for item in targets],
         lambda: after(games_of(targets), False))

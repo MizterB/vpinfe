@@ -15,6 +15,8 @@ from common.uploads.asset_import_service import (
     merge_info,
     select_plan_items,
 )
+from tests.support.library import fake_game, game_info
+from tests.support.swaps import library_of
 from tests.support.uploads import make_zip
 
 
@@ -131,6 +133,7 @@ class GameInfoImportTests(unittest.TestCase):
                 game_dir = Path(tmp) / "Foo (Bar 1999)"
                 game_dir.mkdir()
                 (game_dir / "Foo.vpx").write_bytes(b"x")
+                library_of(self)
                 local = {"Info": {"VPSId": "local-id"}, "User": {"Rating": 3, "StartCount": 12}}
                 info_path = game_dir / "Foo (Bar 1999).info"
                 info_path.write_text(json.dumps(local))
@@ -146,7 +149,9 @@ class GameInfoImportTests(unittest.TestCase):
                 self.assertEqual(data["User"]["StartCount"], 12)
                 copies = sorted(game_dir.glob("Foo (Bar 1999).info.vpinfe-*-import"))
                 self.assertEqual(len(copies), 1)
-                self.assertEqual(json.loads(copies[0].read_text()), local)
+                kept = json.loads(copies[0].read_text())
+                kept.pop("tables")
+                self.assertEqual(kept, local)
                 self.assertFalse((game_dir / "Foo (Bar 1999).info.bak").exists())
 
 
@@ -205,6 +210,7 @@ class ImportExecuteTests(unittest.TestCase):
                 game_dir.mkdir()
                 (game_dir / "Old.vpx").write_bytes(b"old")
                 (game_dir / "Old.directb2s").write_bytes(b"b2s")
+                self._held(game_dir, {"Old.vpx": {}})
                 zip_path = Path(tmp) / "new.zip"
                 make_zip(zip_path, ["New.vpx"])
                 analysis = analyze_path(zip_path)
@@ -217,9 +223,9 @@ class ImportExecuteTests(unittest.TestCase):
                 self.assertTrue((game_dir / "New.directb2s").exists())
                 self.assertFalse((game_dir / "Old.directb2s").exists())
 
-    def test_a_replacing_drop_s_backglass_follows_the_new_table(self):
-        """The old table's backglass is moved across to the new name first, so one
-        planned under the old name would be left there, belonging to nothing."""
+    def test_a_replacing_drop_s_backglass_is_the_tables_and_the_old_one_is_kept_aside(self):
+        """A backglass the drop brings is not overwritten by the carried one, so the
+        old table's goes to Backups and the new name has the drop's."""
         from pathlib import Path
         from tempfile import TemporaryDirectory
         with mock.patch.object(asset_import_service, "refresh_game"), \
@@ -228,6 +234,7 @@ class ImportExecuteTests(unittest.TestCase):
             game_dir.mkdir()
             (game_dir / "Old.vpx").write_bytes(b"old")
             (game_dir / "Old.directb2s").write_bytes(b"old-b2s")
+            self._held(game_dir, {"Old.vpx": {}})
             zip_path = Path(tmp) / "new.zip"
             make_zip(zip_path, ["New.vpx", "New.directb2s"])
 
@@ -239,20 +246,33 @@ class ImportExecuteTests(unittest.TestCase):
                              ["New.directb2s", "New.vpx"])
             self.assertEqual((game_dir / "New.directb2s").read_bytes(), b"x" * 16)
 
+    def _held(self, game_dir, tables: dict | None = None, parsed: dict | None = None,
+              **sections) -> None:
+        """Write the game's .info with `tables` keyed by file name, and have the library
+        hold it. A table that is named but given no file is given an entry of its own."""
+        import json
+        by_id = {f"t{index}": {"id": f"t{index}", "filename": name, **entry}
+                 for index, (name, entry) in enumerate((tables or {}).items())}
+        info = game_info(game_dir.name, game_id="Game00000001", tables=by_id)
+        for section, values in sections.items():
+            info.setdefault(section, {}).update(values)
+        (game_dir / f"{game_dir.name}.info").write_text(json.dumps(info))
+        library_of(self, {"Game00000001": fake_game(game_dir, game_dir.name, meta=info)},
+                   parsed=parsed)
+
     def _replace_game(self, tmp, game_dir, info: dict, new_name: str, parsed):
         """Drop new_name onto an existing game, and hand back the resulting .info."""
         import json
         from pathlib import Path
         (game_dir / "Old.vpx").write_bytes(b"old")
         info_path = game_dir / f"{game_dir.name}.info"
-        info_path.write_text(json.dumps(info))
+        self._held(game_dir, info.get("tables"), parsed,
+                   **{k: v for k, v in info.items() if k != "tables"})
         zip_path = Path(tmp) / "new.zip"
         make_zip(zip_path, [new_name])
 
         plan = build_import_plan(analyze_path(zip_path), game_dir=game_dir)
-        with mock.patch.object(asset_import_service, "refresh_game"), \
-                mock.patch.object(asset_import_service, "VPXParser") as parser:
-            parser.return_value.single_file_extract.return_value = parsed
+        with mock.patch.object(asset_import_service, "refresh_game"):
             execute_import_plan(plan, zip_path)
         return json.loads(info_path.read_text())
 

@@ -691,6 +691,31 @@ class MetaConfig:
         self.write_config()
         return True
 
+    def restore_table_source(self, table_id: str, source: dict) -> bool:
+        """Give a table back the release tie it had before a swap took it away."""
+        entry = self._entries_by_id().get(table_id)
+        if not isinstance(entry, dict) or not source:
+            return False
+        entry["source"] = copy.deepcopy(source)
+        self.write_config()
+        return True
+
+    def restore_table(self, entry: dict) -> bool:
+        """Put back the record of a table deleted on purpose, with the id it had.
+
+        Does nothing, and says so, when the id is taken or another record already names the
+        file: a record that exists is never replaced. It is not made the default.
+        """
+        entries = self._entries_by_id()
+        table_id = str(entry.get(TABLE_ID_KEY) or "")
+        filename = entry_filename(entry)
+        if not table_id or not filename or table_id in entries or any(
+                entry_filename(one) == filename for one in entries.values()):
+            return False
+        entries[table_id] = dict(entry)
+        self.write_config()
+        return True
+
     def record_patch_source(self, filename: str, base_file: str, base_hash: str,
                             patch_format: str) -> None:
         """Record a table we made ourselves: the base it came from, and the patch that

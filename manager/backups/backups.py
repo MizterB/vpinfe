@@ -74,6 +74,7 @@ REASON_WORDS = {
     kept_copies.REASON_EDIT: "manager.backups.reason.edit",
     kept_copies.REASON_MOVE: "manager.backups.reason.move",
     kept_copies.REASON_REPLACE: "manager.backups.reason.replace",
+    kept_copies.REASON_DELETE: "manager.backups.reason.delete",
 }
 BY_WORDS = {kept_copies.BY_2X: "manager.backups.by.2x", kept_copies.BY_3X: "manager.backups.by.3x"}
 
@@ -696,6 +697,7 @@ REASON_LINES = {
     kept_copies.REASON_EDIT: "manager.backups.reason_line.edit",
     kept_copies.REASON_MOVE: "manager.backups.reason_line.move",
     kept_copies.REASON_REPLACE: "manager.backups.reason_line.replace",
+    kept_copies.REASON_DELETE: "manager.backups.reason_line.delete",
 }
 # Where the name of what a copy is of opens, per kind of owner. A theme has a page and no
 # address of its own.

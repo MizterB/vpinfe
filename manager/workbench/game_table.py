@@ -14,6 +14,7 @@ from nicegui import run, ui
 from common.devices import install_identity
 from common.failures import why
 from common.i18n import t
+from common.online import sites
 from manager.backups import backup_rows
 from manager.extensions import ext_groups, ext_lists
 from manager.kit import (
@@ -32,7 +33,15 @@ from manager.kit import (
 from manager.kit import dialog as frame
 from manager.kit.data import Library, tag_source
 from manager.kit.on_page import on_page
-from manager.library import collection_adds, file_acts, mediamap, mediasource, vps_match
+from manager.library import (
+    collection_adds,
+    discovery,
+    file_acts,
+    getting_file,
+    mediamap,
+    mediasource,
+    vps_match,
+)
 from manager.settings import dof
 from manager.workbench.core import (
     _KEEP_SCROLL,
@@ -1085,12 +1094,32 @@ def _faults(context: dict[str, Any], table: dict[str, Any],
         theirs = str(source.get("version") or "")
         release = releases.get(str(source.get("vps_file_id") or "")) or {}
         to = str(release.get("url") or "") or entry_url
-        act = (panel.link_out(t("manager.workbench.get_version", version=theirs), to=to)
-               if to else _state(t("manager.workbench.vps_failed"), "unknown",
-                                 hint=unread) if unread else None)
+        if to and game_tables.can_swap(table):
+            act: Callable[[], None] | None = panel.action(
+                t("manager.workbench.update"),
+                partial(_update_table, context, table, to, theirs, release),
+                icon=verbs.REPLACE, hint=t("manager.workbench.update.help", version=theirs))
+        else:
+            act = (panel.link_out(t("manager.workbench.get_version", version=theirs), to=to)
+                   if to else _state(t("manager.workbench.vps_failed"), "unknown",
+                                     hint=unread) if unread else None)
         faults.append((t("manager.workbench.newer_on_vps", theirs=theirs,
                          ours=str(source.get("vps_version") or "")), act))
     return faults
+
+
+def _update_table(context: dict[str, Any], table: dict[str, Any], page: str, version: str,
+                  release: dict[str, Any]) -> None:
+    """Open the newer version's page and take the file for it, to replace this table."""
+    vps_file_id = str((table.get("source") or {}).get("vps_file_id") or "")
+    told = discovery.told(release) or version
+    getting_file.open_for(
+        context["library"], game_id=context["game_id"],
+        game_dir=str(context["game"].get("folder") or ""), table_id=str(table.get("id") or ""),
+        page=page, site=sites.site_name(page), title=t("manager.getting_file.get_version",
+                                                       version=version),
+        release=getting_file.release_of(vps_file_id, told),
+        on_done=partial(_table_list_changed, context))
 
 
 def _alert(line: str, act: Callable[[], None] | None, said: str = "") -> Callable[[], None]:

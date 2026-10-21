@@ -44,6 +44,7 @@ from manager.library import (
     discovery_pictures,
     file_acts,
     file_facts,
+    getting_file,
     import_dialog,
     mediasource,
     mediaview,
@@ -304,6 +305,13 @@ def _held_card(context: dict[str, Any], scene: Scene, kind: Kind, held: _Held,
                         .classes("manager-help truncate")
         with ui.element("div").classes("manager-slot-actions"):
             _verb(acts.get(file_acts.REPLACE), verbs.REPLACE)
+            if record and kind.listed_as == "tableFiles" and (
+                    later := _newer(context, scene, held.vps_file_id)):
+                panel.action(
+                    t("manager.workbench.update"),
+                    partial(_get_table, context, scene, kind, record, held.name, False),
+                    icon=verbs.REPLACE,
+                    hint=t("manager.workbench.update.help", version=later))()
             if kind.records:
                 label, icon, hint = (
                     (t("manager.workbench.change_match_2"), verbs.MATCH,
@@ -589,8 +597,42 @@ def _end(context: dict[str, Any], scene: Scene, kind: Kind, record: dict[str, An
     with ui.row().classes("items-center gap-1 no-wrap shrink-0"):
         if page:
             _way_out(scene, kind, file_id, site, page, discovery.page_is_broken(record), opened)
+        if kind.listed_as == "tableFiles" and kind.mine and scene.game_id:
+            panel.icon_action(
+                t("manager.discovery.use_instead"),
+                partial(_get_table, context, scene, kind, record, "", True),
+                icon=verbs.REPLACE, hint=t("manager.discovery.use_instead.help"))()
         if offered is not None:
             _download(context, scene, offered)
+
+
+@on_page
+async def _get_table(context: dict[str, Any], scene: Scene, kind: Kind, record: dict[str, Any],
+                     held_name: str, instead: bool) -> None:
+    """Take the file of `record` to replace a table the game holds: the one named `held_name`,
+    else the default. Update is the newer version of the release the table is tied to; Use
+    Instead is another release."""
+    library = context["library"]
+    rows = await run.io_bound(library.tables_for, scene.game_id)
+    swappable = [one for one in rows or () if game_tables.can_swap(one)]
+    if held_name:
+        table = next((one for one in swappable if one.get("filename") == held_name), None)
+    else:
+        table = (next((one for one in swappable if one.get("default")), None)
+                 or (swappable[0] if swappable else None))
+    if table is None:
+        ui.notify(t("manager.table_swap.not_here"), type="warning")
+        return
+    game: dict[str, Any] = next(
+        (one for one in library.games if str(one.get("id")) == scene.game_id), {})
+    site, page = discovery.site_of(record)
+    file_id = str(record.get("vps_file_id") or "")
+    getting_file.open_for(
+        library, game_id=scene.game_id, game_dir=str(game.get("folder") or ""),
+        table_id=str(table["id"]), page=page, site=site,
+        title=t("manager.getting_file.get_version", version=_head(record)),
+        release=getting_file.release_of(file_id, _head(record)), instead=instead,
+        on_done=partial(discovery_get.settle, context["state"], scene.vps_id))
 
 
 def _way_out(scene: Scene, kind: Kind, file_id: str, site: str, page: str, broken: bool,

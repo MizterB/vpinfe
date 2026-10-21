@@ -1411,6 +1411,8 @@ class ApiClient:
                     allow_new_game: bool = False, vps_id: str = "",
                     media_kind: str = "", location_id: str = "",
                     asset_kind: str = "", add_table: bool = False,
+                    replace_table: str = "", carry: list[str] | None = None,
+                    instead: bool = False,
                     new_game_dir_name: str | None = None) -> dict:
         """Where each of those files would go. Nothing is written by asking."""
         path = f"/uploads/{upload_id}/plan"
@@ -1420,7 +1422,10 @@ class ApiClient:
             "allow_new_game": allow_new_game, "vps_id": vps_id,
             "media_kind": media_kind, "location_id": location_id,
             "asset_kind": asset_kind, "add_table": add_table,
+            "replace_table": replace_table, "instead": instead,
         }
+        if carry is not None:
+            body["carry"] = carry
         if new_game_dir_name is not None:
             body["new_game_dir_name"] = new_game_dir_name
         response = self._session.post(f"{self._base}{path}", json=body, timeout=_TIMEOUT)
@@ -1431,6 +1436,8 @@ class ApiClient:
                       allow_new_game: bool = False, vps_id: str = "",
                       media_kind: str = "", location_id: str = "",
                       asset_kind: str = "", add_table: bool = False,
+                      replace_table: str = "", carry: list[str] | None = None,
+                      instead: bool = False,
                       new_game_dir_name: str | None = None,
                       selected: list[int] | None = None,
                       declared: dict | None = None) -> dict:
@@ -1442,7 +1449,10 @@ class ApiClient:
             "allow_new_game": allow_new_game, "vps_id": vps_id,
             "media_kind": media_kind, "location_id": location_id,
             "asset_kind": asset_kind, "add_table": add_table,
+            "replace_table": replace_table, "instead": instead,
         }
+        if carry is not None:
+            body["carry"] = carry
         if new_game_dir_name is not None:
             body["new_game_dir_name"] = new_game_dir_name
         if selected is not None:
@@ -1729,6 +1739,25 @@ class ApiClient:
         response = self._session.delete(f"{self._base}{path}", timeout=_TIMEOUT)
         self._answered(response)
         return response.json()
+
+    def table_swap_plan(self, game_id: str, table_id: str) -> dict:
+        """The table named by version and author, and the files named for it."""
+        return self._get(f"/games/{game_id}/tables/{table_id}/swap")
+
+    def delete_table_file(self, game_id: str, table_id: str) -> dict:
+        """Delete a table and the files named for it, after copying each to Backups."""
+        path = f"/games/{game_id}/tables/{table_id}/file"
+        _refuse_the_event_loop(path)
+        response = self._session.delete(f"{self._base}{path}", timeout=_TIMEOUT)
+        self._answered(response)
+        return response.json()
+
+    def swap_table_back(self, game_id: str, table_id: str, copies: list[str],
+                        source: dict | None = None) -> dict:
+        """Put the table back to the file those copies in Backups hold, with the release
+        tie it had."""
+        return self._post(f"/games/{game_id}/tables/{table_id}/swap_back",
+                          {"copies": copies, "source": source})
 
     def actions(self) -> list[dict]:
         """What this install can be asked to do to itself, and performs."""

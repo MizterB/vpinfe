@@ -15,7 +15,8 @@ from common.uploads import upload_ops
 from common.uploads.asset_analyzer_service import analyze_upload_session
 from common.uploads.asset_import_service import build_import_plan
 from httpapi.models import ImportPlanResource, TableSource
-from tests.support.library import TempTree, write_game
+from tests.support.library import TempTree, fake_game, write_game
+from tests.support.swaps import library_of
 
 FOLDER = "Example (Bally 1990)"
 BASE, MADE = "Example.vpx", "Example VPW Mod.vpx"
@@ -96,6 +97,10 @@ class MadeFrom(_PatchedGame):
 
 
 class ReplacingABase(_PatchedGame):
+    def setUp(self) -> None:
+        super().setUp()
+        library_of(self, {"Game00000001": fake_game(self.folder, FOLDER, meta=_info())})
+
     def _plan(self) -> dict:
         session = self.root / "session"
         session.mkdir()

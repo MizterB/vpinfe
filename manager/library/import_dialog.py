@@ -27,6 +27,7 @@ from common.media.media_specs import IMAGE_FAMILY, media_label_map
 from manager.kit import art, candidates, game_tables, offload, panel, verbs
 from manager.kit import dialog as frame
 from manager.kit.on_page import on_page
+from manager.library import import_swap
 
 logger = logging.getLogger("vpinfe.manager.library.import_dialog")
 
@@ -173,6 +174,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
                    rom_name: str = "",
                    allow_new_game: bool = False, media_kind: str = "",
                    location_id: str = "", asset_kind: str = "", add_table: bool = False,
+                   replace_table: str = "", instead: bool = False,
                    declared: dict | None = None, release: ReleaseMatch | None = None,
                    on_done: Callable[[dict], Any] | None = None) -> None:
     """Show the plan and, if it is confirmed, run it.
@@ -180,32 +182,62 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
     The dialog owns the upload from here: whichever way it closes, the staged files are
     either imported or thrown away. A session left behind is invisible rubbish in a temp
     directory that nothing else will ever clean up.
+
+    A game that already has a table is asked whether the drop replaces one of them or
+    stays beside them. `add_table` says which the dialog starts on, `replace_table` which
+    table, and `instead` that the drop is another release, not a newer file.
     """
-    items = list(plan.get("items") or [])
+    live: dict[str, Any] = {"plan": plan}
     blocked = list(plan.get("blocked") or [])
     new_folder = str(plan.get("new_game_dir_name") or "")
-    chosen: dict[int, bool] = {int(one["index"]): bool(one.get("default_enabled", True))
-                               for one in items}
+    chosen: dict[int, bool] = {}
     # A single item with nothing blocked is not a choice, so it gets no checkbox - the
     # button already says what will happen.
-    single = len(items) == 1 and not blocked
     named: dict[str, Any] = {"folder": new_folder, "vps_id": ""}
     asked = {"game_dir": game_dir, "rom_name": rom_name, "allow_new_game": allow_new_game,
              "media_kind": media_kind, "location_id": location_id,
-             "asset_kind": asset_kind, "add_table": add_table}
+             "asset_kind": asset_kind, "add_table": add_table, "replace_table": replace_table,
+             "instead": instead}
+    swapping = import_swap.Swapping.of(plan.get("choice"), instead=instead)
+    game_name = Path(str(plan.get("game_dir") or "")).name
+    base_title = (dropped_title(source, file_count) if new_folder
+                  else t("manager.import_dialog.import_3", name=game_name))
 
-    with frame.opened(
-            dropped_title(source, file_count) if new_folder
-            else t("manager.import_dialog.import_3",
-                   name=Path(str(plan.get("game_dir") or "")).name),
-            wide=True, ignore_outside_click=True, classes="manager-import-card") as dialog:
+    def asking() -> dict[str, Any]:
+        return {**asked, **(swapping.asked() if swapping else {})}
+
+    def items_of(shown: dict[str, Any]) -> list[dict[str, Any]]:
+        return list(shown.get("items") or [])
+
+    def single() -> bool:
+        return len(items_of(live["plan"])) == 1 and not blocked
+
+    def kept_choices(shown: dict[str, Any]) -> None:
+        """The ticks a person made carried to the items of a fresh plan, matched by what
+        the item is rather than its place in the list."""
+        was = {(one["kind"], one.get("name")): chosen.get(int(one["index"]), True)
+               for one in items_of(live["plan"])}
+        chosen.clear()
+        chosen.update({int(one["index"]): was.get((one["kind"], one.get("name")),
+                                                  bool(one.get("default_enabled", True)))
+                       for one in items_of(shown)})
+
+    chosen.update({int(one["index"]): bool(one.get("default_enabled", True))
+                   for one in items_of(plan)})
+    if swapping is not None:
+        swapping.settle(plan)
+
+    with frame.opened("", wide=True, ignore_outside_click=True,
+                      classes="manager-import-card") as dialog:
+        heading = ui.label("").classes("manager-dialog-title")
         if new_folder:
             ui.label(t("manager.import_dialog.folder_note")) \
                 .classes("manager-help px-3")
             _folder_row(library, named, plan)
-        elif not single and source:
+        elif not single() and source:
             ui.label(t("manager.import_dialog.from", source=(source))) \
                 .classes("manager-help px-3")
+        choice_box = ui.column().classes("gap-2 w-full px-3") if swapping else None
         rows = ui.column().classes("gap-0 w-full manager-import-rows px-3")
 
         if blocked:
@@ -220,27 +252,51 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
 
         def recount() -> None:
             wanted = sum(1 for value in chosen.values() if value)
-            count.text = ("" if single else
+            count.text = ("" if single() else
                           t("manager.import_dialog.imported", wanted=(wanted),
-                                  count=len(items)))
+                                  count=len(items_of(live["plan"]))))
 
         def draw(shown: dict[str, Any]) -> None:
             rows.clear()
             with rows:
-                for one in shown.get("items") or []:
-                    _draw_row(one, shown, chosen, single, recount,
+                for one in items_of(shown):
+                    _draw_row(one, shown, chosen, single(), recount,
                               upload_id if _pictured(one, source) else "")
+            heading.text = (import_swap.title(shown, swapping, release.label if release else "")
+                            or base_title)
+            if swapping is not None and choice_box is not None:
+                import_swap.draw(choice_box, shown, swapping, game=game_name,
+                                 release_label=release.label if release else "",
+                                 changed=replan)
+                go.text = import_swap.confirm_label(swapping)
+
+        @on_page
+        async def replan() -> None:
+            try:
+                fresh = await offload.io(library.upload_plan, upload_id, **asking(),
+                                         vps_id=str(named["vps_id"] or ""))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("manager: no plan for %r", asking(), exc_info=True)
+                ui.notify(t("manager.uploads.no_destination"), caption=why(exc),
+                          type="negative")
+                return
+            kept_choices(fresh)
+            live["plan"] = fresh
+            if swapping is not None:
+                swapping.settle(fresh)
+            draw(fresh)
+            recount()
+
+        with frame.footer():
+            frame.cancel(lambda: dialog.submit(False))
+            go = frame.answer(import_swap.confirm_label(swapping),
+                              lambda: dialog.submit(True), icon=verbs.IMPORT)
+            if not items_of(plan):
+                go.disable()
 
         draw(plan)
         recount()
         follow = _following(library, upload_id, asked, named, draw) if new_folder else None
-
-        with frame.footer():
-            frame.cancel(lambda: dialog.submit(False))
-            go = frame.answer(t("manager.import_dialog.import"),
-                              lambda: dialog.submit(True), icon=verbs.IMPORT)
-            if not items:
-                go.disable()
 
     said = await dialog
     if follow is not None:
@@ -249,7 +305,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
         await run.io_bound(library.abort_upload, upload_id)
         return
 
-    wanted = None if single else [i for i, on in sorted(chosen.items()) if on]
+    wanted = None if single() else [i for i, on in sorted(chosen.items()) if on]
     if wanted is not None and not wanted:
         await run.io_bound(library.abort_upload, upload_id)
         ui.notify(t("manager.import_dialog.none_selected"), type="warning")
@@ -258,7 +314,7 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
     note = ui.notification(t("manager.import_dialog.importing"), spinner=True, timeout=None)
     try:
         report = await offload.io(
-            library.upload_import, upload_id, **asked,
+            library.upload_import, upload_id, **asking(),
             vps_id=str(named["vps_id"] or ""),
             new_game_dir_name=(str(named["folder"]) if new_folder else None),
             selected=wanted, declared=declared)
@@ -269,9 +325,15 @@ async def open_for(library: Any, upload_id: str, plan: dict[str, Any], *,
         await run.io_bound(library.abort_upload, upload_id)
         return
     note.dismiss()
-    if not report.get("added_tables"):
+    swapped = list(report.get("replaced_tables") or ())
+    if not report.get("added_tables") and not swapped:
         brought = len(report.get("imported") or ())
         ui.notify(t("manager.import_dialog.imported_item", count=brought), type="positive")
+    for one in swapped:
+        import_swap.said(library, one,
+                         old=swapping.label_of(swapping.table) if swapping else "",
+                         new=import_swap.new_name(live["plan"], release.label if release else ""),
+                         after=(lambda: on_done(report)) if on_done is not None else None)
     for one in report.get("renamed") or ():
         ui.notify(t("manager.import_dialog.renamed", was=one["was"], now=one["now"]),
                   type="info")

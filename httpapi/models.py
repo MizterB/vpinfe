@@ -2427,6 +2427,32 @@ class TableForgotten(ApiModel):
     forgotten: str
 
 
+class TableDeleted(ApiModel):
+    """What a table's deletion took off the disk, and the copies of each file in Backups."""
+
+    deleted: bool
+    table: str
+    filename: str
+    kept: list[dict]
+
+
+class TableSwapBack(ApiModel):
+    """The copies in Backups the table is swapped back to, from `kept` of the swap or the
+    deletion that put them there."""
+
+    copies: list[str]
+    source: dict | None = None
+
+
+class TableSwapped(ApiModel):
+    """The table as it is now, and the copies of what the swap took out of the game.
+    `source` is the release tie the table had before, which `swap_back` gives back."""
+
+    table: Table
+    kept: list[dict]
+    source: dict | None = None
+
+
 class EntryOverrides(ApiModel):
     """What the user said, against what was discovered. Kept beside the discovered
     values rather than written onto them, so what a scan rebuilds does not lose them."""
@@ -3819,6 +3845,42 @@ class BlockedAsset(ApiModel):
     reason: str
 
 
+class SwapFile(ApiModel):
+    """A file named for the table being replaced. `brought` is set where the new file
+    arrives with one of its own of that kind."""
+
+    kind: str
+    file: str
+    carry: bool
+    brought: bool
+
+
+class SwapPlan(ApiModel):
+    """`label` names the table by version and author, `patched` the tables made from it."""
+
+    table: str
+    filename: str
+    label: str
+    files: list[SwapFile]
+    patched: list[str] = []
+
+
+class ChoiceTable(ApiModel):
+    id: str
+    filename: str
+    label: str
+    default: bool
+
+
+class ImportChoice(ApiModel):
+    """What the confirmation offers a game that already has a table. `table` is the one
+    `replace` is about; `tables` lists every table the game holds that can be replaced."""
+
+    tables: list[ChoiceTable]
+    replace: bool
+    table: str
+
+
 class PlanItem(ApiModel):
     """`index` addresses this item in the `selected` list of an import request."""
 
@@ -3843,6 +3905,9 @@ class PlanItem(ApiModel):
     replaces: str = ""
     # The tables in the folder a patch made from the file this replaces, by filename.
     made_from_it: list[str] = []
+    # Set on an item that replaces a table: the table, and each file named for it with
+    # whether it goes with the new one. Null on every other item.
+    swap: SwapPlan | None = None
 
 
 class ImportPlanResource(ApiModel):
@@ -3851,6 +3916,7 @@ class ImportPlanResource(ApiModel):
     rom_name: str
     items: list[PlanItem]
     blocked: list[BlockedAsset]
+    choice: ImportChoice | None = None
 
 
 class ImportReport(ApiModel):
@@ -3869,6 +3935,7 @@ class ImportReport(ApiModel):
     vps_matched: bool | None = None
     vps_error: str | None = None
     added_tables: list[str] = []
+    replaced_tables: list[dict] = []
 
 
 class DeclaredIdentity(ApiModel):
@@ -3912,6 +3979,13 @@ class PlanRequest(ApiModel):
     # Needs `game_dir`. The drop's table is one more for that game rather than its
     # replacement; a filename the game already has comes back blocked.
     add_table: bool = False
+    # Without `add_table`, the table the drop takes the place of. Left out, the game's
+    # default table. A game with no table of its own gets the drop as one more.
+    replace_table: str = ""
+    # The kinds of file named for the replaced table that go with the new one. Left out,
+    # the defaults for an update, or for another release with `instead`.
+    carry: list[str] | None = None
+    instead: bool = False
     # A new game's folder. Omitted falls back to the VPS-derived name, then the vpx stem.
     new_game_dir_name: str | None = None
 
