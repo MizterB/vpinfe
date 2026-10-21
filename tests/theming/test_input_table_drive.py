@@ -396,8 +396,8 @@ class InputTableDrive(unittest.TestCase):
         shipped = self.seen["shipped"]
         self.assertEqual(shipped["Previous"], ["Left Arrow", "Left Shift", "D-pad Left",
                                                "Left Trigger"])
-        self.assertEqual(shipped["Back"], ["Esc", "B", "East"])
-        self.assertEqual(shipped["Quit"], ["Esc, held 1.5s", "Q", "East, held 1.5s"])
+        self.assertEqual(shipped["Back"], ["Esc", "B", "Button 1"])
+        self.assertEqual(shipped["Quit"], ["Esc, held 1.5s", "Q", "Button 1, held 1.5s"])
         self.assertEqual(shipped["Take Picture"], ["Nothing mapped"])
 
     def test_no_word_of_a_controller_is_the_layout_s_name(self) -> None:
@@ -531,10 +531,10 @@ class InputTableDrive(unittest.TestCase):
     def test_an_input_heard_during_play_has_no_hold_to_choose(self) -> None:
         self.assertFalse(self.seen["picture_menu"])
 
-    def test_a_controller_button_is_stored_as_the_layout_and_read_as_where_it_sits(
+    def test_a_controller_button_is_stored_as_the_layout_and_read_by_its_number(
             self) -> None:
         self.assertIn("pad:standard/button:3", self.seen["picture"])
-        self.assertIn("North", self.seen["picture_chips"])
+        self.assertIn("Button 3", self.seen["picture_chips"])
 
     def test_a_binding_is_taken_off_with_its_mark(self) -> None:
         self.assertNotIn("key:KeyN", self.seen["removed"])

@@ -88,14 +88,14 @@ These are what each action starts as:
 |-----------------|---------------------------|----------------------------------|
 | Previous        | Left arrow, Left Shift    | D-pad left, left trigger         |
 | Next            | Right arrow, Right Shift  | D-pad right, right trigger       |
-| Page Previous   | Page Up, Up arrow         | D-pad up, left bumper            |
-| Page Next       | Page Down, Down arrow     | D-pad down, right bumper         |
-| Select          | Enter                     | A                                |
-| Back            | Escape, B                 | B                                |
+| Page Previous   | Page Up, Up arrow         | D-pad up, left shoulder          |
+| Page Next       | Page Down, Down arrow     | D-pad down, right shoulder       |
+| Select          | Enter                     | Button 0                         |
+| Back            | Escape, B                 | Button 1                         |
 | Menu            | M                         | Start                            |
-| Collection Menu | C                         | Back                             |
+| Collection Menu | C                         | Select                           |
 | Tutorial        | T                         |                                  |
-| Quit            | Q, or hold Escape         | Hold B                           |
+| Quit            | Q, or hold Escape         | Hold Button 1                    |
 
 To see which number a gamepad button has, run `./vpinfe --gamepadtest`.  It opens a window that lights up each button as you press it, and lets you assign a button to an action.  Press Escape to close it.
 

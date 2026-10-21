@@ -211,7 +211,7 @@ class DrawnTests(unittest.TestCase):
     def test_no_chip_on_a_standard_pad_puts_the_layout_s_name_on_screen(self) -> None:
         _, body = _drawn({**SHIPPED, "select": ["pad:standard/button:0", "pad:standard/button:16"]})
 
-        self.assertEqual(_chips(_wrappers(body)["Select"]), ["South", "Button 16"])
+        self.assertEqual(_chips(_wrappers(body)["Select"]), ["Button 0", "Button 16"])
         self.assertFalse([text for text in _labels(body) if "standard" in text.lower()])
 
     def test_a_press_two_rows_hold_marks_both_chips_and_names_the_other_row(self) -> None:
@@ -778,7 +778,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.written, [])
 
     async def test_a_standard_button_is_a_move_from_the_numbered_one_a_row_holds(self) -> None:
-        """A numbered binding fires on a pad that reports the standard layout, so South
+        """A numbered binding fires on a pad that reports the standard layout, so Button 0
         pressed for Back takes the button Select holds as `pad:0/button:0`."""
         control = self.drawn({**SHIPPED, "select": ["key:Enter", "pad:0/button:0"]})
 
@@ -787,7 +787,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
 
         [call] = ask.await_args_list
         self.assertEqual(call.args, (t("manager.binding_table.move_question",
-                                       binding="South", row="Back"),))
+                                       binding="Button 0", row="Back"),))
         self.assertEqual(call.kwargs["detail"][0], t(
             "manager.binding_table.mapped_to", binding="Button 0", rows="Select"))
         self.assertEqual(self.written, [{"select": ["key:Enter"],

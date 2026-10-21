@@ -242,10 +242,10 @@ class ReadableBindingTests(unittest.TestCase):
 
         self.assertEqual(input_registry.describe(chord), "Button 3 + Button 4, held 1.5s")
 
-    def test_a_standard_button_is_named_for_where_it_sits(self) -> None:
-        """Every pad that maps to the standard layout has the same names, so the button is
-        called what is printed on it rather than a number somebody has to look up."""
-        for button, expected in ((0, "South"), (1, "East"), (2, "West"), (3, "North"),
+    def test_a_standard_button_reads_by_its_name_and_a_face_button_by_its_number(
+            self) -> None:
+        for button, expected in ((0, "Button 0"), (1, "Button 1"),
+                                 (2, "Button 2"), (3, "Button 3"),
                                  (4, "Left Shoulder"), (5, "Right Shoulder"),
                                  (6, "Left Trigger"), (7, "Right Trigger"),
                                  (8, "Select"), (9, "Start"),
@@ -258,7 +258,7 @@ class ReadableBindingTests(unittest.TestCase):
 
     def test_a_standard_button_with_no_name_is_its_number_and_never_the_layout(self) -> None:
         """The layout's name is a selector word. It must not reach the screen, in any
-        language, so what has no position of its own reads as a number."""
+        language, so what has no name reads as a number."""
         said = input_registry.describe("pad:standard/button:16")
 
         self.assertEqual(said, "Button 16")

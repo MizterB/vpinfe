@@ -630,7 +630,7 @@ describe("stepping and paging are one capability at contract 2", () => {
 
 
 describe("a tap of back at the root does nothing", () => {
-  // Leaving is exit's - a held Escape or East, q, the menu's Quit - so back at the root
+  // Leaving is exit's - a held Escape or button 1, q, the menu's Quit - so back at the root
   // is swallowed whichever way Confirm Before Exit is set.
   const atRoot = (contract, { confirm = false } = {}) => {
     const { vpin, browser, press, release } = navigating();
@@ -1300,7 +1300,7 @@ describe("a key with a hold waits to be let go", () => {
 
 // The controller defaults are written against the standard layout, and a cabinet's encoder
 // numbers its buttons by wiring. A standard binding fires only for a standard pad, or the
-// controller's South is whatever the encoder calls button 0.
+// layout's button 0 would be whatever the encoder calls button 0.
 describe("a standard binding is for a pad that reports the standard layout", () => {
   const DEFAULTS = {
     select: ["pad:standard/button:0"],
@@ -1309,7 +1309,7 @@ describe("a standard binding is for a pad that reports the standard layout", () 
     next: ["pad:standard/button:15"],
   };
 
-  test("South selects on a standard pad", async () => {
+  test("button 0 selects on a standard pad", async () => {
     const { buttons, seen, poll } = await padded({ mapping: "standard", bindings: DEFAULTS });
 
     buttons[0].pressed = true;
@@ -1342,7 +1342,7 @@ describe("a standard binding is for a pad that reports the standard layout", () 
     assert.deepEqual(seen, ["select"]);
   });
 
-  test("East tapped is Back, and held is Quit", async () => {
+  test("button 1 tapped is Back, and held is Quit", async () => {
     const tapped = await padded({ mapping: "standard", bindings: DEFAULTS });
     tapped.buttons[1].pressed = true;
     tapped.poll();
@@ -1364,7 +1364,7 @@ describe("a standard binding is for a pad that reports the standard layout", () 
     assert.deepEqual(held.seen, [], "letting go after the hold is not also a Back");
   });
 
-  test("a held East on a pad that is not standard is not Quit", async () => {
+  test("a held button 1 on a pad that is not standard is not Quit", async () => {
     const { buttons, asked, poll } = await padded({ mapping: "", bindings: DEFAULTS });
 
     buttons[1].pressed = true;

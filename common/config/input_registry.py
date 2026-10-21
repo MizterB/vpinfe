@@ -45,17 +45,14 @@ def _standard(button: int, hold: int = 0) -> str:
 
 
 # The standard layout's buttons, by index.
-_SOUTH, _EAST, _WEST, _NORTH = 0, 1, 2, 3
+_FACE_0, _FACE_1 = 0, 1
 _LEFT_SHOULDER, _RIGHT_SHOULDER, _LEFT_TRIGGER, _RIGHT_TRIGGER = 4, 5, 6, 7
 _SELECT, _START = 8, 9
 _LEFT_STICK, _RIGHT_STICK = 10, 11
 _DPAD_UP, _DPAD_DOWN, _DPAD_LEFT, _DPAD_RIGHT = 12, 13, 14, 15
 
-# Named by position, because every maker letters the face buttons differently. A button
-# the layout has no name for is read by its number.
+# The face buttons are not named: a button with no name here reads by its number.
 _PAD_WORDS = {
-    _SOUTH: "input.pad.south", _EAST: "input.pad.east",
-    _WEST: "input.pad.west", _NORTH: "input.pad.north",
     _LEFT_SHOULDER: "input.pad.left_shoulder", _RIGHT_SHOULDER: "input.pad.right_shoulder",
     _LEFT_TRIGGER: "input.pad.left_trigger", _RIGHT_TRIGGER: "input.pad.right_trigger",
     _SELECT: "input.pad.select", _START: "input.pad.start",
@@ -134,13 +131,13 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
     InputAction(
         "select",
         group=setting_groups.NAVIGATION,
-        bindings=("key:Enter", _standard(_SOUTH)),
+        bindings=("key:Enter", _standard(_FACE_0)),
         legacy=("joyselect", "keyselect"),
     ),
     InputAction(
         "back",
         group=setting_groups.NAVIGATION,
-        bindings=("key:Escape", "key:KeyB", _standard(_EAST)),
+        bindings=("key:Escape", "key:KeyB", _standard(_FACE_1)),
         legacy=("joyback", "keyback"),
     ),
     InputAction(
@@ -165,7 +162,7 @@ INPUT_ACTIONS: tuple[InputAction, ...] = (
         "exit",
         group=setting_groups.NAVIGATION,
         bindings=(f"key:Escape@hold:{QUIT_HOLD_MS}", "key:KeyQ",
-                  _standard(_EAST, QUIT_HOLD_MS)),
+                  _standard(_FACE_1, QUIT_HOLD_MS)),
         legacy=("joyexit", "keyexit"),
     ),
     # Unbound out of the box: a key bound here is listened for from outside the page
@@ -397,7 +394,7 @@ def describe(binding: str) -> str:
 
 
 def pad_name(button: int) -> str:
-    """A standard-layout button as a person reads it: its position, else its number."""
+    """A standard-layout button as a person reads it: its name, else its number."""
     word = _PAD_WORDS.get(button)
     return t(word) if word else t("input.pad.button", button=button)
 

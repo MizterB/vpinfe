@@ -1102,7 +1102,7 @@ A key or a button can carry a hold, written `key:Escape@hold:1500`: kept down fo
 milliseconds it does the hold's action, and let go sooner it does its ordinary one. An input
 has one of each, so one that has a hold says nothing until it is released or the hold is
 reached. Out of the box `Escape` is `joyback` when tapped and `joyexit` when held for 1.5
-seconds, and a controller's East button does the same.
+seconds, and button 1 of a standard-layout controller does the same.
 
 On a contract 2 theme with core navigation on, a tap of `back` with nothing to go back from
 does nothing, and your handler is not called for it. Leaving is the hold, `q` and the menu's
