@@ -17,9 +17,9 @@ from manager.library import file_acts
 GAME = {"folder": "/tables/Multi VPX (Original 2024)"}
 TABLES = [{"id": "a1", "filename": "Multi VPX (Original 2024).vpx"},
           {"id": "b2", "filename": "Multi VPX (Original 2024) - alt.vpx"}]
-OWN = {"tier": "table", "file": "(Backglass) Multi VPX (Original 2024) - alt.png"}
-SHARED = {"tier": "game", "file": "(Backglass) Multi VPX (Original 2024).png"}
-DEFAULT = {"tier": "default", "file": "bg.png", "wins": True}
+OWN: dict[str, Any] = {"tier": "table", "file": "(Backglass) Multi VPX (Original 2024) - alt.png"}
+SHARED: dict[str, Any] = {"tier": "game", "file": "(Backglass) Multi VPX (Original 2024).png"}
+DEFAULT: dict[str, Any] = {"tier": "default", "file": "bg.png", "wins": True}
 
 EVERY_TABLE = t("manager.workbench.remove_asset.game")
 FALLS_BACK = t("manager.workbench.remove_asset.table")
