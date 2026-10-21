@@ -584,6 +584,11 @@ CONFIG_OPTIONS: tuple[ConfigOption, ...] = (
         # Switches on the Manager page, so the schema does not also draw it as a line of text.
         ConfigOption("hidden_overview", type="list", default="", home="vpinfe.manager",
                      group=setting_groups.OVERVIEW),
+        # Arranged on the Discovery page, so the schema does not also draw them as text.
+        ConfigOption("discovery_shelf_order", type="list", default="", home="library.discovery",
+                     group=setting_groups.DISCOVERY),
+        ConfigOption("hidden_discovery_shelves", type="list", default="",
+                     home="library.discovery", group=setting_groups.DISCOVERY),
     ),
     # Programs on this machine VPinFE shells out to. Each is discovered first, and set
     # here only where discovery finds nothing or picks the wrong one.

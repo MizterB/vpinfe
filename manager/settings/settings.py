@@ -74,6 +74,7 @@ from manager.settings import (
     placement_panel,
     recording,
     screens,
+    shelves,
     vpx_displays,
 )
 from manager.settings import commands as commands_help
@@ -1185,6 +1186,7 @@ async def _discovery_page(library: Library, redraw: Callable[[], None],
             entries.append((panel.HEADING, t("manager.settings.heading_updates")))
             entries += section_rows(library, "updates", counted, values, writable,
                                     region.refill, after={SHOW_COUNT: recount})
+            entries += shelves.entries(library, state, values)
             entries += [(panel.HEADING, t("manager.settings.heading_sources")),
                         panel.lede(SOURCES_NOTE)]
             entries += section_rows(library, "updates", rest, values, writable,

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from common.settings import config_service
 from manager.kit import panel
-from manager.settings import sections, settings
+from manager.settings import sections, settings, shelves
 from tests.support.regions import Immediate
 
 MARKERS = {panel.HEADING: "heading", panel.LEDE: "lede", panel.ASIDE: "note",
@@ -149,11 +149,25 @@ class TheDiscoveryPage(_Offloaded):
             self) -> None:
         shown = await self._draw(EXTENSION, VPINMEDIADB)
 
-        self.assertEqual(["Updates", "Show Update Count", "note", "Sources", "lede"], shown[:5])
-        self.assertEqual("Virtual Pinball Spreadsheet", shown[5])
+        self.assertEqual(["Updates", "Show Update Count", "note", "Home Shelves", "lede", "full",
+                          "Sources", "lede"], shown[:8])
+        self.assertEqual("Virtual Pinball Spreadsheet", shown[8])
         at = shown.index("sub Last Checked")
-        self.assertGreater(at, 5)
+        self.assertGreater(at, 8)
         self.assertEqual("rule", shown[at + 1])
+
+    async def test_the_shelves_are_drawn_from_the_values_the_page_read(self) -> None:
+        library = _library()
+        library.config_values.return_value = {"manager": {
+            "hidden_discovery_shelves": ["new"]}}
+        state: dict[str, Any] = {}
+
+        region = await settings._discovery_page(library, MagicMock(), state)
+        await region.refilled()
+
+        block = state[shelves.KEY]
+        self.assertEqual(["new"], block.off)
+        library.manager_policy.assert_not_called()
 
     async def test_the_catalog_is_first_with_a_line_under_it_and_a_rule_between_sources(
             self) -> None:

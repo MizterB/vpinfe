@@ -68,6 +68,7 @@ tests = [
   "tests/theming/test_a_value_change_keeps_the_panel_drive.py",
   "tests/theming/test_collection_adds_drive.py",
   "tests/theming/test_collection_panel_drive.py",
+  "tests/theming/test_discovery_shelves_drive.py",
   "tests/theming/test_grid_layout_drive.py",
   "tests/theming/test_grid_selection_drive.py",
   "tests/theming/test_list_columns_drive.py",
@@ -114,6 +115,7 @@ tests = [
 paths = ["manager/settings/*", "common/settings/*", "common/config/*", "common/backups/*"]
 tests = [
   "tests/theming/test_a_value_change_keeps_the_panel_drive.py",
+  "tests/theming/test_discovery_shelves_drive.py",
   "tests/theming/test_feature_switch_applies_live_drive.py",
   "tests/theming/test_folders_page_drive.py",
   "tests/theming/test_import_a_library_drive.py",
@@ -122,6 +124,11 @@ tests = [
   "tests/theming/test_setup_controls_drive.py",
   "tests/theming/test_vpx_settings_in_place_drive.py",
 ]
+
+# The frozen defaults the schema is compared with.
+[[area]]
+paths = ["tests/fixtures/config_defaults.json"]
+tests = ["tests/config/test_config_schema.py"]
 
 # Overview's Needs You rows, and the folder lists they open.
 [[area]]

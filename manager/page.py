@@ -73,7 +73,7 @@ from manager.library import record as recorder
 from manager.overview import needs
 from manager.remote import remote
 from manager.security import authenticator_panel, security, sign_in_notice
-from manager.settings import folders, sections, waiting
+from manager.settings import folders, sections, shelves, waiting
 from manager.settings import settings as settings_page
 from manager.settings.library_folders import KIND_IMPORT, hold_library
 from manager.setup import setup as setup_page
@@ -624,6 +624,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
         ui.on(moved, lambda event, source_group=source_group: theme_sources.moved(
             state, source_group, event))
     ui.on(folders.MOVED, lambda event: folders.moved(state, event))
+    ui.on(shelves.MOVED, lambda event: shelves.moved(state, event))
     ui.on("hub_dock_px", lambda event: core.dock_dragged(state, event.args))
     ui.on("hub_row_focus", grid.row_focused)
     ui.on("hub_row_pick", lambda: state["open_pane"]())

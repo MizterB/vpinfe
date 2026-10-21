@@ -109,6 +109,8 @@ Runtime state written by VPinFE, not shown as a setting.
 | `relative_dates` | bool | `true` | Anything from the last month says how long ago it was, whatever the format |
 | `units` | choice (region, cm, in) | `region` | How the Manager writes a length. By default this device's country decides |
 | `hidden_overview` | list |  | Overview rows that stay quiet. A row left on reports whatever it finds. |
+| `discovery_shelf_order` | list |  | Top to bottom order of Discovery's Home shelves. Set on the Discovery page. |
+| `hidden_discovery_shelves` | list |  | Shelves Discovery's Home leaves out. Set on the Discovery page. |
 
 ### `tools`
 

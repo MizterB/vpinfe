@@ -57,6 +57,7 @@ from manager.library import (
     discovery_marks_grid,
     discovery_releases,
     discovery_search,
+    discovery_shelves,
     import_dialog,
     vps_match,
 )
@@ -389,6 +390,16 @@ def build(library: Library, state: dict[str, Any], on_select: Callable[[Any], An
     busy.fill(body, lambda: fill(library, body, state, on_select, rerender))
 
 
+async def _home_shelves(library: Library) -> list[str]:
+    """The shelves Home draws, in the order the settings give. The default arrangement where
+    they cannot be read: a front page with every shelf beats one that does not draw."""
+    try:
+        return discovery_shelves.shown(await offload.io(library.manager_policy))
+    except Exception:  # noqa: BLE001 - whatever the read raised, Home still draws
+        logger.warning("manager: could not read which Home shelves to draw", exc_info=True)
+        return discovery_shelves.shown(None)
+
+
 async def _fill_home(library: Library, body: Any, state: dict[str, Any],
                      on_select: Callable[[Any], Any], rerender: Callable[[], None]) -> None:
     """Home: every shelf from one read that asks no site, so it draws before the catalog is
@@ -402,6 +413,7 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         with body:
             panel.facts(ui, [panel.intro(t("manager.discovery.read_failed"), hint=why(exc))])
         return
+    shelves = await _home_shelves(library)
     if (update_count := state.get("update_count")) is not None:
         update_count.from_home(int(home["updates"]["count"]))
     people: list[dict[str, Any]] = []
@@ -522,7 +534,8 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
         see_picture=see_picture,
         fix_scripts=fix_scripts,
         open_view=to_view, open_releases_view=to_releases_view, open_marks=to_marks,
-        open_subject=go_to, marking=discovery_marks.Marking(library, redraw_home))
+        open_subject=go_to, marking=discovery_marks.Marking(library, redraw_home),
+        shelves=shelves)
     if not home["counted"]:
         with body:
             comparing_line(library, rerender)

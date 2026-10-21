@@ -13,11 +13,11 @@ catalog, which loads after the page is drawn; the shelves do not wait for it.
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from functools import partial
 from typing import Any
 
-from nicegui import ui
+from nicegui import background_tasks, ui
 
 from common import icons
 from common.failures import why
@@ -42,11 +42,14 @@ from manager.library import (
     discovery_marks_grid,
     discovery_pictures,
     discovery_releases,
+    discovery_shelves,
 )
 
 logger = logging.getLogger("vpinfe.manager.library.discovery_home")
 
 ADDRESS = "/manager?" + deeplink.query({"view": "discovery"})
+SHELVES_ADDRESS = "/manager?" + deeplink.query({"view": "settings",
+                                                "settings_page": discovery_shelves.PAGE})
 WINDOW_KEY = "discovery_window"
 
 WINDOWS = {days: word for word, days in discovery_ask.SINCE_DAYS}
@@ -240,7 +243,8 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
          open_releases_view: Callable[[str], Any],
          open_marks: Callable[[str], Any],
          open_subject: Callable[[dict[str, str]], Any],
-         marking: discovery_marks.Marking) -> Callable[[], Awaitable[None]]:
+         marking: discovery_marks.Marking,
+         shelves: Sequence[str] = discovery_shelves.IDS) -> Callable[[], Awaitable[None]]:
     """Draw Home into `body` from `home`, the answer for the remembered window.
 
     `catalog()` gives the people and the Browse rows once the catalog is in memory; `reread`
@@ -253,14 +257,19 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
     Browse, `open_releases_view(id)` on one of Releases, `open_marks(view)` the Marks grid on
     its Ignored or Wanted view, `open_subject` an author's page, and `fix_scripts(folders)`
     fetches the script fixes of those games. `marking` is the menu a tile opens on a right
-    click or a long press, and what says a release is Wanted. Returns the coroutine that reads
-    the shelves again and draws them where they stand."""
+    click or a long press, and what says a release is Wanted. `shelves` are the ids of the
+    shelves to draw, top to bottom; a shelf left out is not drawn at all. Returns the
+    coroutine that reads the shelves again and draws them where they stand."""
     shown: dict[str, Any] = {"home": home, "chip": vps_home.ALL, "lack": "", "finding": "",
                              "rows": None, "people": [], "asked": home["days"]}
     with body:
-        updates_box = ui.column().classes("w-full gap-2")
-        shelf_box = ui.column().classes("w-full gap-2")
-        with shelf_box:
+        boxes = {one: ui.column().classes("w-full gap-2") for one in shelves}
+        if not boxes:
+            with ui.row().classes("items-center gap-2"):
+                ui.label(t("manager.discovery.no_shelves")).classes("manager-help")
+                panel.link(t("manager.discovery.no_shelves.choose"), to=SHELVES_ADDRESS)()
+    if discovery_shelves.NEW in boxes:
+        with boxes[discovery_shelves.NEW]:
             with _heading():
                 ui.label(t("manager.discovery.new_shelf")).classes(
                     "manager-fact-heading shrink-0")
@@ -273,15 +282,6 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                     kinds_slot = ui.element("div").classes("contents")
                     see_all_slot = ui.element("div").classes("contents")
             tiles_box = ui.column().classes("w-full gap-2")
-        wanted_box = ui.column().classes("w-full gap-2")
-        lacking_box = ui.column().classes("w-full gap-2")
-        dont_have_box = ui.column().classes("w-full gap-2")
-        family_box = ui.column().classes("w-full gap-2")
-        unmatched_box = ui.column().classes("w-full gap-2")
-        health_box = ui.column().classes("w-full gap-2")
-        opened_box = ui.column().classes("w-full gap-2")
-        authors_box = ui.column().classes("w-full gap-2")
-        views_box = ui.column().classes("w-full gap-2")
 
     def menu_on(card: Any, shelf: str, item: dict[str, Any], listing: str) -> None:
         """The tile's right click and long press."""
@@ -347,11 +347,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             update_menu(card, item)
 
     def draw_updates() -> None:
-        updates_box.clear()
+        box = boxes[discovery_shelves.UPDATES]
+        box.clear()
         updates = shown["home"]["updates"]
         if not updates["count"]:
             return
-        with updates_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.updates")).classes("manager-fact-heading")
                 ui.space()
@@ -426,18 +427,10 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         try:
             shown["home"] = await reread(shown["home"]["days"])
         except Exception as exc:  # noqa: BLE001 - the shelves stay as they were
-            with tiles_box:
+            with body:
                 ui.notify(t("manager.discovery.read_failed"), caption=why(exc), type="negative")
             return
-        draw_shelf()
-        draw_wanted()
-        draw_lacking()
-        draw_dont_have()
-        draw_family()
-        draw_unmatched()
-        draw_health()
-        draw_opened()
-        draw_authors()
+        draw_shelves(but=(discovery_shelves.UPDATES, discovery_shelves.VIEWS))
 
     async def pick_window(days: int) -> None:
         """Read the shelf for another window. The window is remembered once the read has
@@ -451,7 +444,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         except Exception as exc:  # noqa: BLE001 - the shelf stays as it was
             if shown["asked"] == days:
                 window.set_value(shown["home"]["days"])
-                with tiles_box:
+                with body:
                     ui.notify(t("manager.discovery.read_failed"), caption=why(exc),
                               type="negative")
             return
@@ -459,15 +452,7 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             return
         remembered.put(WINDOW_KEY, days)
         shown["home"] = fresh
-        draw_updates()
-        draw_shelf()
-        draw_wanted()
-        draw_dont_have()
-        draw_family()
-        draw_unmatched()
-        draw_health()
-        draw_opened()
-        draw_authors()
+        draw_shelves(but=(discovery_shelves.MISSING, discovery_shelves.VIEWS))
 
     def pick_chip(chip: str) -> None:
         shown["chip"] = chip
@@ -478,12 +463,13 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                 if gap["count"]}
 
     def draw_lacking() -> None:
-        lacking_box.clear()
+        box = boxes[discovery_shelves.MISSING]
+        box.clear()
         tabs = lacking_tabs()
         if not tabs:
             return
         listing = shown["lack"] if shown["lack"] in tabs else next(iter(tabs))
-        with lacking_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.missing_from")).classes(
                     "manager-fact-heading shrink-0")
@@ -534,11 +520,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
         draw_gaps(listing)
 
     def draw_dont_have() -> None:
-        dont_have_box.clear()
+        box = boxes[discovery_shelves.DONT_HAVE]
+        box.clear()
         lacked = shown["home"]["dont_have"]
         if not lacked["games"]:
             return
-        with dont_have_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.dont_have")).classes(
                     "manager-fact-heading shrink-0").tooltip(t("manager.discovery.dont_have.help"))
@@ -571,11 +558,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             menu_on(card, discovery_marks.DONT_HAVE, game, "")
 
     def draw_family() -> None:
-        family_box.clear()
+        box = boxes[discovery_shelves.OTHER_VERSIONS]
+        box.clear()
         related = shown["home"]["family"]
         if not related["games"]:
             return
-        with family_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.family")).classes(
                     "manager-fact-heading shrink-0").tooltip(t("manager.discovery.family.help"))
@@ -607,11 +595,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                     .classes("text-xs manager-help truncate")
 
     def draw_unmatched() -> None:
-        unmatched_box.clear()
+        box = boxes[discovery_shelves.MATCH]
+        box.clear()
         likely = shown["home"]["unmatched"]
         if not likely["games"]:
             return
-        with unmatched_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.unmatched")).classes(
                     "manager-fact-heading shrink-0").tooltip(t("manager.discovery.unmatched.help"))
@@ -650,12 +639,13 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                 if found["count"]}
 
     def draw_health() -> None:
-        health_box.clear()
+        box = boxes[discovery_shelves.HEALTH]
+        box.clear()
         findings = health_findings()
         if not findings:
             return
         finding = shown["finding"] if shown["finding"] in findings else next(iter(findings))
-        with health_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.health")).classes(
                     "manager-fact-heading shrink-0").tooltip(t("manager.discovery.health.help"))
@@ -708,11 +698,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                                count=len(game["game_ids"]))).classes("text-xs manager-help")
 
     def draw_opened() -> None:
-        opened_box.clear()
+        box = boxes[discovery_shelves.OPENED]
+        box.clear()
         pages = shown["home"]["opened"]
         if not pages["games"]:
             return
-        with opened_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.opened_games")).classes(
                     "manager-fact-heading shrink-0").tooltip(
@@ -738,11 +729,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                     .classes("text-xs manager-help truncate")
 
     def draw_wanted() -> None:
-        wanted_box.clear()
+        box = boxes[discovery_shelves.WANTED]
+        box.clear()
         wanted = shown["home"]["wanted"]
         if not wanted["items"]:
             return
-        with wanted_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.mark.wanted")).classes("manager-fact-heading")
                 ui.space()
@@ -771,11 +763,12 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             menu_on(card, discovery_marks.WANT, item, item["listing"])
 
     def draw_authors() -> None:
-        authors_box.clear()
+        box = boxes[discovery_shelves.AUTHORS]
+        box.clear()
         collected = shown["home"]["authors"]
         if not collected:
             return
-        with authors_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.authors")).classes("manager-fact-heading")
             with ui.row().classes("manager-shelf w-full px-3"):
@@ -795,12 +788,13 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
                                     .classes("text-xs manager-label")
 
     def draw_views() -> None:
-        views_box.clear()
+        box = boxes[discovery_shelves.VIEWS]
+        box.clear()
         browse, _active = views.stored(library, scope)
         saved, _active = views.stored(library, discovery_releases.SCOPE)
         compared = bool(shown["home"]["counted"])
         ignored = None if shown["rows"] is None else marking.ignored_count()
-        with views_box:
+        with box:
             with _heading():
                 ui.label(t("manager.discovery.views")).classes("manager-fact-heading")
             with ui.row().classes("manager-shelf w-full px-3"):
@@ -838,18 +832,31 @@ def fill(body: Any, home: dict[str, Any], *, library: Any, scope: str,
             logger.warning("manager: could not read the catalog for Discovery's search",
                            exc_info=True)
             return
-        draw_views()
+        if discovery_shelves.VIEWS in boxes:
+            draw_views()
 
-    draw_updates()
-    draw_shelf()
-    draw_wanted()
-    draw_lacking()
-    draw_dont_have()
-    draw_family()
-    draw_unmatched()
-    draw_health()
-    draw_opened()
-    draw_authors()
-    draw_views()
-    busy.start(views_box, learn)
+    draws: dict[str, Callable[[], None]] = {
+        discovery_shelves.UPDATES: draw_updates,
+        discovery_shelves.NEW: draw_shelf,
+        discovery_shelves.WANTED: draw_wanted,
+        discovery_shelves.MISSING: draw_lacking,
+        discovery_shelves.DONT_HAVE: draw_dont_have,
+        discovery_shelves.OTHER_VERSIONS: draw_family,
+        discovery_shelves.MATCH: draw_unmatched,
+        discovery_shelves.HEALTH: draw_health,
+        discovery_shelves.OPENED: draw_opened,
+        discovery_shelves.AUTHORS: draw_authors,
+        discovery_shelves.VIEWS: draw_views,
+    }
+
+    def draw_shelves(*, but: tuple[str, ...] = ()) -> None:
+        for one in boxes:
+            if one not in but:
+                draws[one]()
+
+    draw_shelves()
+    if discovery_shelves.VIEWS in boxes:
+        busy.start(boxes[discovery_shelves.VIEWS], learn)
+    else:
+        background_tasks.create(learn(), name="discovery-learn")
     return refresh
