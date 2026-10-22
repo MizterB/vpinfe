@@ -741,7 +741,7 @@ class ByProgramTests(_Case):
         self.program(6300, "B2S", "Nixie")
         real = Path(self.settings["bin_path"])
         real.parent.mkdir(parents=True, exist_ok=True)
-        real.write_text("")
+        real.write_text("", encoding="utf-8")
         link = self.root / "bin" / "vpx"
         link.parent.mkdir()
         link.symlink_to(real)

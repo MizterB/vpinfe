@@ -168,8 +168,9 @@ def names_this_machine(host: str, *, test_peer: bool = False) -> bool:
         return False
     if test_peer and name == TEST_HOST:
         return True
-    return (normalized(name) in own_names() or name in own_names()
-            or name.endswith(".localhost") or _is_loopback_address(name))
+    # Loopback is answered before own_names(), which resolves the hostname and can take seconds.
+    return (_is_loopback_address(name) or name.endswith(".localhost")
+            or normalized(name) in own_names() or name in own_names())
 
 
 def peer_is_this_machine(peer: str | None) -> bool:

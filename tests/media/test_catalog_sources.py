@@ -17,7 +17,7 @@ from common.games import library_policy
 from common.online import sources, vpinmediadb
 from common.online.sources import Offer, Source
 from tests.support.library import TempTree
-from tests.support.sources import only
+from tests.support.sources import fixes_apply_here, only
 
 
 def _fake(source_id: str = "fake", kinds: frozenset[str] = frozenset({"wheel"})) -> Source:
@@ -72,7 +72,7 @@ class RegistryTests(unittest.TestCase):
 
     def test_the_built_in_sources_register_the_way_a_contributed_one_does(self) -> None:
         with patch.object(sources, "_sources", {}), \
-                patch.object(sources, "_built_in_loaded", False):
+                patch.object(sources, "_built_in_loaded", False), fixes_apply_here():
             found = [one.id for one in sources.all_sources()]
         self.assertEqual(found, ["vps", "vpinmediadb", "script_fixes"])
 

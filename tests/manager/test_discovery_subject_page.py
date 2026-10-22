@@ -547,7 +547,7 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
         self.assertIn("0 games", _words(body))
 
     def test_the_bar_wraps_by_its_own_width_below_the_row_it_needs(self) -> None:
-        css = (REPO / "manager" / "static" / "manager-base.css").read_text()
+        css = (REPO / "manager" / "static" / "manager-base.css").read_text(encoding="utf-8")
         block = re.search(r"@container manager-subject \(max-width: 1020px\) \{(.*?)\n\}",
                           css, re.S)
 

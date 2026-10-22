@@ -71,7 +71,7 @@ def named_keys(root: pathlib.Path = ROOT, sections: Iterable[str] | None = None,
                 if (isinstance(node, ast.Constant) and isinstance(node.value, str)
                         and _QUALIFIED.match(node.value)
                         and node.value.rsplit(".", 1)[0] in known):
-                    found.setdefault(node.value, set()).add(str(path.relative_to(root)))
+                    found.setdefault(node.value, set()).add(path.relative_to(root).as_posix())
     return {key: sorted(files) for key, files in sorted(found.items())}
 
 

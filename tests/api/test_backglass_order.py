@@ -111,7 +111,7 @@ class Settled(TempTree):
 
     def _order(self, launcher_id: str, target: str, in_file: bool,
                written: dict[str, str] | None = None) -> TableOrder:
-        name = target.rsplit("/", 1)[-1]
+        name = Path(target).name
         self.asked.append((name, in_file, dict(written or {})))
         if self.unknown:
             return TableOrder()

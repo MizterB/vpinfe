@@ -8,7 +8,9 @@ put back once while the file is as the change left it.
 from __future__ import annotations
 
 import os
+import sys
 import threading
+import unittest
 from unittest.mock import patch
 
 from starlette.testclient import TestClient
@@ -104,6 +106,7 @@ class WriteTests(DisplaysRoutes):
 
         self.assertEqual(sorted(one.name for one in self.folder.iterdir()), before)
 
+    @unittest.skipIf(sys.platform == "win32", "Windows has no modes")
     def test_the_file_keeps_its_mode(self) -> None:
         self.path.chmod(0o640)
 
@@ -325,6 +328,7 @@ class FailedWriteTests(DisplaysRoutes):
         self.assertNotEqual(response.status_code, 200)
         self.assertEqual(self._names(), before)
 
+    @unittest.skipIf(sys.platform == "win32", "Windows has no modes")
     def test_the_mode_is_applied_to_the_file_after_it_is_replaced_not_to_the_staged_one(
             self) -> None:
         self.path.chmod(0o640)

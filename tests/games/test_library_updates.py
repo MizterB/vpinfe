@@ -14,6 +14,7 @@ from unittest.mock import patch
 from common.games import library_updates
 from common.online import script_fixes, sources, vps_marks, vps_updates
 from common.online.sources import Source
+from tests.support.sources import fixes_apply_here
 
 CATALOG = {"entries": {
     "g1": {"tableFiles": [{"id": "t1", "version": "1.2"}, {"id": "t9", "version": "3.0"}],
@@ -315,6 +316,7 @@ class CostTests(unittest.TestCase):
         script_fixes._held = None
         self.addCleanup(setattr, script_fixes, "_held", None)
         for patcher in (
+                fixes_apply_here(),
                 patch.object(script_fixes, "ANSWER_PATH", answer),
                 patch.object(script_fixes.sources, "enabled", return_value=True),
                 patch.object(library_updates.sources, "upgrade_sources",

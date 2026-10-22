@@ -8,7 +8,6 @@ Any other tree has no stamp and is checked as before.
 
 from __future__ import annotations
 
-import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -46,4 +45,4 @@ def tree_hash(repo: Path) -> str:
 
 
 def record(repo: Path, passed_on: str) -> None:
-    (git_dir(repo) / STAMP).write_text(passed_on + os.linesep, encoding="utf-8")
+    (git_dir(repo) / STAMP).write_text(passed_on + "\n", encoding="utf-8")
