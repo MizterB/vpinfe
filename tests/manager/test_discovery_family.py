@@ -313,7 +313,7 @@ class ColumnTests(unittest.TestCase):
     def test_browse_has_an_other_version_held_column_with_a_yes_no_filter(self) -> None:
         column = next(one for one in discovery.COLUMNS if one["field"] == discovery.OTHER_HELD)
 
-        self.assertEqual(column["headerName"].replace("\n", " "), "Other Version Held")
+        self.assertEqual(column["headerName"].replace("\n", " "), "Have Other Version")
         self.assertTrue(column["headerTooltip"])
         self.assertLessEqual(len(column["headerTooltip"]), 80)
         self.assertEqual([one["label"] for one in column["filterParams"]["choices"]],

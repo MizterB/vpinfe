@@ -76,6 +76,8 @@ SHOW_WORD = {EVERYTHING: "manager.discovery.ask.show.everything",
              YOURS: "manager.discovery.ask.show.yours",
              WITHOUT: "manager.discovery.ask.show.without",
              ELSEWHERE: "manager.discovery.ask.show.elsewhere"}
+# On a maker's or a theme's page nothing is "theirs", so Without asks about a file.
+SHOW_WORD_OF_GAMES = {**SHOW_WORD, WITHOUT: "manager.discovery.ask.show.missing"}
 
 # Where a game the library has stands against what the page lists.
 HAVE, OTHER, UNKNOWN, MISSING = "have", "other", "unknown", "missing"
@@ -84,8 +86,9 @@ STANDING_WORD = {HAVE: "manager.view.have", OTHER: "manager.discovery.ask.have_o
                  MISSING: "manager.discovery.ask.missing"}
 _STANDING_CLASS = {HAVE: "manager-have", OTHER: "manager-wall-note--part",
                    UNKNOWN: "manager-wall-note--part", MISSING: "manager-wall-note--warm"}
-# What a row's kind field holds when the library has something of that kind.
-HELD = "have"
+# What a game's cell for a kind reads when the library has a file of that kind.
+MATCHED, UNMATCHED = "matched", "unmatched"
+FILES = (MATCHED, UNMATCHED)
 
 
 class Suggest:
@@ -200,7 +203,7 @@ def standing(row: Mapping[str, Any], fitting: Fitting,
     ours = [one for _listing, one in fitting if one.get("held")]
     if ours:
         return (HAVE, []) if any(one.get("by") for one in ours) else (UNKNOWN, [])
-    holding = {listing for listing, _one in fitting if row.get(fields.get(listing, "")) == HELD}
+    holding = {listing for listing, _one in fitting if row.get(fields.get(listing, "")) in FILES}
     if not holding:
         return MISSING, []
     others = [one for listing in holding for one in mine.get(listing, ()) if one.get("held")]
@@ -217,19 +220,25 @@ def unmatched_kind(row: Mapping[str, Any], fitting: Fitting, fields: Mapping[str
     """The listing a game in the library holds without it being bound to any release: the
     first one the page lists for it that the library holds."""
     return next((listing for listing, _one in fitting
-                 if row.get(fields.get(listing, "")) == HELD), "")
+                 if row.get(fields.get(listing, "")) in FILES), "")
 
 
-def in_show(show: str, row: Mapping[str, Any], fitting: Fitting) -> bool:
-    """Whether a game the page finds is listed under this Show choice. Without Theirs is a
-    game of the library none of whose listed releases it holds."""
+def in_show(show: str, row: Mapping[str, Any], fitting: Fitting, fields: Mapping[str, str],
+            *, of_author: bool) -> bool:
+    """Whether a game the page finds is listed under this Show choice. On an author's page
+    Without Theirs is a game of the library none of whose listed releases it holds. On a
+    maker's or a theme's it is a game of the library missing a file of a kind the page lists."""
     if show == ELSEWHERE:
         return not row.get("is_in_library")
     if show == EVERYTHING:
         return True
     if not row.get("is_in_library"):
         return False
-    return show == YOURS or not any(one.get("held") for _listing, one in fitting)
+    if show == YOURS:
+        return True
+    if of_author:
+        return not any(one.get("held") for _listing, one in fitting)
+    return any(row.get(fields.get(listing, "")) == MISSING for listing, _one in fitting)
 
 
 def narrows(row: Mapping[str, Any], text: str) -> bool:
@@ -354,7 +363,7 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
 
     def listed(listing: str, show: str) -> dict[str, Fitting]:
         return {game: one for game, one in found(listing).items()
-                if in_show(show, by_id[game], one)}
+                if in_show(show, by_id[game], one, fields, of_author=kind == "author")}
 
     listed_kinds = [listing for listing in kinds if found(listing, narrowed=False)]
     if own.get("kind") not in listed_kinds:
@@ -373,8 +382,9 @@ def page(*, subject: Mapping[str, str], state: dict[str, Any],
         every = found(own["kind"])
         return {show: t("manager.discovery.counted", name=t(word),
                         count=sum(1 for game, one in every.items()
-                                  if in_show(show, by_id[game], one)))
-                for show, word in SHOW_WORD.items()}
+                                  if in_show(show, by_id[game], one, fields,
+                                             of_author=kind == "author")))
+                for show, word in (SHOW_WORD if kind == "author" else SHOW_WORD_OF_GAMES).items()}
 
     def grid_question() -> dict[str, Any]:
         show = own["show"]

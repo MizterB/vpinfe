@@ -38,10 +38,10 @@ def _game(game_id: str, name: str, **over: Any) -> dict[str, Any]:
 
 
 ROWS = [
-    _game("held", "Alpha", is_in_library=True, in_library="yes", kind_table="have"),
-    _game("other", "Beta", is_in_library=True, in_library="yes", kind_table="have",
+    _game("held", "Alpha", is_in_library=True, in_library="yes", kind_table="matched"),
+    _game("other", "Beta", is_in_library=True, in_library="yes", kind_table="matched",
           manufacturer="Williams", said="Williams 1990"),
-    _game("unknown", "Gamma", is_in_library=True, in_library="yes", kind_table="have"),
+    _game("unknown", "Gamma", is_in_library=True, in_library="yes", kind_table="unmatched"),
     _game("lacking", "Delta", is_in_library=True, in_library="yes"),
     _game("away", "Epsilon", year=1985, said="Bally 1985"),
 ]
@@ -96,7 +96,7 @@ class Standing(unittest.TestCase):
 
 
 class StandingFollowsTheFilteredSet(unittest.TestCase):
-    ROW = _game("g", "Zeta", is_in_library=True, in_library="yes", kind_table="have")
+    ROW = _game("g", "Zeta", is_in_library=True, in_library="yes", kind_table="matched")
 
     def _of(self, fitting: list[dict[str, Any]], mine: list[dict[str, Any]]
             ) -> tuple[str, list[str]]:
@@ -113,7 +113,8 @@ class StandingFollowsTheFilteredSet(unittest.TestCase):
     def test_that_game_is_the_one_without_theirs_lists(self) -> None:
         shown = [("tableFiles", _release("t1"))]
 
-        self.assertTrue(discovery_ask.in_show(discovery_ask.WITHOUT, self.ROW, shown))
+        self.assertTrue(discovery_ask.in_show(
+            discovery_ask.WITHOUT, self.ROW, shown, FIELDS, of_author=True))
 
     def test_a_held_release_with_no_credit_is_author_unknown(self) -> None:
         self.assertEqual((discovery_ask.UNKNOWN, []),
@@ -136,16 +137,38 @@ class Listing(unittest.TestCase):
         theirs = [("tableFiles", RELEASES["held"]["tableFiles"][0])]
         none = [("tableFiles", RELEASES["lacking"]["tableFiles"][0])]
 
-        self.assertFalse(discovery_ask.in_show(discovery_ask.WITHOUT, ROWS[0], theirs))
-        self.assertTrue(discovery_ask.in_show(discovery_ask.WITHOUT, ROWS[3], none))
-        self.assertFalse(discovery_ask.in_show(discovery_ask.WITHOUT, ROWS[4], none))
+        def without(row: dict[str, Any], fitting: Any) -> bool:
+            return discovery_ask.in_show(discovery_ask.WITHOUT, row, fitting, FIELDS,
+                                         of_author=True)
+
+        self.assertFalse(without(ROWS[0], theirs))
+        self.assertTrue(without(ROWS[3], none))
+        self.assertFalse(without(ROWS[4], none))
+
+    def test_without_on_a_makers_page_is_a_game_of_the_library_missing_a_file_of_a_kind(
+            self) -> None:
+        tables = [("tableFiles", RELEASES["held"]["tableFiles"][0])]
+        glass = [("b2sFiles", RELEASES["held"]["b2sFiles"][0])]
+
+        def without(row: dict[str, Any], fitting: Any) -> bool:
+            return discovery_ask.in_show(discovery_ask.WITHOUT, row, fitting, FIELDS,
+                                         of_author=False)
+
+        self.assertFalse(without(ROWS[0], tables))
+        self.assertTrue(without(ROWS[0], glass))
+        self.assertTrue(without(ROWS[3], tables))
+        self.assertFalse(without(ROWS[2], tables))
+        self.assertFalse(without(ROWS[4], tables))
 
     def test_yours_and_not_in_your_library_split_the_games_by_the_library(self) -> None:
-        self.assertTrue(discovery_ask.in_show(discovery_ask.YOURS, ROWS[0], []))
-        self.assertFalse(discovery_ask.in_show(discovery_ask.YOURS, ROWS[4], []))
-        self.assertTrue(discovery_ask.in_show(discovery_ask.ELSEWHERE, ROWS[4], []))
-        self.assertFalse(discovery_ask.in_show(discovery_ask.ELSEWHERE, ROWS[0], []))
-        self.assertTrue(discovery_ask.in_show(discovery_ask.EVERYTHING, ROWS[4], []))
+        def shown(show: str, row: dict[str, Any]) -> bool:
+            return discovery_ask.in_show(show, row, [], FIELDS, of_author=True)
+
+        self.assertTrue(shown(discovery_ask.YOURS, ROWS[0]))
+        self.assertFalse(shown(discovery_ask.YOURS, ROWS[4]))
+        self.assertTrue(shown(discovery_ask.ELSEWHERE, ROWS[4]))
+        self.assertFalse(shown(discovery_ask.ELSEWHERE, ROWS[0]))
+        self.assertTrue(shown(discovery_ask.EVERYTHING, ROWS[4]))
 
     def test_every_word_typed_must_be_in_the_name_the_maker_or_the_year(self) -> None:
         self.assertTrue(discovery_ask.narrows(ROWS[0], "alp"))
@@ -252,6 +275,12 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(["Everything 5", "Your Games 4", "Your Games Without Theirs 3",
                           "Not in Your Library 1"], _options(selects["Show"]))
 
+    def test_without_is_worded_for_a_file_on_a_makers_page(self) -> None:
+        body, _ = self._draw({"type": "maker", "name": "Bally"})
+
+        self.assertEqual(["Everything 4", "Your Games 3", "Your Games Missing Files 2",
+                          "Not in Your Library 1"], _options(_selects(body)["Show"]))
+
     def test_the_name_is_over_its_word_and_the_count_is_games(self) -> None:
         body, _ = self._draw()
 
@@ -354,7 +383,7 @@ class Drawn(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_unmatched_tooltip_names_the_kind_it_is_about(self) -> None:
         rows = [_game("glass", "Zeta", is_in_library=True, in_library="yes",
-                      kind_table="missing", kind_backglass="have")]
+                      kind_table="missing", kind_backglass="unmatched")]
         releases = {"glass": {"b2sFiles": [_release("b9")]}}
         body, _ = self._draw(rows=rows, releases=releases)
         _selects(body)["Kind"].set_value("b2sFiles")

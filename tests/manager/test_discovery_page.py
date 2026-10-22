@@ -36,11 +36,17 @@ def _cells(row: dict) -> dict:
 
 
 class Rows(unittest.TestCase):
-    def test_a_kind_held_reads_have_and_a_kind_listed_but_not_held_reads_missing(self) -> None:
-        cells = _cells(discovery.rows(_found(_entry()))[0])
+    def test_a_file_tied_to_a_release_reads_matched_and_one_tied_to_none_unmatched(self) -> None:
+        tied = {"tableFiles": [{"held": True}], "b2sFiles": [{"held": False}]}
+        cells = _cells(discovery.rows(_found(_entry(releases=tied)))[0])
 
-        self.assertEqual(("have", "have", "missing"),
+        self.assertEqual(("matched", "unmatched", "missing"),
                          (cells["kind_table"], cells["kind_backglass"], cells["kind_rom"]))
+
+    def test_a_file_of_a_kind_vps_lists_nothing_of_reads_unmatched(self) -> None:
+        cells = _cells(discovery.rows(_found(_entry(listed=["tableFiles"])))[0])
+
+        self.assertEqual(("unmatched", "unmatched"), (cells["kind_table"], cells["kind_backglass"]))
 
     def test_a_kind_the_entry_does_not_list_is_blank(self) -> None:
         cells = _cells(discovery.rows(_found(_entry()))[0])
@@ -398,24 +404,24 @@ class OpenInGrid(unittest.TestCase):
 
         self.assertEqual({"manufacturer": {"values": ["Bally"]},
                           "in_library": {"values": ["yes"]},
-                          "kind_backglass": {"values": ["have", "missing"]},
-                          "held_backglass": {"values": ["no"]}}, opening["filters"])
+                          "kind_backglass": {"values": ["missing"]}}, opening["filters"])
         self.assertEqual("Bally Backglasses", opening["name"])
 
-    def test_missing_without_a_kind_is_the_held_column(self) -> None:
+    def test_missing_without_a_kind_is_the_anything_missing_column(self) -> None:
         _tab, opening = discovery.opening_for(
             BALLY, {"maker": "Bally", "held": "missing"}, _browse_columns(),
             counted=True)
 
-        self.assertEqual({"values": ["no"]}, opening["filters"]["held"])
-        self.assertNotIn("gap", opening["filters"])
+        self.assertEqual({"values": ["missing"]}, opening["filters"]["gap"])
+        self.assertNotIn("held", opening["filters"])
 
     def test_a_kind_alone_filters_to_the_games_that_list_it(self) -> None:
         _tab, opening = discovery.opening_for(
             BALLY, {"maker": "Bally", "kind": "tableFiles"}, _browse_columns(),
             counted=True)
 
-        self.assertEqual({"values": ["have", "missing"]}, opening["filters"]["kind_table"])
+        self.assertEqual({"values": ["matched", "unmatched", "missing"]},
+                         opening["filters"]["kind_table"])
         self.assertEqual("Bally Tables", opening["name"])
 
     def test_before_a_count_only_the_maker_filters(self) -> None:

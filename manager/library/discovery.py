@@ -1,9 +1,10 @@
 """Discovery: every game the catalog lists, against what the library holds.
 
-One row per catalog entry. A kind VPS lists for the entry reads Have where the library
-holds one and Missing where it does not; a kind VPS does not list is blank, and so is
-every cell while the library has never been counted. A game that is not in the library
-is Missing on every kind its entry lists.
+One row per catalog entry. A kind the library holds a file of reads Matched where a file is
+bound to a release VPS lists and Unmatched where none is. A kind VPS lists that the library
+holds no file of reads Missing; any other kind is blank, and so is every cell while the
+library has never been counted. A game that is not in the library is Missing on every kind
+its entry lists.
 
 The side pane is `discovery_pane`: a Game section and a section per kind the entry lists.
 Kinds the library does not keep are not drawn.
@@ -76,6 +77,7 @@ MARKS = discovery_marks_grid.TAB
 VIEW_SCOPES = (SCOPE, discovery_releases.SCOPE, discovery_marks_grid.SCOPE)
 
 HAVE = "have"
+MATCHED, UNMATCHED = discovery_ask.MATCHED, discovery_ask.UNMATCHED
 MISSING = "missing"
 BLANK = "blank"
 YES = "yes"
@@ -99,7 +101,7 @@ _POLL_S = 2.0
 
 
 def _cell_class() -> str:
-    return (f"params => params.value === '{HAVE}' ? 'manager-have'"
+    return (f"params => params.value === '{MATCHED}' ? 'manager-have'"
             f" : params.value === '{MISSING}' ? 'manager-lack' : ''")
 
 
@@ -107,27 +109,16 @@ def _yes_no() -> list[dict[str, Any]]:
     return [{"value": YES, "label": t("word.yes")}, {"value": NO, "label": t("word.no")}]
 
 
-def held_field(field: str) -> str:
-    """The row field that says whether the library holds a release of a kind, given the
-    field that says what the library has of it."""
-    return "held_" + field.removeprefix("kind_")
-
-
 def _kind_column(listed_as: str, field: str, word: str) -> dict[str, Any]:
     label = t(word)
     options: dict[str, Any] = {
         ":cellClass": _cell_class(),
-        **grid_module.choice_filter([{"value": HAVE, "label": t("manager.view.have")},
-                                     {"value": MISSING, "label": t("manager.view.missing")}])}
+        **grid_module.choice_filter([
+            {"value": MATCHED, "label": t("manager.discovery.matched")},
+            {"value": UNMATCHED, "label": t("manager.view.unmatched")},
+            {"value": MISSING, "label": t("manager.view.missing")}])}
     return grid_module.column(field, label,
                               help=t("manager.discovery.kind.help", kind=label), **options)
-
-
-def _held_kind_column(_listed_as: str, field: str, word: str) -> dict[str, Any]:
-    kind = t(word)
-    return grid_module.column(held_field(field), t("manager.discovery.held_kind", kind=kind),
-                              help=t("manager.discovery.held_kind.help", kind=kind),
-                              **grid_module.choice_filter(_yes_no()))
 
 
 CATALOG_FACET_CEILING = 300
@@ -157,12 +148,11 @@ COLUMNS = [
     grid_module.column(PLAYABLE, t("manager.discovery.playable"),
                        help=t("manager.discovery.playable.help"),
                        **grid_module.choice_filter(_yes_no())),
-    grid_module.column(HELD, t("manager.discovery.held"),
-                       help=t("manager.discovery.held.help"),
+    grid_module.column(HELD, t("manager.discovery.matched"),
+                       help=t("manager.discovery.matched.help"),
                        **grid_module.choice_filter(_yes_no())),
-    *(_held_kind_column(*kind) for kind in KINDS),
-    grid_module.column(OTHER_HELD, t("manager.discovery.other_held"),
-                       help=t("manager.discovery.other_held.help"),
+    grid_module.column(OTHER_HELD, t("manager.discovery.other_version"),
+                       help=t("manager.discovery.other_version.help"),
                        **grid_module.choice_filter(_yes_no())),
     grid_module.column(TABLE_AUTHORS, t("manager.discovery.table_authors"),
                        help=t("manager.discovery.table_authors.help"),
@@ -176,13 +166,12 @@ COLUMNS = [
 ]
 
 _KIND_FIELDS = [field for _listed, field, _word in KINDS]
-_HELD_KIND_FIELDS = [held_field(field) for field in _KIND_FIELDS]
 # The game's own facts are on the Game cell's second line and in the pane. They stay in the
 # column picker for sorting and filtering, and no view turns them on.
 _PICKED = ("manufacturer", "year", "game_type", "themes")
-# Table Authors is the Games You Don't Have view's own column. Playable, Other Version Held
-# and the Held columns are shown only by a view opened on them.
-_NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS, PLAYABLE, HELD, OTHER_HELD, *_HELD_KIND_FIELDS)
+# Table Authors is the Games You Don't Have view's own column. Playable, Have Other Version
+# and Matched are shown only by a view opened on them.
+_NOT_EVERYWHERE = (*_PICKED, TABLE_AUTHORS, PLAYABLE, HELD, OTHER_HELD)
 _ALL = [definition["field"] for definition in COLUMNS]
 _BY_NAME = ({"colId": "name", "sort": "asc", "sortIndex": 0},)
 
@@ -197,8 +186,7 @@ VIEWS: dict[str, list[str] | views.Preset] = {
 }
 
 
-COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, OTHER_HELD, *_HELD_KIND_FIELDS,
-                            *_KIND_FIELDS})
+COUNTED_FIELDS = frozenset({"in_library", "gap", HELD, OTHER_HELD, *_KIND_FIELDS})
 """The columns that are blank until the library has been counted."""
 
 
@@ -227,10 +215,17 @@ def family_opening(*, counted: bool) -> dict[str, Any]:
     return {**opening, "name": t("manager.discovery.family")}
 
 
-def _state(listed: bool, counted: bool, in_library: bool, held: bool) -> str:
-    if not listed or not counted:
+def _state(kept: bool, listed: bool, counted: bool, in_library: bool, files: bool,
+           matched: bool) -> str:
+    """What a game's cell for one kind reads: Matched for a file tied to a release VPS lists,
+    Unmatched for a file tied to none, whether or not VPS lists one of that kind, and
+    Missing for a kind VPS lists that the game has no file of. Blank where the kind is not
+    collected, the library has not been counted, or there is nothing to say."""
+    if not (kept and counted):
         return ""
-    return HAVE if in_library and held else MISSING
+    if in_library and files:
+        return MATCHED if matched else UNMATCHED
+    return MISSING if listed else ""
 
 
 def _playable(releases: Mapping[str, Any], formats: Collection[str]) -> str:
@@ -246,11 +241,8 @@ def _held(releases: Mapping[str, Any], kept: Collection[str] | None) -> str:
                       if kept is None or listing in kept for one in found) else NO
 
 
-def _held_kind(releases: Mapping[str, Any], listed_as: str, listed: bool,
-               counted: bool) -> str:
-    if not (listed and counted):
-        return ""
-    return YES if any(one.get("held") for one in releases.get(listed_as) or []) else NO
+def _matched(releases: Mapping[str, Any], listed_as: str) -> bool:
+    return any(one.get("held") for one in releases.get(listed_as) or [])
 
 
 def rows(found: dict[str, Any], kept: Collection[str] | None = None,
@@ -296,9 +288,9 @@ def rows(found: dict[str, Any], kept: Collection[str] | None = None,
         }
         states = []
         for listed_as, field, _word in KINDS:
-            offered = listed_as in listed and (kept is None or listed_as in kept)
-            row[field] = _state(offered, counted, in_library, listed_as in held)
-            row[held_field(field)] = _held_kind(releases, listed_as, offered, counted)
+            row[field] = _state(kept is None or listed_as in kept, listed_as in listed,
+                                counted, in_library, listed_as in held,
+                                _matched(releases, listed_as))
             states.append(row[field])
         row["said"] = game_tables.made(row)
         row["gap"] = MISSING if MISSING in states else ""
@@ -657,11 +649,12 @@ def _filter_on(definition: dict[str, Any] | None, value: str) -> dict[str, Any]:
 
 def browse_filters(subject: dict[str, str], question: dict[str, Any],
                    columns: list[dict[str, Any]], *, counted: bool) -> dict[str, Any]:
-    """What a maker's or a theme's page asks, as filters on the All Games columns. In Library,
-    the Held columns, Have and Missing are left out before the library has been counted: the
-    columns hold nothing then, and a filter on them would empty the grid.
+    """What a maker's or a theme's page asks, as filters on the All Games columns. In Library
+    and the kind columns are left out before the library has been counted: the columns hold
+    nothing then, and a filter on them would empty the grid.
 
-    Without is a game of the library none of whose listed releases it holds."""
+    Without is a game of the library with a file missing: the kind's cell reads Missing, or
+    Anything Missing where no kind is picked."""
     by_field = {one["field"]: one for one in columns}
     out: dict[str, Any] = {}
     if subject["type"] == "maker":
@@ -677,11 +670,11 @@ def browse_filters(subject: dict[str, str], question: dict[str, Any],
     field = next((field for listed_as, field, _word in KINDS
                   if listed_as == question.get("kind")), "")
     if field:
-        out[field] = {"values": [HAVE, MISSING]}
+        out[field] = {"values": [MATCHED, UNMATCHED, MISSING]}
     if question.get("held") == "missing":
-        out[held_field(field) if field else HELD] = {"values": [NO]}
+        out[field or "gap"] = {"values": [MISSING]}
     elif question.get("held") == "have" and field:
-        out[field] = {"values": [HAVE]}
+        out[field] = {"values": [MATCHED, UNMATCHED]}
     return out
 
 
@@ -753,8 +746,7 @@ def comparing_line(library: Library, rerender: Callable[[], None]) -> ui.label:
 
 def grid_columns(library: Library, built: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The columns the grid declares: a kind's columns only for a kind the library collects."""
-    off = {name for listed_as, field, _word in KINDS if not kept(library, listed_as)
-           for name in (field, held_field(field))}
+    off = {field for listed_as, field, _word in KINDS if not kept(library, listed_as)}
     return grid_module.with_art(
         grid_module.with_derived_facets([one for one in COLUMNS if one["field"] not in off],
                                         built, CATALOG_FACET_CEILING),
@@ -1110,7 +1102,7 @@ def standing(library: Library, row: dict[str, Any],
         if listed_as not in row["listed"] or not kept(library, listed_as):
             continue
         if held is None:
-            answer = row[field]
+            answer = HAVE if row[field] in (MATCHED, UNMATCHED) else row[field]
         else:
             has = held_of(held, listed_as) or _kind_state(held, listed_as).get("held")
             answer = HAVE if has else MISSING
