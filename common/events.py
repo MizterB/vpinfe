@@ -94,10 +94,10 @@ INPUT_ACTION = "input.action"
 
 # A Manager on another device is listening for a button, so this device's controller is
 # heard for it. Armed lapses after `ttl_ms` unless it is sent again.
-#   pad_capture.armed  {armed, ttl_ms}
-#   pad_capture.press  {token, phase: down|up}   token as the Manager stores a button
-PAD_CAPTURE_ARMED = "pad_capture.armed"
-PAD_CAPTURE_PRESS = "pad_capture.press"
+#   input_capture.armed  {armed, ttl_ms}
+#   input_capture.press  {token, phase: down|up}   token as the Manager stores a button
+INPUT_CAPTURE_ARMED = "input_capture.armed"
+INPUT_CAPTURE_PRESS = "input_capture.press"
 
 DEFAULT_PRIORITY = 100
 

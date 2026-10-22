@@ -14,7 +14,7 @@ from nicegui import Client, ui
 from common import events
 from common.i18n import t
 from manager.settings import binding_table as table
-from manager.settings import pad_relay
+from manager.settings import input_relay
 from tests.manager.test_binding_table import _drawn
 from tests.support.clicks import press, said
 
@@ -43,7 +43,7 @@ class _Page:
 class _Asked:
     def __init__(self) -> None:
         self.seen: list[dict] = []
-        events.subscribe(events.PAD_CAPTURE_ARMED, self._note)
+        events.subscribe(events.INPUT_CAPTURE_ARMED, self._note)
 
     def _note(self, **payload: Any) -> None:
         self.seen.append(payload)
@@ -56,19 +56,19 @@ class _Asked:
 class _RelayCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         events.clear()
-        pad_relay.reset_for_tests()
+        input_relay.reset_for_tests()
         self.asked = _Asked()
         self.addCleanup(events.clear)
-        self.addCleanup(pad_relay.reset_for_tests)
+        self.addCleanup(input_relay.reset_for_tests)
 
 
 class RelayTests(_RelayCase):
     async def test_a_press_goes_to_every_page_that_is_listening(self) -> None:
         one, two = _Page("one"), _Page("two")
-        pad_relay.arm(one)  # type: ignore[arg-type]
-        pad_relay.arm(two)  # type: ignore[arg-type]
+        input_relay.arm(one)  # type: ignore[arg-type]
+        input_relay.arm(two)  # type: ignore[arg-type]
 
-        events.emit(events.PAD_CAPTURE_PRESS, token="pad:standard/button:4", phase="down")
+        events.emit(events.INPUT_CAPTURE_PRESS, token="pad:standard/button:4", phase="down")
         await asyncio.sleep(0)
 
         for page in (one, two):
@@ -78,29 +78,29 @@ class RelayTests(_RelayCase):
 
     async def test_a_release_says_so(self) -> None:
         page = _Page("one")
-        pad_relay.arm(page)  # type: ignore[arg-type]
+        input_relay.arm(page)  # type: ignore[arg-type]
 
-        events.emit(events.PAD_CAPTURE_PRESS, token="pad:2/button:0", phase="up")
+        events.emit(events.INPUT_CAPTURE_PRESS, token="pad:2/button:0", phase="up")
         await asyncio.sleep(0)
 
         self.assertTrue(page.ran[0].endswith(', false)'))
 
     async def test_a_page_that_stopped_listening_hears_nothing(self) -> None:
         page = _Page("one")
-        pad_relay.arm(page)  # type: ignore[arg-type]
-        pad_relay.disarm(page)  # type: ignore[arg-type]
+        input_relay.arm(page)  # type: ignore[arg-type]
+        input_relay.disarm(page)  # type: ignore[arg-type]
 
-        events.emit(events.PAD_CAPTURE_PRESS, token="pad:standard/button:4", phase="down")
+        events.emit(events.INPUT_CAPTURE_PRESS, token="pad:standard/button:4", phase="down")
         await asyncio.sleep(0)
 
         self.assertEqual(page.ran, [])
 
     async def test_a_page_that_has_gone_is_dropped_and_not_written_to(self) -> None:
         page = _Page("one")
-        pad_relay.arm(page)  # type: ignore[arg-type]
+        input_relay.arm(page)  # type: ignore[arg-type]
         page.is_deleted = True
 
-        events.emit(events.PAD_CAPTURE_PRESS, token="pad:standard/button:4", phase="down")
+        events.emit(events.INPUT_CAPTURE_PRESS, token="pad:standard/button:4", phase="down")
         await asyncio.sleep(0)
 
         self.assertEqual(page.ran, [])
@@ -108,18 +108,18 @@ class RelayTests(_RelayCase):
 
     async def test_the_cabinet_is_given_its_buttons_back_when_the_last_page_stops(self) -> None:
         one, two = _Page("one"), _Page("two")
-        pad_relay.arm(one)  # type: ignore[arg-type]
-        pad_relay.arm(two)  # type: ignore[arg-type]
+        input_relay.arm(one)  # type: ignore[arg-type]
+        input_relay.arm(two)  # type: ignore[arg-type]
 
-        pad_relay.disarm(one)  # type: ignore[arg-type]
+        input_relay.disarm(one)  # type: ignore[arg-type]
         self.assertNotIn(False, self.asked.armed)
-        pad_relay.disarm(two)  # type: ignore[arg-type]
+        input_relay.disarm(two)  # type: ignore[arg-type]
 
         self.assertEqual(self.asked.armed, [True, True, False])
 
     async def test_a_page_that_closes_stops_listening(self) -> None:
         page = _Page("one")
-        pad_relay.arm(page)  # type: ignore[arg-type]
+        input_relay.arm(page)  # type: ignore[arg-type]
 
         for handler in page.gone:
             handler()
@@ -128,28 +128,28 @@ class RelayTests(_RelayCase):
 
     async def test_asking_again_leaves_one_listener_and_asks_again(self) -> None:
         page = _Page("one")
-        pad_relay.arm(page)  # type: ignore[arg-type]
-        pad_relay.arm(page)  # type: ignore[arg-type]
+        input_relay.arm(page)  # type: ignore[arg-type]
+        input_relay.arm(page)  # type: ignore[arg-type]
 
         self.assertEqual(len(page.gone), 2)
-        pad_relay.disarm(page)  # type: ignore[arg-type]
-        pad_relay.arm(page)  # type: ignore[arg-type]
+        input_relay.disarm(page)  # type: ignore[arg-type]
+        input_relay.arm(page)  # type: ignore[arg-type]
         self.assertEqual(len(page.gone), 2, "the hooks are added once per page")
         self.assertEqual(self.asked.armed, [True, True, False, True])
         self.assertEqual({one["ttl_ms"] for one in self.asked.seen if one["armed"]},
-                         {pad_relay.TTL_MS})
+                         {input_relay.TTL_MS})
 
     async def test_a_page_with_no_connection_yet_is_not_asked_for(self) -> None:
         page = _Page("one")
         page.has_socket_connection = False
 
-        pad_relay.arm(page)  # type: ignore[arg-type]
+        input_relay.arm(page)  # type: ignore[arg-type]
 
         self.assertEqual(self.asked.armed, [])
         self.assertEqual(page.gone, [])
 
     async def test_the_ask_lapses_well_after_the_next_one_is_due(self) -> None:
-        self.assertGreater(pad_relay.TTL_MS / 1000, 2 * pad_relay.REFRESH_S)
+        self.assertGreater(input_relay.TTL_MS / 1000, 2 * input_relay.REFRESH_S)
 
 
 class ATableOnAnotherDevice(_RelayCase):
@@ -160,7 +160,7 @@ class ATableOnAnotherDevice(_RelayCase):
         for held in (patch.object(table, "opened_elsewhere", return_value=True),
                      patch.object(Client, "has_socket_connection", new_callable=PropertyMock,
                                   return_value=True),
-                     patch.object(pad_relay, "frontend_up", side_effect=lambda: self.up)):
+                     patch.object(input_relay, "frontend_up", side_effect=lambda: self.up)):
             held.start()
             self.addCleanup(held.stop)
 
@@ -249,14 +249,19 @@ class ATableOnTheServingDevice(_RelayCase):
     def setUp(self) -> None:
         super().setUp()
         self.body = ui.column()
+        for held in (patch.object(Client, "has_socket_connection", new_callable=PropertyMock,
+                                  return_value=True),
+                     patch.object(input_relay, "frontend_up", return_value=False)):
+            held.start()
+            self.addCleanup(held.stop)
 
-    async def test_it_asks_for_nothing_because_its_own_browser_hears_the_controller(self) -> None:
+    async def test_it_asks_too_and_has_no_note_for_a_frontend_that_is_closed(self) -> None:
         with patch.object(table, "opened_elsewhere", return_value=False):
             control, _ = _drawn(into=self.body)
 
         said(control.line, "listen", "back")
         await control._keep_listening()
 
-        self.assertEqual(self.asked.armed, [])
+        self.assertTrue(self.asked.armed)
         words = [one.text for one in control.line.descendants() if isinstance(one, ui.label)]
         self.assertNotIn(t("manager.binding_table.no_frontend"), words)

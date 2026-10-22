@@ -496,7 +496,7 @@ const INTERNAL_METHODS = new Set([
   "set_player_rating",
   "get_player_rating",
   "get_attract_config",
-  "pad_capture",
+  "input_capture",
 ]);
 
 // By the ids `common/host/frontend_browser.py` knows.
@@ -3113,6 +3113,7 @@ class VPinFECore {
 
   // Keyboard input processing to handlers
   async #onKeyDown(e) {
+    if (this._captureArmed) return this.#relayKey(e, true);
     if (!this.frontendInputEnabled) return;
     if (!this.isController()) return;
     if (this.#isTextEntry(e.target)) {
@@ -3156,6 +3157,7 @@ class VPinFECore {
 
   // A key coming back up ends its hold and lets any chord it belonged to fall apart.
   #onKeyUp(e) {
+    if (this._captureArmed) return this.#relayKey(e, false);
     const token = downToken("key:" + (e.code || e.key || ""));
     this.#endHold(this.#actionForKeyboardEvent(e));
     this.#releaseInput(token);
@@ -3707,7 +3709,7 @@ class VPinFECore {
     }
   }
 
-  // While a Manager on another device listens for a button, the controller's buttons go to
+  // While a Manager listens for a button or key, the controller's buttons and the keys go to
   // it and do nothing here. Armed for `ttlMs` and re-armed by each message; buttons already
   // down when it starts are ignored until let go, as the Manager's own listener does.
   #armCapture(armed, ttlMs) {
@@ -3729,12 +3731,22 @@ class VPinFECore {
     this._captureTimer = setTimeout(() => this.#armCapture(false, 0), ttlMs || 6000);
   }
 
+  // A key does nothing here while captured. Only the controller window reports it, and a
+  // repeat is the operating system's, not another press. A text field keeps its keys: what
+  // is typed in one is neither a binding nor something to send to another device.
+  #relayKey(e, isDown) {
+    if (!this.isController() || this.#isTextEntry(e.target)) return;
+    e.preventDefault();
+    if (e.repeat || !/^[A-Za-z0-9]{1,32}$/.test(e.code || "")) return;
+    this.callInternal("input_capture", "key:" + e.code, isDown ? "down" : "up").catch(() => {});
+  }
+
   #relayCapture(pad, index, isPressed, wasPressed, standard) {
     if (isPressed === wasPressed) return;
     const seat = pad + ":" + index;
     if (isPressed ? this._captureIgnored.has(seat) : this._captureIgnored.delete(seat)) return;
     const token = standard ? "pad:standard/button:" + index : "pad:" + pad + "/button:" + index;
-    this.callInternal("pad_capture", token, isPressed ? "down" : "up").catch(() => {});
+    this.callInternal("input_capture", token, isPressed ? "down" : "up").catch(() => {});
   }
 
   #updateGamepads() {

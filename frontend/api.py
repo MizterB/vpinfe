@@ -67,8 +67,9 @@ if TYPE_CHECKING:
 
 logger =logging.getLogger("vpinfe.frontend.api")
 
-# A pad button in the form a Manager stores: `pad:standard/button:4`, `pad:2/button:0`.
-_PAD_BUTTON = re.compile(r"pad:(?:standard|\d{1,3})/button:\d{1,3}")
+# A button or key in the form a Manager stores: `pad:standard/button:4`, `pad:2/button:0`,
+# `key:KeyN`.
+_INPUT_TOKEN = re.compile(r"pad:(?:standard|\d{1,3})/button:\d{1,3}|key:[A-Za-z0-9]{1,32}")
 
 _FILTER_OPTION_KEYS = {
     "letters": "letters",
@@ -197,7 +198,7 @@ API_INTERNAL_METHODS = {
     'get_attract_config',
     # The controller window's report of a button pressed while a Manager on another
     # device is listening. A theme calling it would type into that Manager's field.
-    'pad_capture',
+    'input_capture',
 }
 
 
@@ -721,12 +722,12 @@ class API:
         """Take Picture pressed while a table runs: freezes it, or takes the picture."""
         return freeze.take_picture()
 
-    def pad_capture(self, token: Any, phase: Any) -> dict[str, Any]:
-        """A controller button went down or up while a Manager on another device listens."""
+    def input_capture(self, token: Any, phase: Any) -> dict[str, Any]:
+        """A controller button or key went down or up while a Manager listens."""
         token = str(token or "")
-        if not _PAD_BUTTON.fullmatch(token) or phase not in ("down", "up"):
+        if not _INPUT_TOKEN.fullmatch(token) or phase not in ("down", "up"):
             return {"relayed": False}
-        events.emit(events.PAD_CAPTURE_PRESS, token=token, phase=phase)
+        events.emit(events.INPUT_CAPTURE_PRESS, token=token, phase=phase)
         return {"relayed": True}
 
     def resume_play(self) -> dict[str, Any]:

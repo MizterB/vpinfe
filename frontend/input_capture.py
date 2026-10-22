@@ -1,9 +1,9 @@
-"""Putting the controller's buttons in front of a Manager on another device.
+"""Putting this device's controller buttons and keys in front of a Manager.
 
-A browser reads a gamepad only on its own device, so a Manager opened elsewhere cannot hear
-this one's. While one is listening, the window that is the controller reports each button
-it sees and `common.events` carries it back, so the Manager page hears it as if it had
-been pressed there.
+A browser reads a gamepad and a keyboard only on its own device, so a Manager opened
+elsewhere cannot hear this one's. While one is listening, the window that is the controller
+reports each button and key it sees and `common.events` carries it back, so the Manager
+page hears it as if it had been pressed there.
 
 Registered once per process against the shared bridge, like `input_events`. The message
 goes to every window and the controller one answers: which window that is, is browser-side
@@ -38,7 +38,7 @@ def register(ws_bridge: DeviceChannel) -> None:
     _bridge = ws_bridge
     if _registered:
         return
-    events.subscribe(events.PAD_CAPTURE_ARMED, on_armed)
+    events.subscribe(events.INPUT_CAPTURE_ARMED, on_armed)
     _registered = True
 
 

@@ -1,8 +1,8 @@
-"""Hearing the cabinet's controller from a Manager opened on another device.
+"""Hearing the buttons and keys VPinFE runs with from a Manager opened on another device.
 
-The browser reads a gamepad only on its own device, so a binding table opened elsewhere
-cannot hear the controller VPinFE runs with. While one of its rows listens it asks, over
-`common.events`, for the frontend's controller window to report its buttons, and passes
+The browser reads a gamepad and a keyboard only on its own device, so a binding table
+opened elsewhere cannot hear the ones VPinFE runs with. While one of its rows listens it
+asks, over `common.events`, for the frontend's controller window to report them, and passes
 each one to the page's own listener. The Manager does not import the frontend: the bus is
 the only thing between them.
 """
@@ -18,11 +18,11 @@ from nicegui import Client
 from common import events
 from common.host import frontend_state
 
-logger = logging.getLogger("vpinfe.manager.settings.pad_relay")
+logger = logging.getLogger("vpinfe.manager.settings.input_relay")
 
 # How long the frontend keeps the controller for one ask, and how often a listening table
 # asks again. A page that is closed or navigated away stops asking, and the cabinet's
-# buttons come back on their own after the first.
+# buttons and keys come back on their own after the first.
 TTL_MS = 6000
 REFRESH_S = 2.0
 
@@ -47,12 +47,12 @@ def arm(client: Client) -> None:
         client.on_disconnect(lambda: disarm(client))
         client.on_delete(lambda: _forget(client))
     _listening[client.id] = (client, asyncio.get_running_loop())
-    events.emit(events.PAD_CAPTURE_ARMED, armed=True, ttl_ms=TTL_MS)
+    events.emit(events.INPUT_CAPTURE_ARMED, armed=True, ttl_ms=TTL_MS)
 
 
 def disarm(client: Client) -> None:
     if _listening.pop(client.id, None) is not None and not _listening:
-        events.emit(events.PAD_CAPTURE_ARMED, armed=False, ttl_ms=0)
+        events.emit(events.INPUT_CAPTURE_ARMED, armed=False, ttl_ms=0)
 
 
 def _forget(client: Client) -> None:
@@ -63,12 +63,12 @@ def _forget(client: Client) -> None:
 def _subscribe() -> None:
     global _subscribed
     if not _subscribed:
-        events.subscribe(events.PAD_CAPTURE_PRESS, _pressed)
+        events.subscribe(events.INPUT_CAPTURE_PRESS, _pressed)
         _subscribed = True
 
 
 def _pressed(*, token: str, phase: str, **_payload: object) -> None:
-    """A button on the cabinet. Runs on whichever thread the frontend's call arrived on."""
+    """A button or key on the cabinet. Runs on whichever thread the frontend's call arrived on."""
     code = f"window.__bindingListen && window.__bindingListen.relay({json.dumps(token)}, " \
            f"{'true' if phase == 'down' else 'false'})"
     for client, loop in list(_listening.values()):

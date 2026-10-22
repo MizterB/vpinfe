@@ -86,6 +86,7 @@ def gamepadtest():
     from fastapi import FastAPI
 
     from common.config.config_access import NetworkConfig
+    from frontend import lifecycle_host
     from frontend.api import API
     from frontend.chromium_manager import ChromiumManager
     from frontend.device_channel import DeviceChannel
@@ -120,6 +121,8 @@ def gamepadtest():
     )
     api._finish_setup()
     ws_bridge.register_api("gamepad", api)
+    lifecycle_host.install(config_store=config_store, frontend_browser=chromium,
+                           shutdown_event=threading.Event(), ws_bridge=ws_bridge)
 
     ws_bridge.start()
     try:

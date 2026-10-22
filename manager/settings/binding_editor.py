@@ -39,7 +39,7 @@ LISTEN_JS = """(() => {
   const down = new Map();          // token -> when it went down
   const heard = [];                // in the order they arrived
   const already = new Set();       // buttons down before this began, ignored until let go
-  const remote = new Set();        // pad buttons the cabinet reports down, not this browser's
+  const remote = new Set();        // buttons and keys the cabinet reports down, not this browser's
   let longest = 0;
   let device = '';
   let ringTimer = 0;
@@ -193,10 +193,10 @@ LISTEN_JS = """(() => {
     if (row && row.dataset.row === listen.row && e.target.closest('.manager-chip-holder')
         && !e.target.closest('.manager-chip-remove')) e.stopPropagation();
   }, true);
-  // A button on the cabinet's controller, reported by the frontend while this listens.
+  // A button or key on the cabinet, reported by the frontend while this listens.
   listen.relay = (token, isDown) => {
     if (!active()) return;
-    if (isDown) { remote.add(token); arrived('pad', token); }
+    if (isDown) { remote.add(token); arrived(token.startsWith('key:') ? 'key' : 'pad', token); }
     else { remote.delete(token); left(token); }
   };
   listen.stop = stop;

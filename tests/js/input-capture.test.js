@@ -1,6 +1,6 @@
-// A Manager on another device listens for a controller button: while it does, the
-// controller window reports each button to Python in the Manager's own selector form and
-// does nothing else with it, and it lets go on its own when the Manager stops asking.
+// A Manager listens for a controller button or key: while it does, the controller window
+// reports each one to Python in the Manager's own selector form and does nothing else with
+// it, and it lets go on its own when the Manager stops asking.
 
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -19,6 +19,8 @@ async function controller({ mapping = "standard" } = {}) {
   const buttons = [{ pressed: false }, { pressed: false }, { pressed: false }];
   // A browser lists a pad at its own index, empty slots before it.
   browser.navigator.getGamepads = () => [null, null, null, { index: 3, mapping, buttons }];
+  const listeners = {};
+  browser.window.addEventListener = (type, fn) => { (listeners[type] ||= []).push(fn); };
   const vpin = new VPinFECore();
   vpin.isController = () => true;
   const boot = { get_tables: "[]", get_theme_assets_port: 8000, get_initial_table_index: 0,
@@ -30,7 +32,7 @@ async function controller({ mapping = "standard" } = {}) {
     if (method === "library_waiting") return Promise.resolve([]);
     if (method === "signin_pending") return Promise.resolve(null);
     if (method === "get_attract_config") return Promise.resolve({ enabled: false });
-    if (method === "pad_capture") reported.push(args);
+    if (method === "input_capture") reported.push(args);
     return Promise.resolve({});
   };
   vpin.init();
@@ -49,7 +51,15 @@ async function controller({ mapping = "standard" } = {}) {
     browser.frames.step();
     await ticks();
   };
-  return { vpin, browser, reported, seen, arm, hold, buttons };
+  const key = async (type, code, repeat = false, target = null) => {
+    const event = { key: code, code, repeat, target, prevented: false,
+                    preventDefault() { event.prevented = true; } };
+    await Promise.all((listeners[type] || []).map(fn => fn(event)));
+    return event;
+  };
+  const press = (code, repeat, target) => key("keydown", code, repeat, target);
+  const release = (code, target) => key("keyup", code, false, target);
+  return { vpin, browser, reported, seen, arm, hold, buttons, press, release };
 }
 
 describe("a controller button is reported to a Manager that is listening", () => {
@@ -147,6 +157,84 @@ describe("a controller button is reported to a Manager that is listening", () =>
     await arm();
 
     await hold(1, false);
+
+    assert.deepEqual(reported, []);
+  });
+});
+
+describe("a key is reported to a Manager that is listening", () => {
+  test("a key goes by the name of its place on the keyboard", async () => {
+    const { reported, arm, press, release } = await controller();
+    await arm();
+
+    await press("KeyN");
+    await release("KeyN");
+
+    assert.deepEqual(reported, [["key:KeyN", "down"], ["key:KeyN", "up"]]);
+  });
+
+  test("what the key does here waits until the Manager is done", async () => {
+    const { vpin, seen, arm, press, release } = await controller();
+    vpin.keyActionMap = { next: ["keyn"] };
+    await press("KeyN");
+    await release("KeyN");
+    assert.deepEqual(seen, ["next"]);
+    await arm();
+
+    const event = await press("KeyN");
+    await release("KeyN");
+
+    assert.deepEqual(seen, ["next"]);
+    assert.equal(event.prevented, true);
+  });
+
+  test("the operating system's repeat is not another press", async () => {
+    const { reported, arm, press } = await controller();
+    await arm();
+
+    await press("KeyN");
+    await press("KeyN", true);
+
+    assert.deepEqual(reported, [["key:KeyN", "down"]]);
+  });
+
+  test("a key typed in a text field is not reported and still types", async () => {
+    const { reported, arm, press, release } = await controller();
+    await arm();
+    const field = { tagName: "INPUT", type: "text" };
+
+    const down = await press("KeyN", false, field);
+    const up = await release("KeyN", field);
+
+    assert.deepEqual(reported, []);
+    assert.equal(down.prevented, false);
+    assert.equal(up.prevented, false);
+  });
+
+  test("a key with no place of its own is not reported", async () => {
+    const { reported, arm, press } = await controller();
+    await arm();
+
+    await press("");
+
+    assert.deepEqual(reported, []);
+  });
+
+  test("a window that is not the controller reports nothing", async () => {
+    const { vpin, reported, arm, press } = await controller();
+    vpin.isController = () => false;
+    await arm();
+
+    await press("KeyN");
+
+    assert.deepEqual(reported, []);
+  });
+
+  test("nothing is reported while no Manager is listening", async () => {
+    const { reported, press, release } = await controller();
+
+    await press("KeyN");
+    await release("KeyN");
 
     assert.deepEqual(reported, []);
   });

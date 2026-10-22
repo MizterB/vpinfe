@@ -49,7 +49,7 @@ AREAS: dict[str, tuple[str, ...]] = {
                 "row_drag", "tageditor", "text_editor", "wizard_settle"),
     "settings": ("settings", "sections", "attract", "binding_editor", "binding_table",
                  "chrome_options", "commands", "displays", "dmd_panel", "dof", "folders",
-                 "input_page", "library_folders", "pad_relay", "placement_panel", "recording",
+                 "input_page", "library_folders", "input_relay", "placement_panel", "recording",
                  "screens",
                  "screens_picture", "shelves", "vpx_displays", "vpx_find", "vpx_input", "waiting"),
     "frontend": ("themes", "theme_card", "theme_sources", "launchers", "players"),

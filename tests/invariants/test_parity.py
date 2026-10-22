@@ -89,7 +89,7 @@ LEDGER_ALLOWS: dict[str, Any] = {
     "PAR-108": {"get_remote_link", "get_vpinplay_multi_link"},
     # PAR-109: the cabinet's controller window reports a button to a Manager on another
     # device that is listening for one. Core's own call, refused to themes.
-    "PAR-109": {"pad_capture"},
+    "PAR-109": {"input_capture"},
     # New media kinds add theme-payload keys. Additive only: every key master
     # had must still be present and equal.
     "PAR-11": {"InstructionCardImagePath", "TopperPath", "TopperVideoPath",
