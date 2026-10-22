@@ -95,12 +95,19 @@ next section first.
   out like the machine. Flyers and instruction cards can have several pages. Pictures and
   videos turn a quarter or a half turn with the original kept. Gaps fill from VPinMediaDB,
   from a game's backglass file, from a file of your own, or by recording the table running.
+  Remove takes the default-named file (a wheel.png, say) when a game has none of its own,
+  and says which tables lose it.
 - **Manager** - Assets lists each supporting file a table needs (backglass, settings, script,
   point of view, score view layout) and what is missing or left over. A table's INI, script,
   point of view or score view layout can be edited there, with a copy kept in Backups each
   time you save. A table's script can be extracted to a `.vbs` to patch, and the community's
   script fixes can be downloaded. A backglass, table INI or score view layout can be moved
   between a game and its tables, with Undo.
+- **Manager** - A table's file can be swapped without losing the table. Replace Table File...,
+  and Update... and Use Instead... from Discovery, put another file in its place and keep its
+  plays, rating and collections, with the old file kept in Backups and Undo to bring it back.
+  Delete from Disk... takes a table's file off the disk the same way, and Backups lists the
+  table copies and restores them.
 - **Core** - `.dif` patches apply directly, with no external tool. The base file stays on
   disk because the patched table cannot be rebuilt without it, and VPinFE records which base
   and which patch produced the result.
