@@ -354,6 +354,16 @@ def tab_of(state: dict[str, Any]) -> str:
     return BROWSE if state.get("entry") else HOME
 
 
+async def _redrawn(state: dict[str, Any], on_select: Callable[[Any], Any],
+                   rerender: Callable[[], None]) -> None:
+    """The page drawn again, then the pane of the entry that was open drawn again too: a
+    page redraw empties the pane, and the address still names the entry."""
+    rerender()
+    chosen = state.get("entry")
+    if chosen and state.get("workbench"):
+        await on_select({"id": chosen})
+
+
 async def _warm_views(library: Library) -> None:
     """Read the saved views before anything asks for them. A write made over an unread
     cache would replace the views that are saved."""
@@ -522,7 +532,7 @@ async def _fill_home(library: Library, body: Any, state: dict[str, Any],
     @on_page
     async def redraw_home() -> None:
         library.forget_catalog()
-        rerender()
+        await _redrawn(state, on_select, rerender)
 
     state["open_author"] = lambda name: go_to({"type": vps_find.AUTHOR, "name": name})
     state["redraw_discovery"] = redraw_home
@@ -802,7 +812,7 @@ async def _fill(library: Library, body: Any, state: dict[str, Any],
 
         @on_page
         async def redraw_subject() -> None:
-            rerender()
+            await _redrawn(state, on_select, rerender)
 
         state["redraw_discovery"] = discovery_marks.recounting(state, redraw_subject)
         with body:

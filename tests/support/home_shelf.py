@@ -132,7 +132,7 @@ class ShelfHarness(unittest.IsolatedAsyncioTestCase):
     async def _select(self, row: Any) -> None:
         self.selected.append(row)
 
-    async def _draw(self) -> ui.element:
+    async def _draw(self, rerender: Any = None) -> ui.element:
         real = home.fill
 
         def spy(*args: Any, **more: Any) -> None:
@@ -143,9 +143,15 @@ class ShelfHarness(unittest.IsolatedAsyncioTestCase):
             body = ui.column()
             with mock.patch.object(home, "fill", spy):
                 await discovery._fill_home(self.library, body, self.state, self._select,
-                                           mock.Mock())
+                                           rerender or mock.Mock())
         await settle()
         return body
+
+    async def _redraw(self) -> None:
+        """What an apply from the pane calls once Home is drawn."""
+        with _PAGE:
+            await self.state["redraw_discovery"]()
+        await settle()
 
     @staticmethod
     def _see_alls(body: ui.element) -> int:
