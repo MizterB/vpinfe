@@ -21,5 +21,11 @@ def only(*held: Source) -> Iterator[None]:
 
 
 def fixes_apply_here() -> Any:
-    """The script fixes answering as they do off Windows, wherever the tests run."""
+    """The script fixes answering as they do off Windows, wherever the tests run. Pair it
+    with `built_ins_afresh`: a registry that loaded earlier on Windows never took them."""
     return patch.object(script_fixes, "sys", SimpleNamespace(platform="linux"))
+
+
+def built_ins_afresh() -> Any:
+    """The registry empty, so the next ask loads the sources that ship."""
+    return patch.multiple(sources, _sources={}, _built_in_loaded=False)

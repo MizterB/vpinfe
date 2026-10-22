@@ -20,7 +20,7 @@ from common.online import arrivals, script_fixes, sources, sources_watch, vpsdb_
 from common.runtime import jobs
 from manager.settings import settings
 from tests.support.library import TempTree
-from tests.support.sources import fixes_apply_here, only
+from tests.support.sources import built_ins_afresh, fixes_apply_here, only
 
 INDEX = [{"sha256": "aaa", "patched": {"url": "https://example.invalid/Alpha.vbs"}}]
 ALPHA_HASH = "aaa"
@@ -36,6 +36,7 @@ class _Kept(TempTree):
     def setUp(self) -> None:
         super().setUp()
         fixes_apply_here().start()
+        built_ins_afresh().start()
         self.policy = library_policy.reset_for_tests(ConfigStore(str(self.root / "vpinfe.ini")))
         self.addCleanup(library_policy.reset_for_tests)
         self.addCleanup(setattr, script_fixes, "_fetcher", None)
@@ -76,7 +77,8 @@ class _Kept(TempTree):
 
 class TheSource(unittest.TestCase):
     def test_it_ships_with_a_switch_and_asks_nothing_of_a_game_by_itself(self) -> None:
-        self.assertIn(script_fixes.ID, [one.id for one in sources.all_sources()])
+        with fixes_apply_here(), built_ins_afresh():
+            self.assertIn(script_fixes.ID, [one.id for one in sources.all_sources()])
         source = script_fixes.SOURCE
         self.assertFalse(source.always_on)
         self.assertIsNotNone(source.refresh)
