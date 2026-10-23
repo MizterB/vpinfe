@@ -2,23 +2,24 @@
 
 ### Summary
 VPinFE 3.0. The Manager is the new place to run your library: games, tables, media,
-collections, tags, players, devices, settings and backups, with Setup for a first run and an
-import from PinballX, PinballY or PinUP Popper. Every game has an id of its own, a game
+collections, tags, players, devices, settings and backups, with Discovery to set your library
+against the Virtual Pinball Spreadsheet, and Setup for a first run and an import from
+PinballX, PinballY or PinUP Popper. Every game has an id of its own, a game
 folder can hold more than one table, other programs can build on an HTTP API at `/api/v1`,
 and every word on screen comes from a translation catalog. An install from an earlier version
 upgrades on its first start and VPinFE keeps a copy of everything it rewrites, so read the
 next section first.
 
 ### Before you upgrade
-- **Update the earlier install to v2.6.0 or newer first, even if you plan to stay on 3.0.**
-  If you go back, only v2.6.0 or newer knows how to put 3.0's backups back. Earlier
-  releases do not look for them.
+- **Update the earlier install to its latest release first, even if you plan to stay on 3.0.**
+  If you go back, only the latest release of the earlier version knows how to put 3.0's
+  backups back. Older releases do not look for them.
 - The first start rewrites every game's `.info` and moves your collections onto game ids.
   Your settings are read once from `vpinfe.ini` into a new `vpinfe.json` beside it, and the
   ini is left where it is. The original of each `.info` is kept beside it as
   `<name>.info.vpinfe-<timestamp>`, and collections are backed up the same way. Expect a
   burst of writes on the first start and nothing after.
-- To undo it, open System > Backups and press Go back to 2.x, or run `--restore-info`.
+- To undo it, open System > Backups and press Go back, or run `--restore-info`.
   That puts back each game's metadata and your collections. Clean up on the same page
   deletes the copies once you are sure you are staying.
 - To take a 3.0 development build back off entirely, `--reset-3x-state` removes the
@@ -40,7 +41,7 @@ next section first.
   the cost of the Manager and the Remote working from other devices.
 
 ### What's New
-- **Manager** - Other devices sign in to VPinFE once, with a code shown on this machine
+- **Manager** - Other devices sign in to VPinFE once, with a code shown on this device
   or with an authenticator app. This device never asks. Settings > Security lists who is
   signed in and signs any of them out, makes tokens for scripts and other programs, and
   names the networks and proxies whose traffic is encrypted. VPinFE can serve HTTPS from a
@@ -75,17 +76,17 @@ next section first.
 - **Manager** - Match a game to the Virtual Pinball Spreadsheet from a picker, see how the
   match was made and go back to the earlier one. Take a game's details from the spreadsheet,
   type your own over any of them, and revert a field with a click. See which tables have a
-  newer version on the spreadsheet.
-- **Manager** - Discovery lists every game and release on the Virtual Pinball Spreadsheet
-  and sets your library against them. The comparison runs on its own at start-up and when the
-  spreadsheet changes, and shows which games you hold and which files you are missing, and
-  Releases lists each file newest first. Search by author, maker
-  or theme, and filter by kind, format or when it was added. Discovery opens on Home, a set
-  of shelves that each answer a question: which of your games have a newer version, what was
-  added lately, what a game of yours still lacks, which games you don't have, which games
-  share a title with one you hold, which games to match, which need a look, and which pages
-  you opened and did not import. Each shelf can be switched off and the shelves put in order
-  under Settings > Library > Discovery.
+  newer version on the spreadsheet. VPinFE ties a table to its release by itself when the
+  spreadsheet names it exactly, and an unbind you make is kept.
+- **Manager** - Discovery sets your library against every game and release on the Virtual
+  Pinball Spreadsheet, and keeps the comparison current on its own. It opens on Home, a set
+  of shelves that each answer a question, such as which of your games have a newer version,
+  what is new on VPS, what a game of yours still lacks and which games you don't have. Each
+  shelf can be switched off and put in order under Settings > Library > Discovery.
+- **Manager** - All Games and Releases show the same comparison as grids, each kind of file
+  reading Matched, Unmatched or Missing, with search by author, maker or theme. Ignore a game,
+  a release or a missing kind to leave it off Home, mark a game or a release Wanted to put it
+  on a shelf, and find both in Marks, each with an Undo.
 - **Manager** - Collections are smart (filled by rules on letter, theme, type, manufacturer,
   year, rating, tags, favorite and played) or hand-picked, ordered and capped as you choose.
   Tags are your own words on games and tables, with rename, merge, color and a clear-out for
@@ -96,10 +97,11 @@ next section first.
   videos turn a quarter or a half turn with the original kept. Gaps fill from VPinMediaDB,
   from a game's backglass file, from a file of your own, or by recording the table running.
   Remove takes the default-named file (a wheel.png, say) when a game has none of its own,
-  and says which tables lose it.
+  and says which tables lose it. A file that a new one replaces, by a drop, an import, a
+  download or a recording, is kept in Backups first.
 - **Manager** - Assets lists each supporting file a table needs (backglass, settings, script,
-  point of view, score view layout) and what is missing or left over. A table's INI, script,
-  point of view or score view layout can be edited there, with a copy kept in Backups each
+  point of view, score view layout, Nixie layout) and what is missing or left over. A table's
+  INI, script, point of view or score view layout can be edited there, with a copy kept in Backups each
   time you save. A table's script can be extracted to a `.vbs` to patch, and the community's
   script fixes can be downloaded. A backglass, table INI or score view layout can be moved
   between a game and its tables, with Undo.
@@ -118,29 +120,43 @@ next section first.
 - **Manager** - Launchers run beside each other, each with its own program and settings, and
   can be chosen for a table. Launcher settings can be given to all tables, to one game or
   to one table, and the Manager shows which layer a value comes from.
+- **Manager** - Visual Pinball settings follow the program you run. The settings offered, and
+  what Enable defaults to, follow the program's build and the renderer plugins in its plugins
+  folder (B2S, B2SLegacy, Nixie, ScoreView, PUP), and a setting the build does not have is
+  hidden. After an upgrade a notice offers to move the settings the program no longer reads
+  to where it reads them now, such as a renamed plugin setting or a DMD box that now lives in
+  the backglass file, with an Undo and a Settings Left Behind row in Overview. On build 6267
+  and later, Full DMD draws Nixie over B2S for a table whose art carries its own DMD, and
+  VPinFE keeps each table's draw order in step with the launcher's.
 - **Manager, Core** - Devices: installs find each other on your network and show their
   version, what they can do and what their log says. A device can be updated, restarted,
   powered off, or told to close the table it is playing from another device. Several
   mobile devices running VPX Mobile can be added manually and sent tables. A cabinet can play
-  a library held on another device. Windows may ask to let VPinFE through the firewall the
+  a library kept on another device. Windows may ask to let VPinFE through the firewall the
   first time, and a network that filters multicast still takes an address manually.
+  Settings > VPinFE > This Device shows the version running and the latest, and a Channel:
+  Stable for everyday use, or Early access to be offered beta builds as well.
 - **Manager, Core** - Backups: VPinFE keeps a copy before it changes something it cannot
   easily undo, and System > Backups lists, restores or clears them. A backup of your whole
   setup can be taken at any time and carried to another device.
 - **Manager** - Settings save as you change them, with a tag on the ones that wait for a
   restart or a reopen. Open Links In, under Manager settings, sends every link to another
-  site to one tab you keep using, or to a new tab each time. Metrics shows the processor, memory, graphics card and disks of a machine, and Logs shows
-  what VPinFE has been doing as a stream or as a digest that collapses repeats.
+  site to one tab you keep using, or to a new tab each time. Metrics shows the processor,
+  memory, graphics card and disks of this device, and Logs shows what VPinFE has been doing
+  as a stream or as a digest that collapses repeats.
 - **Frontend** - Screens are placed by dragging each one onto the part of your cabinet it
   belongs to, including a topper. Any key or controller button can be bound to an action,
-  with chords and holds, and a key can take a picture of the screens during play.
+  with chords and holds, and a key can take a picture of the screens during play. A Manager
+  open on another device can listen for the keys and buttons of the cabinet's own controller
+  when you bind one. Buttons are named by number, since a browser reports a number and
+  makers letter them differently.
 - **Frontend** - The wheel pages by the groups in whatever it is sorted by: the next letter
   under title order, the next year under year order, and a fixed number where every game has
   a value of its own. The Main Menu rates the game on the wheel, chooses who is up and
   records media, and the collection menu narrows the wheel and can save the narrowing as a
   smart collection. A library on a drive or share that is not connected yet is waited for,
   and the wheel fills when it is.
-- **Frontend** - VPinFE can ask before it quits or powers off the machine. It is off by
+- **Frontend** - VPinFE can ask before it quits or powers off the device. It is off by
   default, which is how it has always behaved; turn on Confirm Before Exit. The
   question appears on whatever you used to ask, and every other screen is told what is about
   to happen.
@@ -193,6 +209,11 @@ These are deliberate. `docs/compatibility-3.0.md` has the full list with the rea
 - **Core** - A game's export is one table: the chosen `.vpx`, its companions, `pinmame/`,
   `music/`, colorization and sound folders and the author's readme files. Readme and `.nfo`
   files are recognized on import and travel with the game.
+- **Core** - Themes, table media and logos are served from the same port as the Manager,
+  8001 by default, and the separate theme server on port 8000 is gone. Another device now
+  needs the `games:read` scope to read media and tables. A start whose port is taken, shared
+  by two settings or refused by the device stops with a line naming the setting. Settings >
+  Network lists Port, Reachable From and Window Port, with the address another device opens.
 - **Core** - The command line takes `--game` to name a folder. `--table` still works for a
   script that uses it.
 - **Core** - A collection whose filter picked a single digit or symbol as its letter matches
@@ -235,8 +256,12 @@ These are deliberate. `docs/compatibility-3.0.md` has the full list with the rea
   provides. `/web/` still serves the same files, so an existing theme has nothing to change.
 - **Themes** - The paging actions are `page_previous` and `page_next`, not `page_up` and
   `page_down`. A contract 1 theme still receives `joypageup` and `joypagedown`.
+- **Themes** - Core serves a theme's files, table media and logos from the HTTP port, so
+  `vpin.themeAssetsPort` reports that port, 8001 by default, and not 8000. A theme that reads
+  `vpin.endpoints.files` has nothing to change; one that builds a URL on port 8000 itself
+  does.
 - **Themes** - `vpin.endpoints.player` is `vpin.endpoints.device`, and the window url
-  carries `devicePort` rather than `playerPort`. It is the address of the machine a game
+  carries `devicePort` rather than `playerPort`. It is the address of the device a game
   launches on, as against `endpoints.library`, which is where the catalog lives. A theme that
   read the old key gets no error, so it is worth checking.
 - **Core** - Breaking: `/api/v1/players` is `/api/v1/devices`, its scopes are `devices:read`
@@ -252,4 +277,4 @@ These are deliberate. `docs/compatibility-3.0.md` has the full list with the rea
   keys, and `Info` gives up `Rom` and `Authors` to the game file that owns them.
 
 ### Notes
-Back up your library before you upgrade and keep a v2.6.0 build to hand.
+Back up your library before you upgrade and keep a copy of the earlier version's latest release to hand.
