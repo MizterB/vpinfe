@@ -287,7 +287,7 @@ html[data-vpinfe-waiting]::after {
 }
 
 /* ---------------------------------------------------------------------------
-   While the buttons are going to a Manager, one line at the bottom of the controller window.
+   While input events are going to a Manager, one line at the bottom of the controller window.
 
    Built like the recording line above and turned the same way, with a bar that fills while
    a button is kept down to take them back. The dot flashes on each press that is sent.

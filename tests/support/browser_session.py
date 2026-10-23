@@ -364,12 +364,21 @@ class BrowserSession:
         await self.send("Input.dispatchMouseEvent",
                         {"type": "mouseMoved", "x": 1, "y": 1, "button": "none"})
 
+    async def key_down(self, key: str, code: str, key_code: int = 0) -> None:
+        await self._key("keyDown", key, code, key_code)
+
+    async def key_up(self, key: str, code: str, key_code: int = 0) -> None:
+        await self._key("keyUp", key, code, key_code)
+
     async def press(self, key: str, code: str, key_code: int = 0) -> None:
-        for event in ("keyDown", "keyUp"):
-            await self.send("Input.dispatchKeyEvent",
-                            {"type": event, "key": key, "code": code,
-                             "windowsVirtualKeyCode": key_code})
-            await asyncio.sleep(_INPUT_GAP_S)
+        await self.key_down(key, code, key_code)
+        await self.key_up(key, code, key_code)
+
+    async def _key(self, event: str, key: str, code: str, key_code: int) -> None:
+        await self.send("Input.dispatchKeyEvent",
+                        {"type": event, "key": key, "code": code,
+                         "windowsVirtualKeyCode": key_code})
+        await asyncio.sleep(_INPUT_GAP_S)
 
     async def escape(self) -> None:
         """Escape as Quasar reads it, by the legacy `keyCode` that `press` leaves at 0."""

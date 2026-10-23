@@ -3978,7 +3978,7 @@ class VPinFECore {
                { game: run.game?.name || "" });
   }
 
-  // One line at the bottom of the controller window while buttons are going to a Manager,
+  // One line at the bottom of the controller window while input events are going to a Manager,
   // with what to do to take them back. Hidden, not removed, while a table is up.
   #drawCapture() {
     const who = this.#capture;
@@ -4020,10 +4020,10 @@ class VPinFECore {
     line.hidden = !!this._launchInputSuppressedByLifecycle;
     const browser = who.browser || this.t("frontend.capture.browser", "a browser");
     this.#captureText.textContent = who.device
-      ? this.t("frontend.capture.line", "Buttons are going to the Manager in {browser} at {device}",
+      ? this.t("frontend.capture.line", "Input events are going to the Manager in {browser} at {device}",
                { browser, device: who.device })
       : this.t("frontend.capture.line_here",
-               "Buttons are going to the Manager in {browser} on this device", { browser });
+               "Input events are going to the Manager in {browser} on this device", { browser });
     let longest = null;
     this._captureHeld.forEach((held, id) => {
       if (!longest || held.at < longest.held.at) longest = { id, held };

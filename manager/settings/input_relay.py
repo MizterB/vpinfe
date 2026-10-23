@@ -92,11 +92,13 @@ def resume(client: Client) -> None:
         _taken.discard(client.id)
 
 
-def disarm(client: Client) -> None:
+def disarm(client: Client) -> bool:
+    """Whether the page held the buttons until now."""
     with _lock:
         held = _leases.pop(client.id, None)
     if held is not None:
         _announce()
+    return held is not None
 
 
 def holders() -> int:

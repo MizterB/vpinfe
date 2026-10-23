@@ -40,6 +40,9 @@ def _listening(label: str) -> str:
 LABELS = ("[...document.querySelectorAll('.manager-binding-row .manager-binding-label')]"
           ".map(el => el.textContent.trim())")
 WORDS = "document.querySelector('.manager-bindings').parentElement.innerText"
+LINE = ("(el => el ? [...el.children].filter(part => !part.classList.contains('q-icon'))"
+        ".map(part => part.textContent.trim()).join(' ') : null)"
+        "(document.querySelector('.manager-binding-live'))")
 PAD = """(() => {
   window.__pad = {index: 0, mapping: 'standard', id: 'Stand-in',
                   buttons: Array.from({length: 17}, () => ({pressed: false}))};
@@ -52,6 +55,7 @@ PAD_READ_S = 0.3
 SAVED_POLL_S = 0.25
 CLOSED = t("manager.binding_table.frontend_closed", device="@@").split("@@")[0]
 TAKEN = t("manager.binding_table.off_taken", device="@@").split("@@")[0]
+IDLE = t("manager.binding_table.press_anything")
 CABINET_LINE = t("frontend.capture.line", browser="@@", device="").split("@@")[0]
 CABINET_TEXT = ("(el => el ? el.textContent.trim() : null)"
                 "(document.querySelector('.vpinfe-capture-text'))")
@@ -151,6 +155,15 @@ class InputRelayDrive(unittest.TestCase):
             seen["keys_after"] = await saved(manager, "Previous", "previous",
                                              seen["keys_before"])
 
+            await controller.evaluate("window.__pad.buttons[0] = {pressed: true}")
+            await manager.wait_for(f"{LINE} !== {json.dumps(IDLE)}",
+                                   timeout=ARMED_FOR_THE_PAD_BY)
+            seen["line_while_down"] = await manager.evaluate(LINE)
+            await controller.evaluate("window.__pad.buttons[0] = {pressed: false}")
+            await manager.wait_for(f"{LINE} === {json.dumps(IDLE)}",
+                                   timeout=ARMED_FOR_THE_PAD_BY)
+            seen["line_after_up"] = await manager.evaluate(LINE)
+
             await controller.evaluate("window.__pad.buttons[5] = {pressed: true}")
             await asyncio.sleep(HELD_FOR_S)
             await controller.evaluate("window.__pad.buttons[5] = {pressed: false}")
@@ -180,6 +193,10 @@ class InputRelayDrive(unittest.TestCase):
 
     def test_the_buttons_keep_coming_after_a_row_has_what_it_heard(self) -> None:
         self.assertTrue(self.seen["still_sending"], self.seen)
+
+    def test_a_button_on_the_controller_window_shows_while_down_and_goes_when_let_go(self) -> None:
+        self.assertNotEqual(self.seen["line_while_down"], IDLE, self.seen)
+        self.assertEqual(self.seen["line_after_up"], IDLE, self.seen)
 
     def test_a_button_held_at_the_cabinet_takes_them_back_and_the_page_says_so(self) -> None:
         self.assertIn(TAKEN, self.seen["words_after_the_take_back"])

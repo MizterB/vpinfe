@@ -176,7 +176,8 @@ class DrawnTests(unittest.TestCase):
         _, body = _drawn()
 
         headings = [one.text for one in body.descendants()
-                    if isinstance(one, ui.label) and "manager-fact-heading" in one.classes]
+                    if isinstance(one, ui.label) and "manager-fact-heading" in one.classes
+                    and "manager-binding-tester" not in one.classes]
         self.assertEqual(headings, ["Navigation", "During Play"])
 
     def test_a_row_with_nothing_mapped_says_so_in_a_warning_chip(self) -> None:
@@ -275,6 +276,46 @@ class DrawnTests(unittest.TestCase):
 
         self.assertIn("Press anything to see what it does", _labels(body))
 
+    def test_the_table_is_headed_as_the_tester_above_the_assignments(self) -> None:
+        _, body = _drawn()
+
+        [heading] = [one for one in body.descendants()
+                     if isinstance(one, ui.label) and "manager-binding-tester" in one.classes]
+        self.assertEqual(heading.text, "Live Input Tester")
+        self.assertEqual(_labels(body)[0], "Live Input Tester")
+
+    def test_a_press_let_go_leaves_the_line_and_the_rows_it_lit(self) -> None:
+        control, body = _drawn()
+        control._heard(SimpleNamespace(args="key:Enter"))
+        self.assertNotIn("Press anything to see what it does", _labels(body))
+
+        control._let_go(SimpleNamespace(args=""))
+
+        self.assertIn("Press anything to see what it does", _labels(body))
+        self.assertEqual(control.lit, "")
+        self.assertNotIn("manager-binding-lit", _classes(body))
+
+    def test_a_press_let_go_while_another_is_down_shows_the_one_still_down(self) -> None:
+        control, body = _drawn()
+        control._heard(SimpleNamespace(args="key:Enter"))
+        control._heard(SimpleNamespace(args="key:Escape"))
+
+        control._let_go(SimpleNamespace(args="key:Enter"))
+
+        self.assertIn("Enter", _labels(body))
+        self.assertNotIn("Escape", _labels(body))
+
+    def test_a_release_while_a_row_is_listening_lights_nothing(self) -> None:
+        control, body = _drawn()
+        control._heard(SimpleNamespace(args="key:Enter"))
+        control._heard(SimpleNamespace(args="key:Escape"))
+        control._listening(SimpleNamespace(args="next"))
+
+        control._let_go(SimpleNamespace(args="key:Enter"))
+
+        self.assertEqual(control.lit, "")
+        self.assertNotIn("manager-binding-lit", _classes(body))
+
     def test_the_box_holds_only_the_readout_on_the_serving_device_and_elsewhere(self) -> None:
         for elsewhere in (False, True):
             with patch.object(table, "opened_elsewhere", return_value=elsewhere):
@@ -345,7 +386,7 @@ class WhatCanBeChangedTests(unittest.TestCase):
         control, _ = _drawn()
 
         kinds = {one.type for one in control.line._event_listeners.values()}
-        self.assertLessEqual({"heard", "listen", "captured"}, kinds)
+        self.assertLessEqual({"heard", "released", "listen", "captured"}, kinds)
 
     def test_a_chip_opens_its_hold_menu_on_a_row_that_can_hold(self) -> None:
         _, body = _drawn()
@@ -872,7 +913,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(run.call_count, 2)
         self.assertEqual({one.type for one in control.line._event_listeners.values()},
-                         {"heard", "listen", "captured", "taken", "visible", "touched"})
+                         {"heard", "released", "listen", "captured", "taken", "visible", "touched"})
 
     async def test_a_table_that_is_only_shown_listens_for_no_row(self) -> None:
         with patch.object(ui, "run_javascript") as run:
@@ -881,7 +922,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(run.call_count, 1)
         self.assertEqual({one.type for one in control.line._event_listeners.values()},
-                         {"heard", "taken", "visible", "touched"})
+                         {"heard", "released", "taken", "visible", "touched"})
 
     async def test_drawing_after_the_page_is_gone_draws_nothing(self) -> None:
         control = self.drawn()

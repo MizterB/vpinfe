@@ -337,7 +337,9 @@ class _TableCase(_RelayCase):
         self.up = True
         self.playing = False
         self.closed = MagicMock()
+        self.script = MagicMock()
         for held in (patch.object(table, "opened_elsewhere", return_value=self.elsewhere),
+                     patch.object(Client, "run_javascript", self.script),
                      patch.object(Client, "has_socket_connection", new_callable=PropertyMock,
                                   return_value=True),
                      patch.object(input_relay, "frontend_up", side_effect=lambda: self.up),
@@ -382,13 +384,13 @@ class TheSwitchTests(_TableCase):
 
         assert switch is not None
         self.assertTrue(switch.value)
-        self.assertEqual(self._words(control)[0], t("manager.binding_table.send_buttons"))
+        self.assertEqual(self._words(control)[0], t("manager.binding_table.send_events"))
         self.assertNotIn(switch, list(control.line.descendants()))
 
     async def test_nothing_is_said_beside_it_while_all_is_normal(self) -> None:
         control = self.drawn()
 
-        self.assertEqual(self._words(control), [t("manager.binding_table.send_buttons")])
+        self.assertEqual(self._words(control), [t("manager.binding_table.send_events")])
 
     async def test_turning_it_off_lets_them_go_and_on_asks_again(self) -> None:
         control = self.drawn()
@@ -398,6 +400,21 @@ class TheSwitchTests(_TableCase):
         control._switched(SimpleNamespace(value=True))
 
         self.assertEqual(self.asked.armed, [True, False, True])
+
+    async def test_turning_it_off_lets_go_of_what_the_cabinet_was_holding(self) -> None:
+        control = self.drawn()
+        await control._begin()
+
+        control._switched(SimpleNamespace(value=False))
+
+        self.script.assert_called_once_with(table._DROP_RELAYED_JS)
+
+    async def test_a_page_that_never_held_them_has_nothing_to_let_go_of(self) -> None:
+        control = self.drawn()
+
+        control._sync_lease()
+
+        self.script.assert_not_called()
 
     async def test_a_page_out_of_view_lets_them_go_and_asks_again_when_it_returns(self) -> None:
         control = self.drawn()
@@ -538,7 +555,7 @@ class WhenItLetsGoTests(_TableCase):
         self.playing = False
         await control._keep()
         self.assertTrue(self.asked.seen[-1]["armed"])
-        self.assertEqual(self._words(control), [t("manager.binding_table.send_buttons")])
+        self.assertEqual(self._words(control), [t("manager.binding_table.send_events")])
 
 
 class TheOfferTests(_TableCase):
@@ -658,7 +675,7 @@ class ATableOnTheServingDevice(_TableCase):
         control = self.drawn()
 
         self.assertIsNotNone(self._switch(control))
-        self.assertEqual(self._words(control), [t("manager.binding_table.send_buttons")])
+        self.assertEqual(self._words(control), [t("manager.binding_table.send_events")])
 
     async def test_it_asks_for_the_buttons_too_and_names_no_device(self) -> None:
         with patch.object(table, "holder_of", return_value=("Chrome on Linux", "")):

@@ -47,7 +47,8 @@ HOLD_STOPS = (0, 500, 1000, 1500, 2000, 3000)
 # question over the table, a menu, a listening row or a text field has the keyboard is not a
 # press to report. A dialog the table is drawn in is not a question over it. It also tells
 # the table when the page is shown or hidden and, at most every 5 seconds, that the person
-# touched it, and carries a take-back from the cabinet to it.
+# touched it, and carries a take-back from the cabinet to it. Browsers send no keyup for a key
+# pressed under Command, so Command's own keyup and the window's blur clear the keys.
 _LIVE_JS = """(() => {
   const live = window.__bindingLive = window.__bindingLive || {};
   live.id = %(id)d;
@@ -62,16 +63,45 @@ _LIVE_JS = """(() => {
     const target = document.getElementById('c' + live.id);
     if (target) target.dispatchEvent(new CustomEvent(name, {detail}));
   };
-  const report = (token) => { if (!busy()) tell('heard', token); };
+  const held = [];
+  const report = (token) => {
+    if (busy()) return;
+    const at = held.indexOf(token);
+    if (at >= 0) held.splice(at, 1);
+    held.push(token);
+    tell('heard', token);
+  };
+  const release = (token) => {
+    const at = held.indexOf(token);
+    if (at < 0) return;
+    held.splice(at, 1);
+    tell('released', held.length ? held[held.length - 1] : '');
+  };
+  const drop = (gone) => {
+    const kept = held.filter(token => !gone(token));
+    if (kept.length === held.length) return;
+    held.length = 0;
+    held.push(...kept);
+    tell('released', held.length ? held[held.length - 1] : '');
+  };
+  const relayed = new Set();
   live.relayed = report;
   live.relay = (token, isDown) => {
     const listen = window.__bindingListen;
     if (listen && listen.relay) listen.relay(token, isDown);
     else if (isDown) report(token);
+    if (isDown) relayed.add(token);
+    else { relayed.delete(token); release(token); }
+  };
+  live.dropRelayed = () => {
+    const lost = [...relayed];
+    relayed.clear();
+    drop(token => lost.includes(token));
   };
   const allUp = () => {
     const listen = window.__bindingListen;
     if (listen && listen.relayAllUp) listen.relayAllUp();
+    if (held.length) { held.length = 0; tell('released', ''); }
   };
   live.taken = () => { allUp(); tell('taken', ''); };
   const seen = () => { if (document.hidden) allUp(); tell('visible', !document.hidden); };
@@ -85,19 +115,38 @@ _LIVE_JS = """(() => {
   ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart']
     .forEach(name => window.addEventListener(name, touch, true));
   window.addEventListener('keydown', (e) => { if (!e.repeat) report('key:' + e.code); }, true);
+  const isKey = (token) => token.startsWith('key:');
+  window.addEventListener('keyup', (e) => {
+    release('key:' + e.code);
+    if (e.code.startsWith('Meta')) drop(isKey);
+  }, true);
+  window.addEventListener('blur', () => drop(isKey));
   const down = {};
+  const named = {};
+  window.addEventListener('gamepaddisconnected', (e) => {
+    for (const seat of Object.keys(down)) {
+      if (!seat.startsWith(e.gamepad.index + ':') || !down[seat]) continue;
+      down[seat] = false;
+      release(named[seat]);
+    }
+  });
   setInterval(() => {
     for (const pad of (navigator.getGamepads ? navigator.getGamepads() : [])) {
       if (!pad) continue;
       pad.buttons.forEach((b, i) => {
         const seat = pad.index + ':' + i;
         const fresh = b.pressed && !down[seat];
+        const gone = !b.pressed && down[seat];
         down[seat] = b.pressed;
-        if (fresh) report(%(pad_token)s);
+        if (fresh) { named[seat] = %(pad_token)s; report(named[seat]); }
+        if (gone) release(named[seat]);
       });
     }
   }, 40);
 })()"""
+
+
+_DROP_RELAYED_JS = "window.__bindingLive && window.__bindingLive.dropRelayed()"
 
 
 @dataclass(frozen=True)
@@ -320,12 +369,15 @@ class Table:
         self._labels: dict[str, ui.element] = {}
         self._chips: dict[tuple[str, str], ui.element] = {}
         with ui.element("div").classes("w-full") as self.container:
+            ui.label(t("manager.binding_table.tester")) \
+                .classes("manager-fact-heading manager-binding-tester")
             self.line = ui.element("div")
             self.send = ui.element("div").classes("manager-binding-send")
             self.grid = ui.element("div").classes("manager-facts manager-bindings")
         self._client = ui.context.client
         self._asker = _asker()
         self.line.on("heard", self._heard, js_handler="(e) => emit(e.detail)")
+        self.line.on("released", self._let_go, js_handler="(e) => emit(e.detail)")
         self.line.on("taken", self._taken, js_handler="(e) => emit()")
         self.line.on("visible", self._shown, js_handler="(e) => emit(e.detail)")
         self.line.on("touched", self._touched, js_handler="(e) => emit()")
@@ -501,9 +553,9 @@ class Table:
                              hint=t("action.frontend.start.help"))()
                 words = t("manager.binding_table.frontend_closed", device=self._cab)
             else:
-                ui.label(t("manager.binding_table.send_buttons")).classes("manager-fact-label")
+                ui.label(t("manager.binding_table.send_events")).classes("manager-fact-label")
                 panel.switch(self.sending, self._switched,
-                             hint=t("manager.binding_table.send_buttons.help",
+                             hint=t("manager.binding_table.send_events.help",
                                     device=self._cab))()
                 words = self._words()
             if words:
@@ -571,6 +623,16 @@ class Table:
             self._active_at = time.monotonic()
             self._show(token, does=listed(self._does(token)))
 
+    def _let_go(self, event: Any) -> None:
+        """A press let go: the line shows the one still down, or goes back to waiting."""
+        if self.listening:
+            return
+        token = str(event.args or "").strip()
+        if token:
+            self._show(token, does=listed(self._does(token)))
+        else:
+            self._idle()
+
     def _listening(self, event: Any) -> None:
         """The page started listening for a row, moved to another, or stopped."""
         name = str(event.args or "")
@@ -622,8 +684,8 @@ class Table:
         elif self.sending and self._visible and not self._playing:
             browser, device = self._holder
             input_relay.arm(self._client, browser=browser, device=device)
-        else:
-            input_relay.disarm(self._client)
+        elif input_relay.disarm(self._client):
+            self._client.run_javascript(_DROP_RELAYED_JS)
 
     async def _begin(self) -> None:
         """Names who is asking, which needs a lookup, and then asks."""

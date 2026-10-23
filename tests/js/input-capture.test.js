@@ -243,7 +243,7 @@ describe("a key is reported to a Manager that is listening", () => {
   });
 });
 
-describe("the line the cabinet shows while buttons go to a Manager", () => {
+describe("the line the cabinet shows while input events go to a Manager", () => {
   const away = { browser: "Safari on Mac", device: "office-laptop" };
 
   test("it names the browser and the device", async () => {
@@ -251,7 +251,7 @@ describe("the line the cabinet shows while buttons go to a Manager", () => {
     await arm(true, 6000, away);
 
     assert.deepEqual(words().slice(0, 2), [
-      "Buttons are going to the Manager in Safari on Mac at office-laptop",
+      "Input events are going to the Manager in Safari on Mac at office-laptop",
       "Hold any button 5 seconds to take them back"]);
   });
 
@@ -259,14 +259,14 @@ describe("the line the cabinet shows while buttons go to a Manager", () => {
     const { arm, words } = await controller();
     await arm(true, 6000, { browser: "Chrome on Linux", device: "" });
 
-    assert.equal(words()[0], "Buttons are going to the Manager in Chrome on Linux on this device");
+    assert.equal(words()[0], "Input events are going to the Manager in Chrome on Linux on this device");
   });
 
   test("a holder with no name still has one", async () => {
     const { arm, words } = await controller();
     await arm(true, 6000, { device: "office-laptop" });
 
-    assert.equal(words()[0], "Buttons are going to the Manager in a browser at office-laptop");
+    assert.equal(words()[0], "Input events are going to the Manager in a browser at office-laptop");
   });
 
   test("it is gone once nothing asks", async () => {

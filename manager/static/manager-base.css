@@ -671,6 +671,15 @@ body::before {
   border-color: var(--accent); color: var(--accent); background: var(--accent-wash);
 }
 
+/* The tester heads the table, so it has nothing above it to be ruled off from, and the
+   assignments' first heading takes the rule instead. */
+.manager-binding-tester.manager-fact-heading {
+  grid-column: auto; border-top: none; margin-top: 0; padding: 0 0 4px;
+}
+.manager-binding-tester ~ .manager-bindings > .manager-fact-heading:first-child {
+  border-top: 1px solid var(--line-soft); margin-top: 14px; padding-top: 12px;
+}
+
 /* The last thing pressed on this device, and what it does. */
 .manager-binding-live {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 40px;

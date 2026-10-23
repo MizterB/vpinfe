@@ -107,10 +107,11 @@ class SetupControlsDrive(unittest.TestCase):
             await browser.evaluate(f"({SCROLL}).scrollTop = 0")
             await browser.wait_for(f"!{MORE_HIDDEN}")
 
-            await browser.press("ArrowLeft", "ArrowLeft")
+            await browser.key_down("ArrowLeft", "ArrowLeft")
             await browser.wait_for(f"{LINE}.includes('Previous')")
             seen["heard_key"] = await browser.evaluate(LINE)
             seen["select_after_key"] = await browser.evaluate(CHIPS % json.dumps("Select"))
+            await browser.key_up("ArrowLeft", "ArrowLeft")
 
             await browser.evaluate(_held(0, True))
             await browser.wait_for(f"{CHIPS % json.dumps('Select')}.length > 1")

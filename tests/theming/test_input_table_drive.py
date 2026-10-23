@@ -196,15 +196,49 @@ class InputTableDrive(unittest.TestCase):
                                for label in seen["labels"]}
             seen["idle"] = await browser.evaluate(LINE)
 
-            await browser.press("ArrowLeft", "ArrowLeft")
+            await browser.key_down("ArrowLeft", "ArrowLeft")
             await browser.wait_for(f"{LINE}.includes('Previous')")
             seen["heard_key"] = await browser.evaluate(LINE)
             seen["lit_key"] = await browser.evaluate(LIT)
+            await browser.key_up("ArrowLeft", "ArrowLeft")
+            await browser.wait_for(f"{LINE} === {json.dumps(seen['idle'])}")
+            seen["let_go_key"] = {"line": await browser.evaluate(LINE),
+                                  "lit": await browser.evaluate(LIT)}
+
+            await browser.key_down("ArrowLeft", "ArrowLeft")
+            await browser.key_down("ArrowRight", "ArrowRight")
+            await browser.wait_for(f"{LINE}.includes('Next')")
+            await browser.key_up("ArrowRight", "ArrowRight")
+            await browser.wait_for(f"{LINE}.includes('Previous')")
+            seen["still_down"] = await browser.evaluate(LINE)
+            await browser.key_up("ArrowLeft", "ArrowLeft")
+            await browser.wait_for(f"{LINE} === {json.dumps(seen['idle'])}")
+
+            await browser.key_down("MetaLeft", "MetaLeft")
+            await browser.key_down("KeyC", "KeyC")
+            await browser.wait_for(f"{LINE}.includes('C')")
+            await browser.key_up("MetaLeft", "MetaLeft")
+            await browser.wait_for(f"{LINE} === {json.dumps(seen['idle'])}")
+            seen["lost_keyup"] = await browser.evaluate(LINE)
 
             await browser.evaluate(_held(14, True))
             await browser.wait_for(f"{LINE}.includes('D-pad Left')")
             seen["heard_pad"] = await browser.evaluate(LINE)
             await browser.evaluate(_held(14, False))
+            await browser.wait_for(f"{LINE} === {json.dumps(seen['idle'])}")
+            seen["let_go_pad"] = await browser.evaluate(LINE)
+
+            await browser.evaluate(_held(14, True))
+            await browser.wait_for(f"{LINE}.includes('D-pad Left')")
+            await browser.evaluate(
+                "Object.defineProperty(navigator, 'getGamepads',"
+                " {configurable: true, value: () => [null]})")
+            await browser.evaluate(
+                "window.dispatchEvent(Object.assign(new Event('gamepaddisconnected'),"
+                " {gamepad: {index: 0}}))")
+            await browser.wait_for(f"{LINE} === {json.dumps(seen['idle'])}")
+            seen["unplugged_pad"] = await browser.evaluate(LINE)
+            await browser.evaluate(PAD)
 
             await browser.evaluate("window.__pad.mapping = ''")
             await browser.evaluate(_held(5, True))
@@ -213,9 +247,10 @@ class InputTableDrive(unittest.TestCase):
             await browser.evaluate(_held(5, False))
             await browser.evaluate("window.__pad.mapping = 'standard'")
 
-            await browser.press("KeyZ", "KeyZ")
+            await browser.key_down("KeyZ", "KeyZ")
             await browser.wait_for(f"{LINE}.startsWith('Z')")
             seen["heard_nothing"] = await browser.evaluate(LINE)
+            await browser.key_up("KeyZ", "KeyZ")
 
             await row("Next")
             await listening("Next")
@@ -416,8 +451,24 @@ class InputTableDrive(unittest.TestCase):
         self.assertEqual(self.seen["heard_key"], "Left Arrow · Previous")
         self.assertEqual(self.seen["lit_key"], ["Previous"])
 
+    def test_a_key_let_go_leaves_the_line_and_the_row_it_lit(self) -> None:
+        self.assertEqual(self.seen["let_go_key"],
+                         {"line": "Press anything to see what it does", "lit": []})
+
+    def test_letting_go_of_one_of_two_keys_shows_the_one_still_down(self) -> None:
+        self.assertEqual(self.seen["still_down"], "Left Arrow · Previous")
+
+    def test_a_key_whose_release_the_browser_never_sends_goes_when_command_is_let_go(self) -> None:
+        self.assertEqual(self.seen["lost_keyup"], "Press anything to see what it does")
+
+    def test_a_pad_unplugged_while_a_button_is_down_leaves_the_line(self) -> None:
+        self.assertEqual(self.seen["unplugged_pad"], "Press anything to see what it does")
+
     def test_a_controller_button_pressed_names_itself_too(self) -> None:
         self.assertEqual(self.seen["heard_pad"], "D-pad Left · Previous")
+
+    def test_a_controller_button_let_go_leaves_the_line(self) -> None:
+        self.assertEqual(self.seen["let_go_pad"], "Press anything to see what it does")
 
     def test_a_numbered_pad_reads_as_a_button_and_fires_what_the_standard_button_does(self) -> None:
         self.assertEqual(self.seen["heard_numbered_pad"],
