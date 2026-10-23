@@ -73,6 +73,15 @@ def discovery_home(days: int = Query(7, ge=1, le=MOST_DAYS)) -> models.Discovery
     return models.DiscoveryHome.model_validate(library_ops.discovery_home(days))
 
 
+@router.get("/missing", summary="Home's missing tabs, as counts and ids",
+            dependencies=[requires(scopes.GAMES_READ)])
+def discovery_missing() -> models.DiscoveryMissing:
+    """What `/discovery/home` answers under `missing`, without the games to draw: for each tab
+    `count`, `on_vps` and `game_ids`, and `counted`. A page that counts what a library lacks
+    reads this and leaves the rest of Home unbuilt."""
+    return models.DiscoveryMissing.model_validate(library_ops.discovery_missing())
+
+
 @router.get("/pictures", summary="Pictures a source has replaced since they were placed",
             dependencies=[requires(scopes.GAMES_READ)])
 def picture_changes(game_id: str = Query("")) -> models.PictureChanges:

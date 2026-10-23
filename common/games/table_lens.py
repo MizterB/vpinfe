@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -553,9 +554,10 @@ def game_stamp(game_dir: Path) -> tuple:
     """The folder, its medias folder and its .info as they stand, for telling whether a
     game's rows still describe it."""
     stamps: list[tuple[int, int] | None] = []
-    for path in (game_dir, game_dir / "medias", game_dir / f"{game_dir.name}.info"):
+    base = os.fspath(game_dir)
+    for path in (base, os.path.join(base, "medias"), os.path.join(base, f"{game_dir.name}.info")):
         try:
-            stat = path.stat()
+            stat = os.stat(path)
         except OSError:
             stamps.append(None)
         else:
@@ -565,7 +567,8 @@ def game_stamp(game_dir: Path) -> tuple:
 
 # A game's rows are held until its entry is replaced or its folder, medias folder or .info
 # changes. What those do not show moves game_repository.generation(); one made outside the
-# app, such as the ROM folder, waits out the age.
+# app, such as the ROM folder, shows once the age has passed and a read has been made.
+# A hold past its age is still served, while a rebuild runs beside the reader.
 ROWS_HELD_S = 60.0
 _ROWS_LOCK = threading.RLock()
 
@@ -579,11 +582,13 @@ class _HeldRows:
 
 
 _rows_held: dict[str, _HeldRows] = {}
+_rebuilding: set[str] = set()
 
 
 def _held_rows(media: str, media_settings: Any) -> _HeldRows:
     """The rows held for this thumbnail kind, started again where what they were built
-    under has changed or they are old. The caller holds _ROWS_LOCK for a whole listing."""
+    under has changed. Rows that are only old are returned as they are and rebuilt behind.
+    The caller holds _ROWS_LOCK for a whole listing."""
     variant, sets = media_settings or ("", None)
     stamp = (variant, tuple(sorted((sets or {}).items())), game_repository.generation())
     # Held by the object, not its id: a reload of the catalog hands back a new list.
@@ -591,10 +596,37 @@ def _held_rows(media: str, media_settings: Any) -> _HeldRows:
     now = monotonic()
     with _ROWS_LOCK:
         held = _rows_held.get(media)
-        if (held is None or held.stamp != stamp or held.catalog is not catalog
-                or now - held.at >= ROWS_HELD_S):
+        if held is None or held.stamp != stamp or held.catalog is not catalog:
             held = _rows_held[media] = _HeldRows(stamp, catalog, now)
+        elif now - held.at >= ROWS_HELD_S and media not in _rebuilding:
+            _rebuilding.add(media)
+            _run_behind(lambda: _rebuild(media, media_settings, held))
         return held
+
+
+def _run_behind(work: Callable[[], None]) -> None:
+    threading.Thread(target=work, name="table-rows", daemon=True).start()
+
+
+def _rebuild(media: str, media_settings: Any, old: _HeldRows) -> None:
+    """Every game's rows read afresh, swapped in for `old` unless it was replaced meanwhile.
+    Built outside _ROWS_LOCK so a listing is never held up by it."""
+    try:
+        fresh = _HeldRows(old.stamp, old.catalog, monotonic())
+        launcher_view = LauncherView()
+        for game_id, entry in game_repository.catalog().items():
+            stamp = game_stamp(Path(str(getattr(entry, "full_path_game", "") or "")))
+            fresh.games[game_id] = (
+                entry, stamp, _game_rows(game_id, entry, media, media_settings, launcher_view))
+        with _ROWS_LOCK:
+            if _rows_held.get(media) is old:
+                _rows_held[media] = fresh
+    except Exception:
+        logger.exception("tables: could not rebuild the held rows; the old ones are kept")
+        old.at = monotonic()
+    finally:
+        with _ROWS_LOCK:
+            _rebuilding.discard(media)
 
 
 def _game_rows(game_id: str, entry: Any, media: str, media_settings: Any,

@@ -30,6 +30,7 @@ def library(*, roster, games, **client) -> Library:
     lib = Library.__new__(Library)
     lib._client = cast(Any, SimpleNamespace(**{**base, **client}))
     lib.games = []
+    lib._games_at = 0.0
     lib._front_player = ""
     return lib
 

@@ -18,6 +18,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn
 
+from common.failures import why
 from common.i18n import t
 from common.security import pinned_certificates
 from common.service_errors import CertificateChangedError
@@ -184,6 +185,19 @@ def _absent(exc: Exception) -> bool:
     """Whether a request failed because the route is not there."""
     response = getattr(exc, "response", None)
     return getattr(response, "status_code", 0) == 404
+
+
+class NotPairedError(RuntimeError):
+    """That install turned the request away for want of a token it accepts.
+
+    A state of the pairing rather than a failure: a device this install has not paired
+    with refuses every question it is not open to, and asking again says nothing new.
+    """
+
+
+def _refused(exc: Exception) -> bool:
+    response = getattr(exc, "response", None)
+    return getattr(response, "status_code", 0) in (401, 403)
 
 
 class NotThisDeviceError(RuntimeError):
@@ -371,6 +385,8 @@ class RemoteDevice:
         except Exception as exc:
             if _absent(exc):
                 raise TooOldError(t(TOO_OLD)) from exc
+            if _refused(exc):
+                raise NotPairedError(why(exc)) from exc
             raise
         return list(said.get("actions") or [])
 
@@ -381,6 +397,8 @@ class RemoteDevice:
         except Exception as exc:
             if _absent(exc):
                 raise TooOldError(t(TOO_OLD)) from exc
+            if _refused(exc):
+                raise NotPairedError(why(exc)) from exc
             raise
 
     def logs(self, limit: int = 200, level: str = "",

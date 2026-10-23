@@ -409,6 +409,29 @@ def gaps(listed: list[dict[str, Any]], offered: list[dict[str, Any]]) -> dict[st
             "game_ids": [one["game_id"] for one in merged if one["game_id"]], "games": shown}
 
 
+def missing_tabs(found: dict[str, Any], kept: Collection[str], marks: vps_marks.Marks,
+                 media: Mapping[str, Iterable[Mapping[str, Any]]] | None = None,
+                 holders: Mapping[str, Iterable[str]] | None = None) -> dict[str, Any]:
+    """Home's `missing` alone: each tab `gaps` builds, with the arguments `home` takes."""
+    filed = {kind: listing for listing, kind in MEDIA_OF.items()}
+    sourced = {}
+    for kind, offered in (media or {}).items():
+        tab = filed.get(kind, kind)
+        games = [one for one in lacking_media(found, offered)
+                 if not marks.gap_ignored(one["vps_id"], tab)]
+        if games:
+            sourced[tab] = games
+    missing = {}
+    for listing in GAP_KINDS:
+        if listing in kept:
+            listed = [one for one in lacking(found, listing, holders)
+                      if not marks.gap_ignored(one["vps_id"], listing)]
+            missing[listing] = gaps(listed, sourced.pop(listing, []))
+    for tab, games in sourced.items():
+        missing[tab] = gaps([], games)
+    return missing
+
+
 def home(found: dict[str, Any], kept: Collection[str], days: int,
          today: date | None = None,
          media: Mapping[str, Iterable[Mapping[str, Any]]] | None = None,
@@ -445,22 +468,7 @@ def home(found: dict[str, Any], kept: Collection[str], days: int,
     for chip in (ALL, YOURS, *CHIP_KINDS):
         shown = on_chip(shelf, chip)
         new[chip] = {"count": len(shown), "releases": shown[:SHELF_SHOWN]}
-    filed = {kind: listing for listing, kind in MEDIA_OF.items()}
-    sourced = {}
-    for kind, offered in (media or {}).items():
-        tab = filed.get(kind, kind)
-        games = [one for one in lacking_media(found, offered)
-                 if not marks.gap_ignored(one["vps_id"], tab)]
-        if games:
-            sourced[tab] = games
-    missing = {}
-    for listing in GAP_KINDS:
-        if listing in kept:
-            listed = [one for one in lacking(found, listing, holders)
-                      if not marks.gap_ignored(one["vps_id"], listing)]
-            missing[listing] = gaps(listed, sourced.pop(listing, []))
-    for tab, games in sourced.items():
-        missing[tab] = gaps([], games)
+    missing = missing_tabs(found, kept, marks, media, holders)
     held = vps_marked.wanted(found, marks)
     wanted = {"count": len(held), "items": held[:SHELF_SHOWN]}
     lacked = dont_have(found, marks, formats)

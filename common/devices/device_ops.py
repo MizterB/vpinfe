@@ -139,6 +139,8 @@ def _browser_of(client: Any, device: Device, found: dict[str, Any]) -> dict[str,
         return {}
     try:
         return device_registry.browser_said(ask()) or None
+    except device_client.NotPairedError:
+        return None
     except Exception:  # noqa: BLE001 - one unanswered question keeps the last answer
         logger.debug("Could not ask %s what its browser plays", device.device_id,
                      exc_info=True)

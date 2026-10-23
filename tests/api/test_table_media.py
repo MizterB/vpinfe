@@ -97,6 +97,31 @@ class TableMediaTests(TempTree):
 
         self.assertEqual(response.status_code, 404)
 
+    def _shared(self):
+        response = self.client.get("/media/shared")
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()["media"]
+
+    def test_it_lists_what_the_full_listing_calls_shared(self) -> None:
+        full = self.client.get("/media").json()["media"]
+        want = {(row["game_id"], row["kind"], row["page"]) for row in full if not row["table"]}
+
+        got = {(row["game_id"], row["kind"], row["page"]) for row in self._shared()}
+
+        self.assertEqual(got, want)
+
+    def test_a_row_carries_only_the_fields_a_count_reads(self) -> None:
+        row = next(row for row in self._shared() if row["kind"] == "wheel")
+
+        self.assertEqual(set(row), {"game_id", "kind", "page", "present", "file", "path",
+                                    "via", "origin", "matched_to", "version"})
+        self.assertTrue(row["present"])
+        self.assertEqual(row["via"], "default")
+
+    def test_a_file_named_for_one_build_is_not_listed(self) -> None:
+        self.assertFalse(any(row["file"] == f"(Playfield) {FOLDER} - VR.png"
+                             for row in self._shared()))
+
 
 class WheelSetsTests(TempTree):
     def setUp(self) -> None:

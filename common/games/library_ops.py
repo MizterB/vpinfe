@@ -302,6 +302,21 @@ def discovery_home(days: int) -> dict[str, Any]:
                          unmatched_games=_unmatched_games())
 
 
+def discovery_missing() -> dict[str, Any]:
+    """What Home's `missing` counts, without the rows it draws: for each tab `count`, `on_vps`
+    and `game_ids`, and `counted`. Built as `discovery_home` builds them. `offered` is the
+    games a source can fill, by kind, from the same read of what sources hold."""
+    found = library_vps_state.discovery()
+    offered = media_fill.offered_listing()
+    tabs = vps_home.missing_tabs(found, library_vps_state.kept_listings(), vps_marks.read(),
+                                 media=offered, holders=media_fill.holders())
+    return {"counted": found.get("counted") or "",
+            "missing": {tab: {key: one[key] for key in ("count", "on_vps", "game_ids")}
+                        for tab, one in tabs.items()},
+            "offered": {kind: sorted(one["game_id"] for one in records)
+                        for kind, records in offered.items()}}
+
+
 def library_games() -> list[dict[str, Any]]:
     """Each game of the library as `{game_id, name, vps_id, tables}`, in the catalog's order:
     the entry in force and the count of tables the Games grid reads. Empty where they cannot

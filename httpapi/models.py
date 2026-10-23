@@ -2291,6 +2291,26 @@ class AssetSlotList(ApiModel):
     assets: list[AssetSlot]
 
 
+class SharedMediaSlot(ApiModel):
+    """A `MediaSlot` cut to what counting a library's media covers reads. Same names, same
+    meaning."""
+
+    game_id: str
+    kind: str
+    page: int = 1
+    present: bool = False
+    file: str | None = None
+    path: str | None = None
+    via: str | None = None
+    origin: str | None = None
+    matched_to: str | None = None
+    version: str | None = None
+
+
+class SharedMediaList(ApiModel):
+    media: list[SharedMediaSlot]
+
+
 class MediaSlotList(ApiModel):
     total: int
     offset: int
@@ -4238,6 +4258,24 @@ class HomeGaps(ApiModel):
     on_vps: int = 0
     game_ids: list[str] = []
     games: list[HomeGap] = []
+
+
+class HomeMissingCount(ApiModel):
+    """One tab of `DiscoveryMissing`: `HomeGaps` without the rows to draw."""
+
+    count: int = 0
+    on_vps: int = 0
+    game_ids: list[str] = []
+
+
+class DiscoveryMissing(ApiModel):
+    """Home's `missing`, by tab, as counts and ids alone. `counted` empty means the library
+    has never been compared."""
+
+    counted: str = ""
+    missing: dict[str, HomeMissingCount] = {}
+    # Per kind, the ids of the games a source can fill the slot of, as `/library/media/offered`.
+    offered: dict[str, list[str]] = {}
 
 
 class HomeWantedItem(ApiModel):

@@ -124,6 +124,19 @@ class RemoteRefusalTests(unittest.TestCase):
             with self.assertRaises(device_client.TooOldError):
                 self.device.frontend_browser()
 
+    def test_a_refusal_for_want_of_a_token_is_a_state_not_a_failure(self) -> None:
+        import requests
+
+        for status in (401, 403):
+            with self.subTest(status=status):
+                refused = requests.HTTPError("no")
+                refused.response = types.SimpleNamespace(status_code=status)  # type: ignore[assignment]
+                with patch.object(http_client, "get_json", side_effect=refused):
+                    with self.assertRaises(device_client.NotPairedError):
+                        self.device.actions()
+                    with self.assertRaises(device_client.NotPairedError):
+                        self.device.frontend_browser()
+
     def test_a_real_failure_is_still_a_real_failure(self) -> None:
         """Only a missing route is translated. A machine that broke while answering has
         something worth reading in its own error."""

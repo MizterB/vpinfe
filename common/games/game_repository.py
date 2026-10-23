@@ -70,7 +70,23 @@ def touch(**_: Any) -> None:
     _generation += 1
 
 
-events.subscribe(events.SETTINGS_CHANGED, touch)
+# Sections no row is built from. A key outside these, a list or one in a section not named
+# here moves the generation: an unlisted section is slow, a wrongly listed one is stale.
+SECTIONS_BESIDE_ROWS = frozenset({
+    "backups", "behavior", "capture", "chromium", "commands", "device", "dof", "input",
+    "logger", "manager", "network", "real_dmd", "themes", "tools", "updates", "vpinplay",
+    "vpxmobile", "windows",
+})
+
+
+def _settings_changed(keys: Any = (), **_: Any) -> None:
+    names = [str(key) for key in keys or ()]
+    if names and all(name.split(".", 1)[0] in SECTIONS_BESIDE_ROWS for name in names):
+        return
+    touch()
+
+
+events.subscribe(events.SETTINGS_CHANGED, _settings_changed)
 events.subscribe(events.COLLECTIONS_CHANGED, touch)
 
 

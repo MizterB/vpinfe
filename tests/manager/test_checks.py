@@ -162,7 +162,7 @@ class _Client:
         self.reads["tables"] += 1
         return [table("g1", False)]
 
-    def all_media(self):
+    def all_media(self, kind="", shared=False):
         self.reads["media"] += 1
         return [{"game_id": "g1", "kind": "wheel", "present": True}]
 
@@ -179,11 +179,11 @@ class _Client:
     def library_game_collections(self):
         return {}
 
-    def fillable_media(self):
+    def discovery_missing(self):
         self.reads["offered"] = self.reads.get("offered", 0) + 1
         if self.offered is None:
             raise OSError("unreachable")
-        return {"kinds": self.offered}
+        return {"counted": "", "missing": {}, "offered": self.offered}
 
 
 class OverviewReadTests(unittest.TestCase):

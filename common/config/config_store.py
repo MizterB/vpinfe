@@ -126,6 +126,8 @@ def _flatten(tree: dict, prefix: str = '') -> dict:
 
 
 _SAVING = threading.Lock()
+_Sections = tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
+_PARSED: dict[Any, tuple[tuple[int, int, int], tuple[int, _Sections, dict]]] = {}
 
 
 def _by_id(items: Any) -> dict[str, dict] | None:
@@ -502,19 +504,42 @@ class ConfigStore:
         return '' if value is None else str(value)
 
     def _read_json(self) -> tuple[int, configparser.ConfigParser, dict]:
-        with open(self.json_path, encoding='utf-8') as handle:
-            payload = json.load(handle) or {}
+        schema, sections, kept = self._parsed_json()
         parser = configparser.ConfigParser(interpolation=None)
-        for section, values in _flatten(payload.get(SETTINGS_KEY) or {}).items():
+        for section, options in sections:
             if not parser.has_section(section):
                 parser.add_section(section)
-            for key, value in (values or {}).items():
-                # Any spelling a file has ever used lands under the name we store now.
-                parser.set(section, config_schema.canonical(section, key),
-                           self._as_text(value))
+            for key, text in options:
+                parser.set(section, key, text)
+        return schema, parser, copy.deepcopy(kept)
+
+    def _parsed_json(self) -> tuple[int, _Sections, dict]:
+        """The file as sections of (key, text), held while the file is the same one.
+
+        A store is built on every `get_ini_config()`, which is several times in a request,
+        so the parse is kept by the file's identity. What it holds is read, never changed:
+        `_read_json` hands out a parser and a copy of the rest.
+        """
+        try:
+            seen = os.stat(self.json_path)
+            identity = (seen.st_ino, seen.st_mtime_ns, seen.st_size)
+        except OSError:
+            identity = None
+        held = _PARSED.get(self.json_path)
+        if identity is not None and held is not None and held[0] == identity:
+            return held[1]
+        with open(self.json_path, encoding='utf-8') as handle:
+            payload = json.load(handle) or {}
+        sections = tuple(
+            (section, tuple((config_schema.canonical(section, key), self._as_text(value))
+                            for key, value in (values or {}).items()))
+            for section, values in _flatten(payload.get(SETTINGS_KEY) or {}).items())
         kept = {key: value for key, value in payload.items()
                 if key not in (SCHEMA_KEY, SETTINGS_KEY)}
-        return int(payload.get(SCHEMA_KEY, CONFIG_SCHEMA) or CONFIG_SCHEMA), parser, kept
+        parsed = (int(payload.get(SCHEMA_KEY, CONFIG_SCHEMA) or CONFIG_SCHEMA), sections, kept)
+        if identity is not None:
+            _PARSED[self.json_path] = (identity, parsed)
+        return parsed
 
     def _load_json(self) -> None:
         self._schema, self.config, self.top_level = self._read_json()

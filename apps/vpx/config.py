@@ -11,6 +11,7 @@ invisible otherwise and is the bug report we would get.
 
 from __future__ import annotations
 
+import functools
 import glob
 import math
 import os
@@ -361,6 +362,13 @@ def _read_file(path: Path | None) -> vini.Ini | None:
             text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
+    return _parsed(text)
+
+
+@functools.lru_cache(maxsize=16)
+def _parsed(text: str) -> vini.Ini:
+    """Keyed by the file's text, so an edit is a new entry. The Ini is shared between
+    callers: read it, never change it (a write copies `lines`)."""
     return vini.parse(text)
 
 

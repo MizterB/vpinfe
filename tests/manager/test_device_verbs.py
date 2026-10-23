@@ -293,6 +293,15 @@ class LoadActionsTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(found, [])
 
+    async def test_a_device_not_paired_with_has_none_and_leaves_nothing_in_the_log(self) -> None:
+        client = Mock()
+        client.actions = Mock(side_effect=device_client.NotPairedError("403"))
+
+        with self.assertNoLogs(devices.logger, "INFO"):
+            found = await self._load(DEVICE, {"state": device_client.ANSWERING}, client)
+
+        self.assertEqual(found, [])
+
     async def test_a_failed_ask_is_none_not_a_crash(self) -> None:
         client = Mock()
         client.actions = Mock(side_effect=OSError("down"))

@@ -513,6 +513,9 @@ async def load_actions(library: Any, device: dict[str, Any], local_device_id: st
         return usable(await offload.io(client.actions))
     except device_client.TooOldError:
         return []
+    except device_client.NotPairedError:
+        logger.debug("%s is not paired with this install", device_label(device))
+        return []
     except Exception:  # noqa: BLE001 - unreachable is a state, not a 500
         logger.info("Could not ask %s what it does", device_label(device), exc_info=True)
         return []

@@ -33,6 +33,17 @@ def list_media(limit: int = Query(0, ge=0), offset: int = Query(0, ge=0),
         media_lens.listing(limit, offset, game, kind))
 
 
+@router.get("/shared", summary="The shared media rows, cut for counting",
+            dependencies=[requires(scopes.GAMES_READ)])
+def list_shared_media() -> models.SharedMediaList:
+    """What `GET /media` lists for each game and kind that is the shared file or the lack of
+    one, with `game_id`, `kind`, `page`, `present`, `file`, `path`, `via`, `origin`,
+    `matched_to` and `version` and nothing else, and unsorted. Rows for a file named for one
+    table, and `orphan` and `unused` files, are not here. For a client that counts coverage
+    and has no use for the rest."""
+    return models.SharedMediaList.model_validate({"media": media_lens.shared_rows()})
+
+
 @router.get("/wheel-sets", summary="The wheel sets the library has media in",
             dependencies=[requires(scopes.GAMES_READ)])
 def list_wheel_sets() -> models.WheelSetList:

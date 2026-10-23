@@ -143,7 +143,7 @@ class EachRowIsGivenItsTabsGames(unittest.TestCase):
     def test_a_library_never_compared_leaves_the_rows_counting_the_games_without(self):
         lib = library({"a": {"backglass": True}, "b": {"backglass": False}})
         client: Any = lib._client
-        client.discovery_home.return_value = {
+        client.discovery_missing.return_value = {
             "counted": "", "missing": {"b2sFiles": {"count": 0, "game_ids": []}}}
         lib._watched = lib._read_watched()
         kept: dict[str, tuple | None] = {}
@@ -183,9 +183,9 @@ class WhatTheLibraryReadsOfHome(unittest.TestCase):
         lib = library({})
         client: Any = lib._client
         if isinstance(home, Exception):
-            client.discovery_home.side_effect = home
+            client.discovery_missing.side_effect = home
         else:
-            client.discovery_home.return_value = home
+            client.discovery_missing.return_value = home
         lib._watched = lib._read_watched()
         return lib
 

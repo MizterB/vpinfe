@@ -330,6 +330,20 @@ def _read_ahead() -> None:
     logger.info("Media: %s rows read ahead in %.2fs", total, perf_counter() - started_at)
 
 
+SHARED_FIELDS = ("game_id", "kind", "page", "present", "file", "path", "via", "origin",
+                 "matched_to", "version")
+
+
+def shared_rows() -> list[dict[str, Any]]:
+    """What a count of the library's media covers reads: one row per game and kind (a later
+    page of a paged kind too) that is the shared file or the lack of one, cut to the fields
+    that count reads. A file named for one table, an orphaned one and an unused one are not
+    here. In the order the games were read, unsorted."""
+    return [{field: row.get(field) for field in SHARED_FIELDS}
+            for row in library_rows()
+            if not row.get("table") and row.get("via") not in (ORPHAN, UNUSED)]
+
+
 def listing(limit: int = 0, offset: int = 0, game: str = "",
             kind: str = "") -> dict[str, Any]:
     """One row per media file the library holds, plus one per file it does not.

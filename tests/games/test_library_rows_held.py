@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 from common import events, service_errors
@@ -18,13 +19,16 @@ def _rows_for(game_id, entry, media, media_settings, launcher_view):
 class LibraryRowsHeld(unittest.TestCase):
     def setUp(self) -> None:
         table_lens._rows_held.clear()
+        table_lens._rebuilding.clear()
+        self.behind: list[Any] = []
         self.clock = [1000.0]
         self.entries = {f"G{n}": SimpleNamespace(name=f"Game {n}", full_path_game=f"/g/G{n}")
                         for n in range(3)}
         self.stamps: dict[str, int] = {}
         self.vps: list = []
         self.built: list[str] = []
-        self._patches = [
+        self._patches: list[Any] = [
+            mock.patch.object(table_lens, "_run_behind", self.behind.append),
             mock.patch.object(game_repository, "catalog", lambda: dict(self.entries)),
             mock.patch.object(table_lens, "_game_rows", self._build),
             mock.patch.object(table_lens, "LauncherView", lambda: object()),
@@ -38,9 +42,10 @@ class LibraryRowsHeld(unittest.TestCase):
         for patch in self._patches:
             patch.start()
             self.addCleanup(patch.stop)
-        for name in (events.SETTINGS_CHANGED, events.COLLECTIONS_CHANGED):
-            events.subscribe(name, game_repository.touch)
-            self.addCleanup(events.unsubscribe, name, game_repository.touch)
+        for name, handler in ((events.SETTINGS_CHANGED, game_repository._settings_changed),
+                              (events.COLLECTIONS_CHANGED, game_repository.touch)):
+            events.subscribe(name, handler)
+            self.addCleanup(events.unsubscribe, name, handler)
         self.addCleanup(table_lens._rows_held.clear)
 
     def _build(self, game_id, entry, media, media_settings, launcher_view):
@@ -134,17 +139,87 @@ class LibraryRowsHeld(unittest.TestCase):
                 self.assertEqual(len(self.built), 3)
                 self.built.clear()
 
-    def test_rows_older_than_the_limit_are_built_again(self) -> None:
-        table_lens.library_rows()
+    def test_old_rows_are_served_while_they_are_built_again_behind(self) -> None:
+        first = table_lens.library_rows()
         self.built.clear()
-
         self.clock[0] += table_lens.ROWS_HELD_S - 1
         table_lens.library_rows()
-        self.assertEqual(self.built, [])
+        self.assertEqual((self.built, len(self.behind)), ([], 0))
 
         self.clock[0] += 1
+        served = table_lens.library_rows()
         table_lens.library_rows()
-        self.assertEqual(len(self.built), 3)
+
+        self.assertEqual(served, first)
+        self.assertEqual(self.built, [])
+        self.assertEqual(len(self.behind), 1)
+
+        self.behind.pop()()
+        self.assertEqual(sorted(self.built), ["G0", "G1", "G2"])
+        self.built.clear()
+        self.clock[0] += 1
+        table_lens.library_rows()
+        self.assertEqual((self.built, len(self.behind)), ([], 0))
+
+    def test_what_the_rebuild_reads_is_shown_once_it_lands(self) -> None:
+        table_lens.library_rows()
+        self.clock[0] += table_lens.ROWS_HELD_S
+        table_lens.library_rows()
+        self.entries["G1"] = SimpleNamespace(name="Renamed", full_path_game="/g/G1")
+        self.stamps["/g/G1"] = 0
+
+        self.behind.pop()()
+
+        names = [row["game"] for row in table_lens.library_rows()["tables"]]
+        self.assertIn("Renamed", names)
+
+    def test_a_rebuild_that_fails_keeps_the_old_rows_and_tries_later(self) -> None:
+        table_lens.library_rows()
+        self.clock[0] += table_lens.ROWS_HELD_S
+        table_lens.library_rows()
+
+        with mock.patch.object(table_lens, "_game_rows", side_effect=RuntimeError("boom")), \
+                self.assertLogs(table_lens.logger, "ERROR"):
+            self.behind.pop()()
+
+        self.assertEqual(table_lens.library_rows()["total"], 3)
+        self.assertEqual(self.behind, [])
+        self.clock[0] += table_lens.ROWS_HELD_S
+        table_lens.library_rows()
+        self.assertEqual(len(self.behind), 1)
+
+    def test_a_change_made_in_the_app_is_not_waited_for(self) -> None:
+        table_lens.library_rows()
+        self.clock[0] += table_lens.ROWS_HELD_S
+        self.built.clear()
+
+        game_repository.touch()
+        table_lens.library_rows()
+
+        self.assertEqual(sorted(self.built), ["G0", "G1", "G2"])
+
+    def test_a_setting_no_row_is_built_from_leaves_the_rows_held(self) -> None:
+        for keys in (["manager.appearance"], ["network.http_port", "device.name"]):
+            with self.subTest(keys=keys):
+                table_lens.library_rows()
+                self.built.clear()
+
+                events.emit(events.SETTINGS_CHANGED, keys=keys)
+                table_lens.library_rows()
+
+                self.assertEqual(self.built, [])
+
+    def test_a_setting_a_row_may_be_built_from_rebuilds(self) -> None:
+        for keys in (["media.wheelset"], ["launchers"],
+                     ["manager.appearance", "library.hidden_checks"]):
+            with self.subTest(keys=keys):
+                table_lens.library_rows()
+                self.built.clear()
+
+                events.emit(events.SETTINGS_CHANGED, keys=keys)
+                table_lens.library_rows()
+
+                self.assertEqual(len(self.built), 3)
 
     def test_each_thumbnail_kind_holds_its_own_rows(self) -> None:
         table_lens.library_rows(media="wheel")
@@ -177,6 +252,20 @@ class LibraryRowsHeld(unittest.TestCase):
 
         self.assertEqual((rows["total"], rows["count"]), (3, 2))
         self.assertEqual(self.built, [])
+
+
+class SectionsBesideRows(unittest.TestCase):
+    def test_each_section_named_is_one_the_settings_have(self) -> None:
+        from common.config import config_schema
+
+        have = {option.section.split(".", 1)[0] for option in config_schema.options()}
+
+        self.assertEqual(game_repository.SECTIONS_BESIDE_ROWS - have, set())
+
+    def test_the_sections_rows_depend_on_are_not_named(self) -> None:
+        for section in ("media", "library", "presentation", "table_commands", "extensions",
+                        "general"):
+            self.assertNotIn(section, game_repository.SECTIONS_BESIDE_ROWS)
 
 
 class SettingsWritesTouch(unittest.TestCase):

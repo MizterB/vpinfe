@@ -17,6 +17,7 @@ import concurrent.futures
 import contextvars
 import logging
 import os
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -52,6 +53,7 @@ class Acting:
 _current: contextvars.ContextVar[Acting | None] = contextvars.ContextVar(
     "vpinfe_manager_acting", default=None)
 _asking: dict[str, concurrent.futures.Future[bool]] = {}
+_asking_lock = threading.Lock()
 
 
 def current() -> Acting | None:
@@ -125,17 +127,18 @@ def confirm() -> bool:
     acting = current()
     if acting is None:
         return False
-    held = _asking.get(acting.client.id)
-    if held is None:
-        from manager.kit import confirm_code as dialog
+    with _asking_lock:
+        held = _asking.get(acting.client.id)
+        if held is None:
+            from manager.kit import confirm_code as dialog
 
-        async def ask() -> bool:
-            with acting.client:
-                return await dialog.ask()
+            async def ask() -> bool:
+                with acting.client:
+                    return await dialog.ask()
 
-        held = asyncio.run_coroutine_threadsafe(ask(), acting.loop)
-        _asking[acting.client.id] = held
-        held.add_done_callback(lambda _done: _asking.pop(acting.client.id, None))
+            held = asyncio.run_coroutine_threadsafe(ask(), acting.loop)
+            _asking[acting.client.id] = held
+            held.add_done_callback(lambda _done: _asking.pop(acting.client.id, None))
     try:
         return bool(held.result(timeout=CONFIRM_WAIT_SECONDS))
     except Exception:  # noqa: BLE001 - a page closed with the dialog open is a no

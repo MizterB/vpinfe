@@ -7,6 +7,7 @@ import re
 import time
 from collections import Counter
 from collections.abc import Callable, Iterable
+from functools import partial
 from typing import Any
 
 from common.config.labels import field_label
@@ -20,6 +21,7 @@ from common.runtime.jobs import KIND_MEDIA_FILL
 from manager.kit import art, game_tables, media_ownership, need_keys, thumbnails, when
 from manager.kit.api import ApiClient
 from manager.kit.thumbnails import Look
+from manager.kit.together import together
 
 logger = logging.getLogger("vpinfe.manager.kit.data")
 
@@ -37,8 +39,6 @@ WATCHED_FRESH_S = 30.0
 # current before a visit reads it again.
 FRONT_FRESH_S = 5.0
 WATCHED_JOBS = 100
-# The window of the Home read that Overview takes its counts of missing media from.
-HOME_DAYS = 7
 
 # The cell holds the *word*, never the mark. What a cell is worth filtering and sorting
 # on is the state; how it is drawn is the column's business. Holding the drawn mark makes
@@ -246,6 +246,7 @@ class Library:
         self._front_at = 0.0
         self._front_player = ""
         self._tags: list[dict[str, Any]] = []
+        self._games_at = 0.0
 
     def load(self) -> None:
         """Everything the first draw needs, read off the event loop.
@@ -255,13 +256,15 @@ class Library:
         and a call made there cannot be answered by the process it is made from.
         """
         started = time.perf_counter()
-        self.games = self._client.games()
-        self.media = self._shared_media()
-        self.load_kept_kinds()
-        self.load_online_kinds()
-        self._discovery = self._client.discovery()
-        self.read_metadata_state()
-        self.read_tags()
+        games, media_rows, discovery, *_ = together(
+            self._client.games, partial(self._client.all_media, shared=True),
+            self._client.discovery,
+            self.load_kept_kinds, self.load_online_kinds, self.read_metadata_state,
+            self.read_tags)
+        self.games = games
+        self._games_at = time.monotonic()
+        self.media = self._shared_media(media_rows)
+        self._discovery = discovery
         # Info only when it took long enough to be worth knowing. This runs on every
         # draw, so at info always it is a line per page load saying the cache is warm -
         # and the reason this timing is logged at all is the cold read, which is the
@@ -270,14 +273,17 @@ class Library:
         logger.log(logging.INFO if took >= _SLOW_READ else logging.DEBUG,
                    t("manager.data.read_log"), len(self.games), took)
 
-    def _shared_media(self) -> dict[str, dict[str, Any]]:
+    def _shared_media(self, listing: list[dict[str, Any]] | None = None
+                      ) -> dict[str, dict[str, Any]]:
         """Every game's shared media, from one listing rather than a call per game.
 
         Seeded absent because the listing reports no shared row where every table owns
         that kind. Taken as-is, such a folder would leave the kind out of the coverage
         totals altogether instead of counting it as the gap the per-game read calls it.
         """
-        rows = [row for row in self._client.all_media() if not row.get("table")
+        if listing is None:
+            listing = self._client.all_media(shared=True)
+        rows = [row for row in listing if not row.get("table")
                 and row.get("via") not in (media_ownership.ORPHAN, media_ownership.UNUSED)]
         media = {game["id"]: {spec.kind: dict(_MEDIA_ABSENT) for spec in MEDIA_SPECS}
                  for game in self.games}
@@ -1222,25 +1228,29 @@ class Library:
 
     def load_overview(self) -> None:
         """What the Overview draws from. Off the event loop."""
-        self.load_tables()
-        self._read_missing_media()
-        self._read_hidden_checks()
+        *_, watched, front = together(
+            self.load_tables, self._read_missing_media, self._read_hidden_checks,
+            self._read_overview_hidden, self._read_dismissed, self.read_script_patches,
+            self._read_watched, self._read_front)
+        self._watched = watched
+        self._front = front
+        self._front_at = time.monotonic()
+        self._watched_at = time.monotonic()
+
+    def _read_overview_hidden(self) -> None:
         try:
             manager = self.manager_policy()
         except Exception:  # noqa: BLE001 - as above
             manager = {}
         self._hidden_overview = {str(one) for one in (manager.get("hidden_overview") or [])}
+
+    def _read_dismissed(self) -> None:
         try:
             self._dismissed = self._client.dismissed()
             self._dismissed_read = True
         except Exception:  # noqa: BLE001 - a row that comes back is better than a page that cannot draw
             logger.debug("manager: could not read what was dismissed", exc_info=True)
             self._dismissed, self._dismissed_read = {}, False
-        self._watched = self._read_watched()
-        self.read_script_patches()
-        self._front = self._read_front()
-        self._front_at = time.monotonic()
-        self._watched_at = time.monotonic()
 
     def has_overview(self) -> bool:
         return (self._table_rows is not None and self._hidden_checks is not None
@@ -1283,7 +1293,8 @@ class Library:
         out: dict[str, Any] = {"players": [], "player": None, "records": {}, "recent": [],
                                "top": None, "play": {}, "jobs": [], "listed": None}
         try:
-            self._forget_games()
+            if time.monotonic() - self._games_at >= FRONT_FRESH_S:
+                self._forget_games()
         except Exception:  # noqa: BLE001 - the list already held still has the owner's plays
             logger.debug("manager: could not read the games again", exc_info=True)
         try:
@@ -1362,80 +1373,100 @@ class Library:
         """Each read stands alone: an install with no network has no update to report,
         and that must not take the recordings or the jobs down with it. `unread` names
         the reads that failed, so a page that could not look never reports that
-        nothing is there."""
+        nothing is there. Asked at once, and set down in the order they are listed here."""
         out: dict[str, Any] = {"update": {}, "recordings": [], "fill": None, "unread": []}
+        for found, unread in together(
+                self._watch_update, self._watch_recordings, self._watch_fill,
+                self._watch_extension_needs, self._watch_unaccepted,
+                self._watch_home, self._watch_leftovers, self._watch_asks):
+            out.update(found)
+            out["unread"] += unread
+        return out
+
+    def _watch_update(self) -> tuple[dict[str, Any], list[str]]:
         try:
-            out["update"] = self._client.update_check() or {}
-            if out["update"].get("error"):
-                out["unread"].append("update")
+            update = self._client.update_check() or {}
         except Exception:  # noqa: BLE001 - not knowing is not an update
             logger.debug("manager: could not ask whether an update is out", exc_info=True)
-            out["unread"].append("update")
+            return {}, ["update"]
+        return {"update": update}, ["update"] if update.get("error") else []
+
+    def _watch_recordings(self) -> tuple[dict[str, Any], list[str]]:
         try:
-            out["recordings"] = [str(one.get("id") or "") for one in
-                                 self._client.capture_proposals().get("proposals") or []]
+            return {"recordings": [str(one.get("id") or "") for one in
+                                   self._client.capture_proposals().get("proposals") or []]}, []
         except Exception:  # noqa: BLE001 - recordings are not Overview's to fail on
             logger.debug("manager: could not read the recordings waiting", exc_info=True)
-            out["unread"].append("recordings")
+            return {}, ["recordings"]
+
+    def _watch_fill(self) -> tuple[dict[str, Any], list[str]]:
         try:
             fills = [job for job in self._client.jobs(WATCHED_JOBS)
                      if job.get("kind") == KIND_MEDIA_FILL]
-            out["fill"] = max(fills, key=lambda job: float(job.get("started_at") or 0),
-                              default=None)
+            return {"fill": max(fills, key=lambda job: float(job.get("started_at") or 0),
+                                default=None)}, []
         except Exception:  # noqa: BLE001
             logger.debug("manager: could not read the last media fill", exc_info=True)
-            out["unread"].append("fill")
+            return {}, ["fill"]
+
+    def _watch_extension_needs(self) -> tuple[dict[str, Any], list[str]]:
         try:
             raised = self._client.extension_needs()
-            out["extension_needs"] = list(raised.get("needs") or [])
-            out["unread"] += [need_keys.AWAY + name for name in raised.get("away") or []]
+            unread = [need_keys.AWAY + name for name in raised.get("away") or []]
             if raised.get("failed"):
-                out["unread"].append("extensions")
+                unread.append("extensions")
+            return {"extension_needs": list(raised.get("needs") or [])}, unread
         except Exception:  # noqa: BLE001 - what extensions ask for is not Overview's to fail on
             logger.debug("manager: could not read what extensions ask for", exc_info=True)
-            out["unread"] += ["extensions", need_keys.AWAY_ALL]
+            return {}, ["extensions", need_keys.AWAY_ALL]
+
+    def _watch_unaccepted(self) -> tuple[dict[str, Any], list[str]]:
         try:
-            out["unaccepted"] = {
+            return {"unaccepted": {
                 "themes": list(self._client.unaccepted_themes().get("themes") or []),
                 "extensions": [one for one in self._client.extensions()
                                if host.NOT_ACCEPTED in (
                                    one.get("reason_key"),
-                                   (one.get("waiting") or {}).get("reason_key"))]}
+                                   (one.get("waiting") or {}).get("reason_key"))]}}, []
         except Exception:  # noqa: BLE001 - what waits to be accepted is not Overview's to fail on
             logger.debug("manager: could not read what waits to be accepted", exc_info=True)
-            out["unread"].append("unaccepted")
+            return {}, ["unaccepted"]
+
+    def _watch_home(self) -> tuple[dict[str, Any], list[str]]:
         try:
-            out["offered"] = {kind: set(ids) for kind, ids in
-                              (self._client.fillable_media().get("kinds") or {}).items()}
-        except Exception:  # noqa: BLE001 - without it a gap is counted whether or not a source could fill it
-            logger.debug("manager: could not read which media a source can fill", exc_info=True)
-        try:
-            out["home"] = self._client.discovery_home(HOME_DAYS)
-        except Exception:  # noqa: BLE001 - without it a row counts what the library holds, no more
+            answer = self._client.discovery_missing()
+            return {"home": answer,
+                    "offered": {kind: set(ids) for kind, ids in
+                                (answer.get("offered") or {}).items()}}, []
+        except Exception:  # noqa: BLE001 - without it a row counts what the library holds, no more, and a gap is counted whether or not a source could fill it
             logger.debug("manager: could not read what Discovery's Home counts", exc_info=True)
+            return {}, []
+
+    def _watch_leftovers(self) -> tuple[dict[str, Any], list[str]]:
         try:
-            out["leftovers"] = self._read_leftovers()
+            return {"leftovers": self._read_leftovers()}, []
         except Exception:  # noqa: BLE001 - what an upgrade left is not Overview's to fail on
             logger.debug("manager: could not read what an upgrade left behind", exc_info=True)
-            out["unread"].append("leftovers")
+            return {}, ["leftovers"]
+
+    def _watch_asks(self) -> tuple[dict[str, Any], list[str]]:
         try:
-            out["asked"] = self._client.asks()
+            return {"asked": self._client.asks()}, []
         except Exception:  # noqa: BLE001 - a Manager not allowed to see them has none to show
             logger.debug("manager: could not read what programs ask", exc_info=True)
-        return out
+            return {}, []
 
     def _read_leftovers(self) -> list[dict[str, Any]]:
         """Each launcher whose program left settings behind, with the rows to act on, in the
         launchers' own order. Off the loop."""
-        found: list[dict[str, Any]] = []
-        for one in self._client.launchers().get("launchers") or ():
-            if not one.get("has_config") or not one.get("enabled"):
-                continue
-            rows = self._client.launcher_leftovers(str(one["launcher_id"])).get("items") or []
-            if rows:
-                found.append({"launcher_id": str(one["launcher_id"]),
-                              "name": str(one.get("display_name") or ""), "items": rows})
-        return found
+        asked = [one for one in self._client.launchers().get("launchers") or ()
+                 if one.get("has_config") and one.get("enabled")]
+        answers = together(*(partial(self._client.launcher_leftovers, str(one["launcher_id"]))
+                             for one in asked))
+        return [{"launcher_id": str(one["launcher_id"]),
+                 "name": str(one.get("display_name") or ""), "items": rows}
+                for one, answer in zip(asked, answers, strict=True)
+                if (rows := answer.get("items") or [])]
 
     def answer_ask(self, ask_id: str, approve: bool) -> None:
         """Approve or decline one ask, and drop it from what Overview holds. Off the loop."""
@@ -1451,7 +1482,8 @@ class Library:
         if self._media_missing():
             shared = self._shared_media()
             for game_id in self._media_missing():
-                self.media[game_id] = shared[game_id]
+                if game_id in shared:
+                    self.media[game_id] = shared[game_id]
 
     def reread_media(self, game_ids: Iterable[str]) -> None:
         """These games' media after a write across them, from one listing. Off the loop."""
@@ -2304,6 +2336,7 @@ class Library:
         needs telling whenever something other than it does the writing.
         """
         self.games = self._client.games()
+        self._games_at = time.monotonic()
 
     def set_game_tags(self, game_id: str, tags: list[str]) -> None:
         self._client.set_tags(game_id, tags)
@@ -2346,13 +2379,15 @@ class Library:
 
     def warm(self, *scopes: str) -> None:
         """Read these preferences. Off the event loop, once per session."""
-        for scope in scopes:
-            if scope not in self._prefs:
-                try:
-                    self._prefs[scope] = self._client.preferences(scope) or {}
-                except Exception:
-                    logger.warning("manager: could not read %s", scope, exc_info=True)
-                    self._prefs[scope] = {}
+        together(*(partial(self._warm_one, scope) for scope in scopes
+                   if scope not in self._prefs))
+
+    def _warm_one(self, scope: str) -> None:
+        try:
+            self._prefs[scope] = self._client.preferences(scope) or {}
+        except Exception:
+            logger.warning("manager: could not read %s", scope, exc_info=True)
+            self._prefs[scope] = {}
 
     def put_preferences(self, scope: str, value: dict[str, Any]) -> None:
         """Write it, and keep the cache honest without a round trip to prove it."""

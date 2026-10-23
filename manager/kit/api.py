@@ -122,8 +122,12 @@ class _WordedSession(requests.Session):
         return {**kwargs, "headers": {**(kwargs.get("headers") or {}), **paired}}
 
     def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:  # type: ignore[override]
-        who = acting.current() if _is_this_install(url) else None
-        if not _is_this_install(url):
+        here = _is_this_install(url)
+        who = acting.current() if here else None
+        if here:
+            # Compressing for a caller inside this process costs the CPU the page is waiting on.
+            kwargs["headers"] = {"Accept-Encoding": "identity", **(kwargs.get("headers") or {})}
+        else:
             kwargs = self._paired(method, url, kwargs)
         try:
             response = self._send(who, method, url, **kwargs)
@@ -156,6 +160,7 @@ class ApiClient:
         self._session = _WordedSession()
         self._media: dict[str, dict] = {}
         self._discovery: dict | None = None
+        self._discovery_lock = threading.Lock()
 
     def _answered(self, response: Any) -> None:
         """Raise what the API said, not what HTTP said.
@@ -188,9 +193,10 @@ class ApiClient:
         return response.json()
 
     def discovery(self) -> dict:
-        if self._discovery is None:
-            self._discovery = self._get("")
-        return self._discovery
+        with self._discovery_lock:
+            if self._discovery is None:
+                self._discovery = self._get("")
+            return self._discovery
 
     def capabilities(self) -> list[dict]:
         return self.discovery().get("capabilities") or []
@@ -338,9 +344,12 @@ class ApiClient:
         return list(self._get(f"/tables{'?' if query else ''}{query}",
                               _LIBRARY_TIMEOUT).get("tables") or [])
 
-    def all_media(self, kind: str = "") -> list[dict]:
+    def all_media(self, kind: str = "", *, shared: bool = False) -> list[dict]:
         """Every media file in the library, one row each, and one per file it lacks; with
-        `kind`, only that kind's."""
+        `kind`, only that kind's. With `shared`, only each game's shared files, cut to what
+        a count of the coverage reads."""
+        if shared:
+            return self._get("/media/shared", _LIBRARY_TIMEOUT).get("media", [])
         query = "?" + urlencode({"kind": kind}) if kind else ""
         return self._get(f"/media{query}", _LIBRARY_TIMEOUT).get("media", [])
 
@@ -536,6 +545,10 @@ class ApiClient:
     def discovery_home(self, days: int) -> dict:
         """Discovery's front page, every shelf in one read."""
         return dict(self._get(f"/discovery/home?days={int(days)}"))
+
+    def discovery_missing(self) -> dict:
+        """Home's missing tabs as counts and ids, without the rows Home draws."""
+        return dict(self._get("/discovery/missing"))
 
     def picture_changes(self, game_id: str = "") -> dict:
         """The pictures a source has replaced since they were placed, of one game or all."""
@@ -1661,10 +1674,6 @@ class ApiClient:
     def missing_media(self, game_ids: list[str] | None = None) -> dict:
         """Per kept kind, how many of these games have no file and how many can get one."""
         return self._post("/library/media/missing", {"game_ids": game_ids})
-
-    def fillable_media(self) -> dict:
-        """Per media kind, the ids of the games a source has a file for the empty slot of."""
-        return self._get("/library/media/offered")
 
     def fill_media(self, game_ids: list[str] | None = None, kinds: list[str] | None = None,
                    slots: tuple[tuple[str, str], ...] = ()) -> dict:

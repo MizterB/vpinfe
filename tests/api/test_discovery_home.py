@@ -469,6 +469,51 @@ class RouteTests(unittest.TestCase):
         self.assertEqual({gap["count"] for gap in body["missing"].values()}, {0})
 
 
+    def _missing(self, **kwargs: Any) -> Any:
+        with patch.object(rollup, "stored", return_value={
+                "computed": "x", "entries": {"E1": {"tables": 1, "held": []}}}), \
+                patch.object(media_fill, "offered_listing",
+                             return_value=kwargs.get("media") or {}), \
+                patch.object(media_fill, "holders", return_value={"E1": ["game-e1"]}), \
+                patch.object(rollup, "load_vpsdb", return_value=CATALOG), \
+                patch.object(vps_releases, "load_vpsdb", return_value=CATALOG):
+            return self.client.get("/discovery/missing")
+
+    def test_the_missing_route_counts_what_home_counts_and_carries_none_of_the_rows(self) -> None:
+        media = {"playfield": [offered("i1", "E1", "Alpha", 2)]}
+        home = self._get(media=media).json()
+
+        response = self._missing(media=media)
+
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(body["counted"], home["counted"])
+        self.assertEqual(body["missing"], {
+            tab: {key: one[key] for key in ("count", "on_vps", "game_ids")}
+            for tab, one in home["missing"].items()})
+        self.assertIn("playfield", body["missing"])
+
+    def test_the_missing_route_names_the_games_a_source_can_fill_by_kind(self) -> None:
+        media = {"playfield": [offered("i2", "E1"), offered("i1", "E1")],
+                 "wheel": [offered("i3", "E1")]}
+
+        body = self._missing(media=media).json()
+
+        self.assertEqual({"playfield": ["i1", "i2"], "wheel": ["i3"]}, body["offered"])
+
+    def test_the_missing_route_of_a_library_never_compared_counts_nothing(self) -> None:
+        with patch.object(rollup, "stored", return_value={}), \
+                patch.object(media_fill, "offered_listing", return_value={}), \
+                patch.object(media_fill, "holders", return_value={}), \
+                patch.object(rollup, "load_vpsdb", return_value=CATALOG), \
+                patch.object(vps_releases, "load_vpsdb", return_value=CATALOG):
+            body = self.client.get("/discovery/missing").json()
+
+        self.assertEqual(body["counted"], "")
+        self.assertEqual({tab["count"] for tab in body["missing"].values()}, {0})
+        self.assertEqual({}, body["offered"])
+
+
 class UpdatesRouteTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(httpapi.create_api_app(), raise_server_exceptions=False)

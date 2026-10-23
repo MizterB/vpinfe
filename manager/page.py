@@ -55,6 +55,7 @@ from manager.kit import panel as panel_parts
 from manager.kit.api import ApiClient
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
+from manager.kit.together import together
 from manager.library import assets as assets_page
 from manager.library import collections as collections_page
 from manager.library import discovery as discovery_page
@@ -387,17 +388,19 @@ def _read_hub() -> dict[str, Any]:
 
     client = ApiClient()
     library = Library(client)
-    library.load()
+    _, devices, extensions, trouble, shell = together(
+        library.load, client.devices, client.extensions, settings_page.local_trouble,
+        partial(_read_shell, client))
     return {
         "library": library,
-        "devices": client.devices(),
-        "extensions": client.extensions(),
+        "devices": devices,
+        "extensions": extensions,
         "pending": install_setup.pending(get_ini_config()),
         "whats_new_due": whats_new.due(get_ini_config()),
         # This machine's own configuration, asked of this machine: a path is only
         # answerable by the install holding it, and the Manager is served by that one.
-        "trouble": settings_page.local_trouble(),
-        **_read_shell(client),
+        "trouble": trouble,
+        **shell,
     }
 
 
@@ -708,13 +711,14 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
 
     # The saved views, read before anything draws: a grid asks for them while it is
     # being built, which is on the loop, and the client refuses an HTTP call there.
-    await run.io_bound(library.warm, games.SCOPE + views.VIEWS_SUFFIX,
-                       f"{games.SCOPE}.tables" + views.VIEWS_SUFFIX)
     # An address that names a section has to read what that section needs, because the
-    # first draw goes straight to render() and only redraw() reads on the way in.
+    # first draw goes straight to render() and only redraw() reads on the way in. Both
+    # are asked at once: neither needs the other's answer.
     reads = reads_before_drawing(state["view"], library)
-    if reads is not None:
-        await run.io_bound(reads)
+    await asyncio.gather(
+        run.io_bound(library.warm, games.SCOPE + views.VIEWS_SUFFIX,
+                     f"{games.SCOPE}.tables" + views.VIEWS_SUFFIX),
+        *([run.io_bound(reads)] if reads is not None else []))
     # So a report's links, from a tab of its own, can land here.
     ui.run_javascript(f"window.name = {json.dumps(report_groups.MANAGER_WINDOW)}")
     reported_job, reported_group = state.pop("report", ""), state.pop("group", "")
