@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest import mock
@@ -24,7 +25,7 @@ class LibraryRowsHeld(unittest.TestCase):
         self.clock = [1000.0]
         self.entries = {f"G{n}": SimpleNamespace(name=f"Game {n}", full_path_game=f"/g/G{n}")
                         for n in range(3)}
-        self.stamps: dict[str, int] = {}
+        self.stamps: dict[Path, int] = {}
         self.vps: list = []
         self.built: list[str] = []
         self._patches: list[Any] = [
@@ -33,7 +34,7 @@ class LibraryRowsHeld(unittest.TestCase):
             mock.patch.object(table_lens, "_game_rows", self._build),
             mock.patch.object(table_lens, "LauncherView", lambda: object()),
             mock.patch.object(table_lens, "game_stamp",
-                              lambda path: (self.stamps.get(str(path), 0),)),
+                              lambda path: (self.stamps.get(Path(path), 0),)),
             mock.patch.object(table_lens, "load_vpsdb", lambda: self.vps),
             mock.patch.object(table_lens, "monotonic", lambda: self.clock[0]),
             mock.patch.object(table_lens.media_service, "media_settings",
@@ -64,7 +65,7 @@ class LibraryRowsHeld(unittest.TestCase):
     def test_a_game_whose_folder_changed_rebuilds_alone(self) -> None:
         table_lens.library_rows()
         self.built.clear()
-        self.stamps["/g/G2"] = 1
+        self.stamps[Path("/g/G2")] = 1
 
         table_lens.library_rows()
         self.assertEqual(self.built, ["G2"])
@@ -166,7 +167,7 @@ class LibraryRowsHeld(unittest.TestCase):
         self.clock[0] += table_lens.ROWS_HELD_S
         table_lens.library_rows()
         self.entries["G1"] = SimpleNamespace(name="Renamed", full_path_game="/g/G1")
-        self.stamps["/g/G1"] = 0
+        self.stamps[Path("/g/G1")] = 0
 
         self.behind.pop()()
 
