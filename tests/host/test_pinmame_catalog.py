@@ -58,6 +58,31 @@ class LocatorTests(unittest.TestCase):
         assert found is not None
         self.assertEqual(found.parent.name, "Frameworks")
 
+    def test_a_library_added_or_removed_after_a_look_is_seen_by_the_next(self) -> None:
+        with TemporaryDirectory() as tmp:
+            binary = Path(tmp) / "VPinballX_BGFX"
+            binary.write_bytes(b"elf")
+            self.assertIsNone(pinmame_catalog.find_library(str(binary)))
+
+            library = Path(tmp) / "libpinmame.so"
+            library.write_bytes(b"so")
+            os.utime(tmp, (1, 1))
+            self.assertEqual(pinmame_catalog.find_library(str(binary)), library)
+
+            library.unlink()
+            os.utime(tmp, (2, 2))
+            self.assertIsNone(pinmame_catalog.find_library(str(binary)))
+
+    def test_a_second_look_at_unchanged_directories_does_not_search_again(self) -> None:
+        with TemporaryDirectory() as tmp:
+            binary = Path(tmp) / "VPinballX_BGFX"
+            binary.write_bytes(b"elf")
+            (Path(tmp) / "libpinmame.so").write_bytes(b"so")
+            first = pinmame_catalog.find_library(str(binary))
+
+            with mock.patch.object(Path, "glob", side_effect=AssertionError("searched again")):
+                self.assertEqual(pinmame_catalog.find_library(str(binary)), first)
+
     def test_the_env_override_wins_and_a_bad_override_is_none(self) -> None:
         with TemporaryDirectory() as tmp:
             lib = Path(tmp) / "libpinmame.so"

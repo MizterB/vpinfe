@@ -17,6 +17,7 @@ from common.i18n import t
 from common.security import encrypted_connections, machine_secrets
 
 from . import loopback
+from .kit import ghost_timers
 
 logger = logging.getLogger("vpinfe.manager.host")
 
@@ -97,6 +98,7 @@ def _run_ui() -> None:
     logger.info("Starting the web server on host=%s port=%s", _ui_bind, _ui_port)
     logger.info("Expected URLs: %s", ", ".join(_server_urls(_ui_port)))
     app.on_startup(_say_ready)
+    ghost_timers.install()
     # The language is set here, not on the @ui.page decorators: `resolve_language()` reads
     # app.config per request. Labels built at import still need a restart to change.
     # proxy_headers stays off: uvicorn rewriting the peer would hide the real socket

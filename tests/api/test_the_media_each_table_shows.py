@@ -15,7 +15,7 @@ from starlette.testclient import TestClient
 
 import httpapi
 from common.config.paths import get_ini_config
-from common.games import asset_resolver, game_repository, media_service
+from common.games import asset_resolver, game_repository, media_service, table_lens
 from common.games.library_folders import KIND_ROOT, Location
 from httpapi.responses import FOREVER
 from tests.support.library import TempTree, game_info, write_game
@@ -143,11 +143,21 @@ class TheArtEachTableShowsTests(_Library):
     def test_the_version_changes_with_the_file(self) -> None:
         before = self._rows("wheel")["tblDesktop"]["media_version"]
         _rewrite(self.root / NAMED / "medias" / "wheel.png", b"a new shared wheel")
+        game_repository.refresh_game(self.root / NAMED)
 
         row = self._rows("wheel")["tblDesktop"]
 
         self.assertNotEqual(row["media_version"], before)
         self.assertEqual(self._shown(row), b"a new shared wheel")
+
+    def test_a_file_added_to_the_folder_shows_on_the_next_listing(self) -> None:
+        """The listing is held between requests; a folder that changed is read again."""
+        before = self._rows("")["tblDesktop"]["assets"]["script"]["resolution"]
+
+        (self.root / NAMED / f"{NAMED}.vbs").write_bytes(b"Option Explicit")
+        after = self._rows("")["tblDesktop"]["assets"]["script"]["resolution"]
+
+        self.assertEqual((before, after), ("none", "shared"))
 
     def test_without_art_no_row_carries_a_version(self) -> None:
         answer = self.client.get("/tables")
@@ -163,11 +173,12 @@ class TheArtEachTableShowsTests(_Library):
             read.append(Path(game_dir).name)
             return real(game_dir)
 
-        self.client.get("/tables")
         with mock.patch.object(asset_resolver, "folder_listing", counted):
+            table_lens._rows_held.clear()
             self.client.get("/tables")
             plain = sorted(read)
             read.clear()
+            table_lens._rows_held.clear()
             self._rows("wheel")
 
         self.assertEqual(sorted(read), plain)

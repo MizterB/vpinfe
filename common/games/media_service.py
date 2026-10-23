@@ -160,9 +160,10 @@ def shown_media(game_dir: Path, kind: str, table_stem: str | None = None, *,
     """
     files, medias = contents if contents is not None else media_contents(game_dir)
     variant, active_sets = settings if settings is not None else media_settings()
+    shown = (kind, *CABINET_FALLS_TO.get(kind, ()))
     resolved = resolve_media_entries(game_dir, files, medias, variant,
-                                     table_stem, active_sets)
-    for one in (kind, *CABINET_FALLS_TO.get(kind, ())):
+                                     table_stem, active_sets, only=shown)
+    for one in shown:
         hit = resolved.get(one)
         version = sized_media.version(hit.path) if hit is not None else None
         if version:

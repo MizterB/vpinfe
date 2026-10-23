@@ -515,7 +515,8 @@ def resolve_media_entries(game_dir: str | Path, game_contents: set[str],
                           medias_contents: set[str],
                           playfield_variant: str = "table",
                           table_stem: str | None = None,
-                          active_sets: dict[str, str] | None = None
+                          active_sets: dict[str, str] | None = None,
+                          only: Iterable[str] | None = None
                           ) -> dict[str, MediaHit]:
     """Canonical media kind -> the file that serves it, or None.
 
@@ -540,14 +541,22 @@ def resolve_media_entries(game_dir: str | Path, game_contents: set[str],
     then the plain fixed default - so activating a set never clobbers a
     hand-made per-version file, and a media refresh never beats the set. The
     reserved set name "logo" prefers the logo kind in that middle slot.
+
+    `only` limits the answer to those kinds, which is what a list that shows one of them
+    asks for. A kind answered is answered exactly as it is without `only`: the kinds it
+    borrows from are resolved too and left out of the result only if not asked for.
     """
     game_dir = Path(game_dir)
     folder_name = game_dir.name
     find = _finder(game_dir, game_contents, medias_contents)
+    asked = None if only is None else set(only)
+    wanted = None if asked is None else _kinds_needed(asked, active_sets)
 
     resolved: dict[str, MediaHit] = {}
     virtual_pending: dict[str, Path | None] = {}
     for spec in MEDIA_SPECS:
+        if wanted is not None and spec.kind not in wanted:
+            continue
         active = (active_sets or {}).get(spec.kind) if spec.supports_sets else None
         # Each tier keeps its own list rather than one merged one: merged, the winner's
         # tier is unknowable, and "why is this file the one being used" is the question
@@ -592,12 +601,34 @@ def resolve_media_entries(game_dir: str | Path, game_contents: set[str],
     # Cross-kind fallbacks, after everything: a kind with no file of its own at
     # any tier borrows its fallback kind's winner.
     for spec in MEDIA_SPECS:
-        if spec.fallback_kind and resolved[spec.kind].path is None:
+        if spec.fallback_kind and spec.kind in resolved and resolved[spec.kind].path is None:
             borrowed = resolved.get(spec.fallback_kind)
             if borrowed is not None and borrowed.path is not None:
                 resolved[spec.kind] = MediaHit(borrowed.path,
                                                f"{TIER_FALLBACK}:{spec.fallback_kind}")
-    return resolved
+    if asked is None:
+        return resolved
+    return {kind: hit for kind, hit in resolved.items() if kind in asked}
+
+
+def _kinds_needed(kinds: Iterable[str], active_sets: dict[str, str] | None) -> set[str]:
+    """The kinds to resolve so that `kinds` come out as they would from all of them: each
+    one's fallback, and the logo for a kind whose active set is the reserved `logo`."""
+    wanted = set(kinds)
+    grew = True
+    while grew:
+        grew = False
+        for spec in MEDIA_SPECS:
+            if spec.kind not in wanted:
+                continue
+            needs = [spec.fallback_kind] if spec.fallback_kind else []
+            if spec.supports_sets and (active_sets or {}).get(spec.kind) == "logo":
+                needs.append("logo")
+            for kind in needs:
+                if kind not in wanted:
+                    wanted.add(kind)
+                    grew = True
+    return wanted
 
 
 

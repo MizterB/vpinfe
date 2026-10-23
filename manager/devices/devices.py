@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from typing import Any
@@ -1389,6 +1390,29 @@ def _feature_chips(features: Any) -> Any:
                     .classes(f"manager-tier manager-tier--{'on' if name in has else 'off'}")
 
     return draw
+
+
+# A device that did not answer is not dialled again by a page load for this long: each dial
+# of one that is off costs its whole timeout, and every page load would pay it. Asking by
+# hand always dials.
+SILENCE_HELD_S = 60.0
+_silent: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+def remember_answer(device_id: str, found: dict[str, Any]) -> dict[str, Any]:
+    if found.get("state") == device_client.ANSWERING:
+        _silent.pop(device_id, None)
+    else:
+        _silent[device_id] = (time.monotonic(), found)
+    return found
+
+
+def recent_silence(device_id: str) -> dict[str, Any] | None:
+    """What a device said when it last failed to answer, if that was just now."""
+    held = _silent.get(device_id)
+    if held is None or time.monotonic() - held[0] >= SILENCE_HELD_S:
+        return None
+    return held[1]
 
 
 async def ask_each(entries: list[dict[str, Any]],

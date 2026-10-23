@@ -10,8 +10,10 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from contextlib import nullcontext
+from dataclasses import dataclass, field
 from pathlib import Path
-from time import perf_counter
+from time import monotonic, perf_counter
 from typing import Any
 
 from common import apps, service_errors
@@ -39,7 +41,12 @@ from common.games.game_metadata import (
     vpinfe_section,
 )
 from common.games.game_repository import game_to_row
-from common.games.game_service import find_vps_release, holds_vps_entry, release_fits
+from common.games.game_service import (
+    find_vps_release,
+    holds_vps_entry,
+    load_vpsdb,
+    release_fits,
+)
 from common.games.info_file import VPINFE_SECTION, MetaConfig
 from common.games.tables import (
     TABLE_ID_KEY,
@@ -511,81 +518,28 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
     """
     media = media_or_refuse(media)
     media_settings = media_service.media_settings() if media else None
-    launcher_view = LauncherView()
     found: list[dict] = []
-    for game_id, entry in game_repository.catalog().items():
-        if game or "":
-            if game != game_id:
+    # One game is always read from disk: its callers write next on what it says.
+    with nullcontext() if game else _ROWS_LOCK:
+        held = _held_rows(media, media_settings)
+        games = game_repository.catalog()
+        if not game:
+            for gone in held.games.keys() - games.keys():
+                del held.games[gone]
+        launcher_view: LauncherView | None = None
+        for game_id, entry in games.items():
+            if game and game != game_id:
                 continue
-        row = game_to_row(entry)
-        meta = getattr(entry, "meta_config", {}) or {}
-        declared = meta.get("Info")
-        info = declared if isinstance(declared, dict) else {}
-        # Only an entry the catalog holds: a stale id leaves nothing to pick a release from.
-        on_vps = game_vps_id(entry)
-        on_vps = on_vps if holds_vps_entry(on_vps) else ""
-        for table in table_rows(entry, row, launcher_settings=True, media=media,
-                                media_settings=media_settings, launcher_view=launcher_view):
-            if not table.get("id"):
+            # Taken before the read, so a write made during it is seen next time.
+            stamp = game_stamp(Path(str(getattr(entry, "full_path_game", "") or "")))
+            kept = held.games.get(game_id)
+            if not game and kept is not None and kept[0] is entry and kept[1] == stamp:
+                found.extend(kept[2])
                 continue
-            shown = table.get("shown_media")
-            found.append({
-                "id": table["id"],
-                "game_id": game_id,
-                "game": str(info.get("Name", "") or row.get("name", "") or ""),
-                "manufacturer": str(info.get("Manufacturer", "") or ""),
-                "year": str(info.get("Year", "") or ""),
-                "filename": table.get("filename") or "",
-                # What names this entry where it has no file, and which of the two it
-                # is. A row showing a blank in the file column would read as a fault.
-                "form": table.get("form") or "contained",
-                "key": table.get("key") or "",
-                # As stored, which is what identifies the row. Where it resolves to and
-                # whether it is there belong to the panel, not to a grid cell.
-                "reference": ((table.get("reference") or {}).get("path") or ""),
-                "version": table.get("version") or "",
-                "authors": table.get("authors") or [],
-                "source": table.get("source"),
-                "update_available": table.get("update_available"),
-                "rating": int(table.get("rating") or 0),
-                "game_rating": game_rating(entry),
-                "game_vps_id": on_vps,
-                "features": table.get("features") or {},
-                "assets": table.get("assets") or {},
-                "media_kind": shown.kind if shown else None,
-                "media_version": shown.version if shown else None,
-                # The rom this file actually resolves to, alias followed. One of the
-                # few things that genuinely differs between two tables of one game.
-                "rom": str((table.get("dependencies") or {})
-                           .get("pinmame", {}).get("effective", "") or ""),
-                "rom_installed": ((table.get("dependencies") or {})
-                                  .get("pinmame", {}).get("installed")),
-                "launchable": table.get("launchable"),
-                "user": table.get("user") or {},
-                "derived_tags": table.get("derived_tags") or [],
-                "default": bool(table.get("default")),
-                "default_kind": str(table.get("default_kind") or ""),
-                "automatic": bool(table.get("automatic")),
-                "hidden": bool(table.get("hidden")),
-                "available": bool(table.get("available")),
-                "absent_since": table.get("absent_since"),
-                "app": table.get("app") or "",
-                "app_name": table.get("app_name") or "",
-                # What the games lens carries about the launcher, so the two cannot
-                # describe one table differently.
-                "launcher": table.get("launcher") or "",
-                "launcher_name": table.get("launcher_name") or "",
-                "launcher_set_here": bool(table.get("launcher_set_here")),
-                "launcher_falls_back": bool(table.get("launcher_falls_back")),
-                "launcher_app_configurable": bool(table.get("launcher_app_configurable")),
-                "launcher_settings_here": int(table.get("launcher_settings_here") or 0),
-                "launcher_settings_from_folder":
-                    int(table.get("launcher_settings_from_folder") or 0),
-                "launcher_point_of_view": bool(table.get("launcher_point_of_view")),
-                "launcher_settings_keys": list(table.get("launcher_settings_keys") or []),
-                "delete_nvram_on_close":
-                    bool((table.get("overrides") or {}).get("delete_nvram_on_close")),
-            })
+            launcher_view = launcher_view or LauncherView()
+            built = _game_rows(game_id, entry, media, media_settings, launcher_view)
+            held.games[game_id] = (entry, stamp, built)
+            found.extend(built)
 
     found.sort(key=lambda item: (item["game"].lower(),
                                 (item["filename"] or item["key"]).lower()))
@@ -593,3 +547,126 @@ def library_rows(limit: int = 0, offset: int = 0, game: str = "",
     window = found[offset:offset + limit] if limit else found[offset:]
     mods.hold((row.get("source") or {}).get("mod_of") for row in window)
     return {"total": total, "offset": offset, "count": len(window), "tables": window}
+
+
+def game_stamp(game_dir: Path) -> tuple:
+    """The folder, its medias folder and its .info as they stand, for telling whether a
+    game's rows still describe it."""
+    stamps: list[tuple[int, int] | None] = []
+    for path in (game_dir, game_dir / "medias", game_dir / f"{game_dir.name}.info"):
+        try:
+            stat = path.stat()
+        except OSError:
+            stamps.append(None)
+        else:
+            stamps.append((stat.st_mtime_ns, stat.st_size))
+    return tuple(stamps)
+
+
+# A game's rows are held until its entry is replaced or its folder, medias folder or .info
+# changes. What those do not show moves game_repository.generation(); one made outside the
+# app, such as the ROM folder, waits out the age.
+ROWS_HELD_S = 60.0
+_ROWS_LOCK = threading.RLock()
+
+
+@dataclass
+class _HeldRows:
+    stamp: tuple
+    catalog: list
+    at: float
+    games: dict[str, tuple[Any, tuple, list[dict]]] = field(default_factory=dict)
+
+
+_rows_held: dict[str, _HeldRows] = {}
+
+
+def _held_rows(media: str, media_settings: Any) -> _HeldRows:
+    """The rows held for this thumbnail kind, started again where what they were built
+    under has changed or they are old. The caller holds _ROWS_LOCK for a whole listing."""
+    variant, sets = media_settings or ("", None)
+    stamp = (variant, tuple(sorted((sets or {}).items())), game_repository.generation())
+    # Held by the object, not its id: a reload of the catalog hands back a new list.
+    catalog = load_vpsdb()
+    now = monotonic()
+    with _ROWS_LOCK:
+        held = _rows_held.get(media)
+        if (held is None or held.stamp != stamp or held.catalog is not catalog
+                or now - held.at >= ROWS_HELD_S):
+            held = _rows_held[media] = _HeldRows(stamp, catalog, now)
+        return held
+
+
+def _game_rows(game_id: str, entry: Any, media: str, media_settings: Any,
+               launcher_view: LauncherView) -> list[dict]:
+    built: list[dict] = []
+    row = game_to_row(entry)
+    meta = getattr(entry, "meta_config", {}) or {}
+    declared = meta.get("Info")
+    info = declared if isinstance(declared, dict) else {}
+    # Only an entry the catalog holds: a stale id leaves nothing to pick a release from.
+    on_vps = game_vps_id(entry)
+    on_vps = on_vps if holds_vps_entry(on_vps) else ""
+    for table in table_rows(entry, row, launcher_settings=True, media=media,
+                            media_settings=media_settings, launcher_view=launcher_view):
+        if not table.get("id"):
+            continue
+        shown = table.get("shown_media")
+        built.append({
+            "id": table["id"],
+            "game_id": game_id,
+            "game": str(info.get("Name", "") or row.get("name", "") or ""),
+            "manufacturer": str(info.get("Manufacturer", "") or ""),
+            "year": str(info.get("Year", "") or ""),
+            "filename": table.get("filename") or "",
+            # What names this entry where it has no file, and which of the two it
+            # is. A row showing a blank in the file column would read as a fault.
+            "form": table.get("form") or "contained",
+            "key": table.get("key") or "",
+            # As stored, which is what identifies the row. Where it resolves to and
+            # whether it is there belong to the panel, not to a grid cell.
+            "reference": ((table.get("reference") or {}).get("path") or ""),
+            "version": table.get("version") or "",
+            "authors": table.get("authors") or [],
+            "source": table.get("source"),
+            "update_available": table.get("update_available"),
+            "rating": int(table.get("rating") or 0),
+            "game_rating": game_rating(entry),
+            "game_vps_id": on_vps,
+            "features": table.get("features") or {},
+            "assets": table.get("assets") or {},
+            "media_kind": shown.kind if shown else None,
+            "media_version": shown.version if shown else None,
+            # The rom this file actually resolves to, alias followed. One of the
+            # few things that genuinely differs between two tables of one game.
+            "rom": str((table.get("dependencies") or {})
+                       .get("pinmame", {}).get("effective", "") or ""),
+            "rom_installed": ((table.get("dependencies") or {})
+                              .get("pinmame", {}).get("installed")),
+            "launchable": table.get("launchable"),
+            "user": table.get("user") or {},
+            "derived_tags": table.get("derived_tags") or [],
+            "default": bool(table.get("default")),
+            "default_kind": str(table.get("default_kind") or ""),
+            "automatic": bool(table.get("automatic")),
+            "hidden": bool(table.get("hidden")),
+            "available": bool(table.get("available")),
+            "absent_since": table.get("absent_since"),
+            "app": table.get("app") or "",
+            "app_name": table.get("app_name") or "",
+            # What the games lens carries about the launcher, so the two cannot
+            # describe one table differently.
+            "launcher": table.get("launcher") or "",
+            "launcher_name": table.get("launcher_name") or "",
+            "launcher_set_here": bool(table.get("launcher_set_here")),
+            "launcher_falls_back": bool(table.get("launcher_falls_back")),
+            "launcher_app_configurable": bool(table.get("launcher_app_configurable")),
+            "launcher_settings_here": int(table.get("launcher_settings_here") or 0),
+            "launcher_settings_from_folder":
+                int(table.get("launcher_settings_from_folder") or 0),
+            "launcher_point_of_view": bool(table.get("launcher_point_of_view")),
+            "launcher_settings_keys": list(table.get("launcher_settings_keys") or []),
+            "delete_nvram_on_close":
+                bool((table.get("overrides") or {}).get("delete_nvram_on_close")),
+        })
+    return built

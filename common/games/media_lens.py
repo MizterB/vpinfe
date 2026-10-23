@@ -284,20 +284,6 @@ def _game_rows(game_id: str, entry: Any, variant: str,
     return found
 
 
-def _stamp(game_dir: Path) -> tuple:
-    """The folder, its medias folder and its .info as they stand, for telling whether a
-    game's rows still describe it."""
-    stamps: list[tuple[int, int] | None] = []
-    for path in (game_dir, game_dir / "medias", game_dir / f"{game_dir.name}.info"):
-        try:
-            stat = path.stat()
-        except OSError:
-            stamps.append(None)
-        else:
-            stamps.append((stat.st_mtime_ns, stat.st_size))
-    return tuple(stamps)
-
-
 def _library_rows(variant: str, sets: dict[str, str] | None) -> list[dict]:
     """Every game's rows, read again only for a game that has changed since."""
     settings = (variant, tuple(sorted((sets or {}).items())))
@@ -307,7 +293,7 @@ def _library_rows(variant: str, sets: dict[str, str] | None) -> list[dict]:
     found: list[dict] = []
     for game_id, entry in catalog.items():
         # Taken before the read, so a write made during it is seen next time.
-        stamp = (settings, _stamp(Path(entry.full_path_game or "")))
+        stamp = (settings, table_lens.game_stamp(Path(entry.full_path_game or "")))
         held = _HELD.get(game_id)
         if held is None or held[0] is not entry or held[1] != stamp:
             rows = _game_rows(game_id, entry, variant, sets)

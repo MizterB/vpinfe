@@ -45,8 +45,23 @@ def _candidate_dirs(vpx_bin_path: str) -> list[Path]:
     return dirs
 
 
+# By launcher: the directories' modification times when the answer was found, and the answer.
+_found: dict[str, tuple[tuple[float, ...], Path | None]] = {}
+
+
+def _dir_stamp(directory: Path) -> float:
+    try:
+        return directory.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
 def find_library(vpx_bin_path: str) -> Path | None:
-    """The shipped libpinmame, or None. Never raises."""
+    """The shipped libpinmame, or None. Never raises.
+
+    Remembered while the directories searched are unchanged: a file added or removed
+    there changes its directory's time, and a list of every table asks once per table.
+    """
     override = os.environ.get(ENV_OVERRIDE, "").strip()
     if override:
         path = Path(override)
@@ -54,17 +69,28 @@ def find_library(vpx_bin_path: str) -> Path | None:
     if not (vpx_bin_path or "").strip():
         return None
 
+    directories = _candidate_dirs(vpx_bin_path)
+    stamp = tuple(_dir_stamp(directory) for directory in directories)
+    held = _found.get(vpx_bin_path)
+    if held is not None and held[0] == stamp:
+        return held[1]
+
+    found = None
     patterns = ("libpinmame*.dylib", "libpinmame*.so*", "libpinmame*.dll",
                 "pinmame*.dll")
-    for directory in _candidate_dirs(vpx_bin_path):
+    for directory in directories:
         try:
             for pattern in patterns:
                 hits = sorted(directory.glob(pattern))
                 if hits:
-                    return hits[0]
+                    found = hits[0]
+                    break
         except OSError:
             continue
-    return None
+        if found is not None:
+            break
+    _found[vpx_bin_path] = (stamp, found)
+    return found
 
 
 def availability(vpx_bin_path: str) -> tuple[bool, str | None]:
@@ -186,5 +212,6 @@ atexit.register(_stop_helper)
 def clear_cache() -> None:
     """For tests."""
     _cache.clear()
+    _found.clear()
     with _helper_lock:
         _stop_helper()

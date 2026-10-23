@@ -480,6 +480,8 @@ def _write_one(found: launchers.Launcher, config: Any, settings: dict[str, Any],
             make(config.newest_version, writing, settings)
         except ValueError as exc:
             raise _cannot_write(found) from exc
+        finally:
+            game_repository.touch()
         return {"written": sorted(writing), "cleared": []}
 
     _writable_before_writing(found, scope, table)
@@ -487,6 +489,8 @@ def _write_one(found: launchers.Launcher, config: Any, settings: dict[str, Any],
         cleared = config.write(scope, table, writing, settings)
     except ValueError as exc:
         raise _cannot_write(found) from exc
+    finally:
+        game_repository.touch()
     return {"written": sorted(set(writing) - cleared), "cleared": sorted(cleared)}
 
 
@@ -581,6 +585,7 @@ def _write_tables(launcher: launchers.Launcher, config: Any, settings: dict[str,
                 failed.append({"table": table_id, "reason": failures.why(exc)})
             else:
                 written.append(table_id)
+        game_repository.touch()
         if orders:
             failed.extend(_order().settle_tables(written))
         return {"tables": len(ids), "written": written, "failed": failed}

@@ -1142,7 +1142,10 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
     state["watch_jobs"] = watch_jobs
 
     def _probe_one(device_id: str) -> dict:
-        return ApiClient().probe_device(device_id)
+        return devices_page.remember_answer(device_id, ApiClient().probe_device(device_id))
+
+    def _probe_on_load(device_id: str) -> dict:
+        return devices_page.recent_silence(device_id) or _probe_one(device_id)
 
     async def _reached(device_id: str, found: dict) -> None:
         """One device's answer, onto its row and, when it is the one open, the panel."""
@@ -1207,7 +1210,7 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
             if update.get("update_available") and not update.get("error"):
                 waiting.append(devices_page.device_label(entry))
 
-        for exc in await devices_page.ask_each(devices, _probe_one, reached):
+        for exc in await devices_page.ask_each(devices, _probe_on_load, reached):
             logger.debug("Could not probe a device: %s", exc)
 
         if not waiting:

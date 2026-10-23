@@ -56,6 +56,23 @@ _PARSERS: dict[tuple[str, str], GameParser] = {}
 _AWAY: set[tuple[str, str]] = set()
 logger = logging.getLogger("vpinfe.common.games.game_repository")
 
+_generation = 0
+
+
+def generation() -> int:
+    """Changes whenever something a game's rows were built from changed that a re-read of
+    the game does not show: its own settings file, the launchers, the collections."""
+    return _generation
+
+
+def touch(**_: Any) -> None:
+    global _generation
+    _generation += 1
+
+
+events.subscribe(events.SETTINGS_CHANGED, touch)
+events.subscribe(events.COLLECTIONS_CHANGED, touch)
+
 
 def _held(reload: bool) -> tuple[list[Any], bool]:
     """Every game across every location, and whether anything was actually read.

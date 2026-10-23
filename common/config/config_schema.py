@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from typing import Any
 
 from common import i18n
@@ -1554,6 +1555,7 @@ def canonical(section: str, key: str) -> str:
     return key
 
 
+@lru_cache(maxsize=4096)
 def locate(section: str, key: str) -> tuple[str, str]:
     """Where a setting lives now, given any section and key it has ever lived at.
 
