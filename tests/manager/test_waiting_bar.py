@@ -56,11 +56,11 @@ class WhatTheLineAsksFor(unittest.TestCase):
     def test_nothing_when_nothing_waits(self) -> None:
         self.assertEqual(waiting.waiting_for(_answer()), "")
 
-    def test_the_heading_names_each_setting(self) -> None:
+    def test_the_heading_says_what_the_changes_wait_for_and_names_no_setting(self) -> None:
         self.assertEqual(waiting.heading(_answer(PORTS, SOCKET)),
-                         "Waiting for a restart: HTTP port, WebSocket port")
+                         "Changes will be applied after VPinFE restarts")
         self.assertEqual(waiting.heading(_answer(ROTATION, reopen=True)),
-                         "Waiting for the windows to reopen: Rotation")
+                         "Changes will be applied after the Frontend restarts")
 
 
 class Dismissing(unittest.TestCase):
@@ -133,7 +133,7 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
 
     async def test_says_what_waits_and_offers_restart_undo_and_dismiss(self) -> None:
         _bar, slot = await self._drawn()
-        self.assertIn("Waiting for a restart: HTTP port, WebSocket port", _labels(slot))
+        self.assertIn("Changes will be applied after VPinFE restarts", _labels(slot))
         self.assertEqual(set(_buttons(slot)) - {""}, {"Restart VPinFE", "Undo Changes"})
         self.assertEqual(len([one for one in slot.descendants()
                               if isinstance(one, ui.button)]), 3)
@@ -141,7 +141,7 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
     async def test_offers_reopen_in_place_of_restart_for_window_settings(self) -> None:
         self.library.config_waiting.return_value = _answer(ROTATION, reopen=True)
         _bar, slot = await self._drawn()
-        self.assertEqual(set(_buttons(slot)) - {""}, {"Reopen Windows", "Undo Changes"})
+        self.assertEqual(set(_buttons(slot)) - {""}, {"Restart Frontend", "Undo Changes"})
 
     async def test_draws_nothing_when_nothing_waits(self) -> None:
         self.library.config_waiting.return_value = _answer()
@@ -157,8 +157,7 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
         self.library.config_waiting.return_value = _answer(PORTS, SOCKET, ROTATION,
                                                           reopen=True)
         await _on_page(bar.refresh)
-        self.assertIn("Waiting for a restart: HTTP port, WebSocket port, Rotation",
-                      _labels(slot))
+        self.assertIn("Changes will be applied after VPinFE restarts", _labels(slot))
 
     async def test_a_dismissed_setting_that_stops_waiting_is_forgotten(self) -> None:
         bar, slot = await self._drawn()
@@ -195,7 +194,7 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
         bar, slot = await self._drawn()
         await _on_page(bar.reopen)
         self.library.perform_action.assert_called_once_with("frontend", "restart")
-        self.assertIn("Reopening the windows", _labels(slot))
+        self.assertIn("Restarting the Frontend", _labels(slot))
 
     async def test_reopen_says_so_when_nothing_reopened_the_windows(self) -> None:
         self.library.config_waiting.return_value = _answer(ROTATION, reopen=True)
@@ -203,8 +202,8 @@ class TheBar(unittest.IsolatedAsyncioTestCase):
         bar, slot = await self._drawn()
         with patch.object(ui, "notify") as note:
             await _on_page(bar.reopen)
-        self.assertEqual(note.call_args.args[0], "Reopen Windows did not happen")
-        self.assertNotIn("Reopening the windows", _labels(slot))
+        self.assertEqual(note.call_args.args[0], "Restart Frontend did not happen")
+        self.assertNotIn("Restarting the Frontend", _labels(slot))
 
     async def test_undo_redraws_the_page_so_its_fields_show_the_restored_values(self) -> None:
         redraw = Mock()

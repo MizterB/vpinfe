@@ -3,7 +3,7 @@
 The verbs are the ones the Devices page draws for this device. Restart and the window
 reopen go through the waiting line, so they follow the Manager to a new port, and lead the
 menu with how much is waiting once the line has been dismissed. On an install that owns
-windows the menu also follows them: Close and Reopen while they are up, Open while they
+windows the menu also follows them: Close and Restart while they are up, Open while they
 are not. The dot is up only while changes wait, and the hover then says how many.
 
 A browser another device signed in ends its own sign-in from the foot of the menu, which is

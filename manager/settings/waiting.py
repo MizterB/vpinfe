@@ -54,15 +54,10 @@ def waiting_for(answer: dict[str, Any]) -> str:
     return RESTART
 
 
-def names(answer: dict[str, Any]) -> str:
-    return ", ".join(str(one.get("label") or one.get("key") or "")
-                     for one in answer.get("waiting") or [])
-
-
 def heading(answer: dict[str, Any]) -> str:
     said = "manager.waiting.reopen" if waiting_for(answer) == REOPEN \
         else "manager.waiting.restart"
-    return t(said, names=names(answer))
+    return t(said)
 
 
 def hidden(answer: dict[str, Any], dismissed: set[str]) -> bool:

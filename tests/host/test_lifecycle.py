@@ -157,9 +157,9 @@ class LifecycleTests(unittest.TestCase):
         rather than rebooting the machine.
         """
         expected = {
-            (lifecycle.FRONTEND, lifecycle.START): "Open the Frontend windows",
-            (lifecycle.FRONTEND, lifecycle.STOP): "Close the Frontend windows",
-            (lifecycle.FRONTEND, lifecycle.RESTART): "Reopen the Frontend windows",
+            (lifecycle.FRONTEND, lifecycle.START): "Open the Frontend",
+            (lifecycle.FRONTEND, lifecycle.STOP): "Close the Frontend",
+            (lifecycle.FRONTEND, lifecycle.RESTART): "Restart the Frontend",
             (lifecycle.VPINFE, lifecycle.STOP): "Quit VPinFE",
             (lifecycle.VPINFE, lifecycle.RESTART): "Restart VPinFE",
             (lifecycle.SYSTEM, lifecycle.STOP): "Power off",
@@ -351,7 +351,7 @@ class FrontendPerformerTests(unittest.TestCase):
                                return_value=(lifecycle.VPINFE,)):
             self.assertTrue(lifecycle_host.wants_confirmation(lifecycle.VPINFE))
             self.assertFalse(lifecycle_host.wants_confirmation(scope))
-        self.assertEqual(lifecycle.label(scope, action), "Close the Frontend windows")
+        self.assertEqual(lifecycle.label(scope, action), "Close the Frontend")
 
     def test_an_install_that_is_not_a_frontend_cannot_run_any_of_it(self) -> None:
         self._install(windows=True, state=lifecycle.WINDOWS_OFF)

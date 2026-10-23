@@ -280,5 +280,5 @@ class HelpLineTests(unittest.TestCase):
         self.assertEqual(header.call_args_list[1].args[1], "")
 
     def test_the_chip_words_are_the_two_things_a_change_can_wait_for(self) -> None:
-        self.assertEqual(t("manager.settings.chip_reopen"), "Reopen needed")
+        self.assertEqual(t("manager.settings.chip_reopen"), "Frontend restart needed")
         self.assertEqual(t("manager.settings.chip_restart"), "Restart needed")
