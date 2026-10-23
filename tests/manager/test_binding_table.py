@@ -275,18 +275,13 @@ class DrawnTests(unittest.TestCase):
 
         self.assertIn("Press anything to see what it does", _labels(body))
 
-    def test_a_page_opened_on_the_serving_device_has_no_note_on_the_buttons(self) -> None:
-        with patch.object(table, "opened_elsewhere", return_value=False):
-            _, body = _drawn()
+    def test_the_box_holds_only_the_readout_on_the_serving_device_and_elsewhere(self) -> None:
+        for elsewhere in (False, True):
+            with patch.object(table, "opened_elsewhere", return_value=elsewhere):
+                control, _ = _drawn()
 
-        self.assertNotIn(t("manager.binding_table.elsewhere_note"), _labels(body))
-
-    def test_a_page_opened_from_another_device_says_where_the_buttons_are_tried(self) -> None:
-        with patch.object(table, "opened_elsewhere", return_value=True):
-            _, body = _drawn()
-
-        self.assertIn("Press anything to see what it does", _labels(body))
-        self.assertIn("Buttons wired to the VPinFE device are tried on that device", _labels(body))
+            words = [one.text for one in control.line.descendants() if isinstance(one, ui.label)]
+            self.assertEqual(words, ["Press anything to see what it does"])
 
     def test_a_string_default_is_not_read_letter_by_letter(self) -> None:
         _, body = _drawn({**SHIPPED, "next": "key:ArrowRight,key:KeyD"})
@@ -684,6 +679,9 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
     def _line(self, control: Table) -> list[str]:
         return [one.text for one in control.line.descendants() if isinstance(one, ui.label)]
 
+    def _send(self, control: Table) -> list[str]:
+        return [one.text for one in control.send.descendants() if isinstance(one, ui.label)]
+
     async def test_a_row_listening_is_marked_and_the_line_says_what_for(self) -> None:
         control = self.drawn()
 
@@ -691,18 +689,18 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("manager-binding-row--listening", control._rows["back"].classes)
         self.assertNotIn("manager-binding-row--listening", control._rows["next"].classes)
-        self.assertEqual(self._line(control), [
-            "Press what should do", "Back", "·",
-            "Two together makes a chord, and keeping it down makes a hold",
-            "Click away to stop"])
+        self.assertEqual(self._line(control), ["Press what should do", "Back"])
+        self.assertEqual(self._send(control)[-1],
+                         "Two together makes a chord, and keeping it down makes a hold. "
+                         "Click away to stop")
 
     async def test_a_row_that_cannot_be_held_offers_only_the_chord(self) -> None:
         control = self.drawn()
 
         said(control.line, "listen", "take_picture")
 
-        self.assertEqual(self._line(control)[3:], ["Two together makes a chord",
-                                                  "Click away to stop"])
+        self.assertEqual(self._send(control)[-1],
+                         "Two together makes a chord. Click away to stop")
 
     async def test_listening_moves_from_one_row_to_the_next(self) -> None:
         control = self.drawn()
@@ -874,7 +872,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(run.call_count, 2)
         self.assertEqual({one.type for one in control.line._event_listeners.values()},
-                         {"heard", "listen", "captured"})
+                         {"heard", "listen", "captured", "taken", "visible", "touched"})
 
     async def test_a_table_that_is_only_shown_listens_for_no_row(self) -> None:
         with patch.object(ui, "run_javascript") as run:
@@ -883,7 +881,7 @@ class AnActedOnTable(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(run.call_count, 1)
         self.assertEqual({one.type for one in control.line._event_listeners.values()},
-                         {"heard"})
+                         {"heard", "taken", "visible", "touched"})
 
     async def test_drawing_after_the_page_is_gone_draws_nothing(self) -> None:
         control = self.drawn()

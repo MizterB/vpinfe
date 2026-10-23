@@ -681,12 +681,16 @@ body::before {
 .manager-binding-live--idle { color: var(--ink-3); }
 .manager-binding-live--on { border-color: var(--accent); }
 .manager-binding-live--on > .q-icon { color: var(--accent); }
-.manager-binding-live-hint { color: var(--ink-2); }
-.manager-binding-live-end { margin-left: auto; }
 .manager-binding-live-name { color: var(--ink); font-weight: 600; }
 .manager-binding-live-sep { color: var(--ink-3); }
 .manager-binding-live-does { color: var(--accent); font-weight: 600; }
 .manager-binding-live-key { color: var(--ink-3); font-size: var(--fs-caption); }
+
+/* The switch under the readout, and the words beside it when something is off. */
+.manager-binding-send {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 8px;
+}
+.manager-binding-send-words { margin: 0; }
 
 /* A list taller than its pane says so: a fade over the last rows and a way down. Placed
    as the last child of the scrolling element; `hidden` once the end is in view. */

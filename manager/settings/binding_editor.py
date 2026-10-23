@@ -193,12 +193,20 @@ LISTEN_JS = """(() => {
     if (row && row.dataset.row === listen.row && e.target.closest('.manager-chip-holder')
         && !e.target.closest('.manager-chip-remove')) e.stopPropagation();
   }, true);
-  // A button or key on the cabinet, reported by the frontend while this listens.
+  // A button or key on the cabinet, reported by the frontend while the page holds them. With
+  // no row listening it goes to the live line.
   listen.relay = (token, isDown) => {
-    if (!active()) return;
+    if (!active()) {
+      if (isDown && window.__bindingLive && window.__bindingLive.relayed) {
+        window.__bindingLive.relayed(token);
+      }
+      return;
+    }
     if (isDown) { remote.add(token); arrived(token.startsWith('key:') ? 'key' : 'pad', token); }
     else { remote.delete(token); left(token); }
   };
+  // The cabinet's buttons stopped coming, so none of them is still down.
+  listen.relayAllUp = () => { for (const token of [...remote]) listen.relay(token, false); };
   listen.stop = stop;
 })()"""
 

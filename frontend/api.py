@@ -199,6 +199,8 @@ API_INTERNAL_METHODS = {
     # The controller window's report of a button pressed while a Manager on another
     # device is listening. A theme calling it would type into that Manager's field.
     'input_capture',
+    # A button held at the cabinet taking the controller back from every Manager page.
+    'input_capture_release',
 }
 
 
@@ -729,6 +731,11 @@ class API:
             return {"relayed": False}
         events.emit(events.INPUT_CAPTURE_PRESS, token=token, phase=phase)
         return {"relayed": True}
+
+    def input_capture_release(self) -> dict[str, Any]:
+        """A button was held at the cabinet long enough to take the controller back."""
+        events.emit(events.INPUT_CAPTURE_RELEASED)
+        return {"released": True}
 
     def resume_play(self) -> dict[str, Any]:
         """Back pressed while a table runs: resumes it where it is frozen."""

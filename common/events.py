@@ -92,12 +92,16 @@ CAPTURE_RUN_CHANGED = "capture.run_changed"
 #   input.action  {action, phase: press|release, source, ttl_ms?, expired?}
 INPUT_ACTION = "input.action"
 
-# A Manager on another device is listening for a button, so this device's controller is
-# heard for it. Armed lapses after `ttl_ms` unless it is sent again.
-#   input_capture.armed  {armed, ttl_ms}
-#   input_capture.press  {token, phase: down|up}   token as the Manager stores a button
+# A Manager's Input page has asked for this device's controller, so its buttons and keys go
+# there and do nothing here. Armed lapses after `ttl_ms` unless it is sent again. `browser`
+# and `device` name the newest page's holder for the line the cabinet shows; `device` is ""
+# for a page on this device.
+#   input_capture.armed     {armed, ttl_ms, browser, device}
+#   input_capture.press     {token, phase: down|up}   token as the Manager stores a button
+#   input_capture.released  {}   a button held at the cabinet took them back from every page
 INPUT_CAPTURE_ARMED = "input_capture.armed"
 INPUT_CAPTURE_PRESS = "input_capture.press"
+INPUT_CAPTURE_RELEASED = "input_capture.released"
 
 DEFAULT_PRIORITY = 100
 

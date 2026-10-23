@@ -90,14 +90,33 @@ class WhatTheFrontendBroadcasts(unittest.TestCase):
     def test_asking_goes_to_every_window(self) -> None:
         events.emit(events.INPUT_CAPTURE_ARMED, armed=True, ttl_ms=6000)
 
-        self.assertEqual(self.bridge.sent,
-                         [{"type": "CaptureArm", "armed": True, "ttl_ms": 6000}])
+        self.assertEqual(self.bridge.sent, [{"type": "CaptureArm", "armed": True,
+                                             "ttl_ms": 6000, "browser": "", "device": ""}])
+
+    def test_the_window_is_told_who_holds_the_buttons(self) -> None:
+        events.emit(events.INPUT_CAPTURE_ARMED, armed=True, ttl_ms=6000,
+                    browser="Safari on Mac", device="office-laptop")
+
+        self.assertEqual((self.bridge.sent[0]["browser"], self.bridge.sent[0]["device"]),
+                         ("Safari on Mac", "office-laptop"))
 
     def test_giving_it_back_goes_to_every_window(self) -> None:
         events.emit(events.INPUT_CAPTURE_ARMED, armed=False)
 
-        self.assertEqual(self.bridge.sent,
-                         [{"type": "CaptureArm", "armed": False, "ttl_ms": 0}])
+        self.assertEqual(self.bridge.sent, [{"type": "CaptureArm", "armed": False,
+                                             "ttl_ms": 0, "browser": "", "device": ""}])
+
+    def test_a_take_back_from_the_window_is_announced_to_the_pages(self) -> None:
+        released: list[bool] = []
+        events.subscribe(events.INPUT_CAPTURE_RELEASED, lambda **_: released.append(True))
+
+        result = _window().input_capture_release()
+
+        self.assertEqual(result, {"released": True})
+        self.assertEqual(released, [True])
+
+    def test_a_theme_cannot_take_them_back(self) -> None:
+        self.assertIn("input_capture_release", API_INTERNAL_METHODS)
 
     def test_registering_twice_sends_once(self) -> None:
         input_capture.register(self.bridge)  # type: ignore[arg-type]

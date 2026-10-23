@@ -56,6 +56,8 @@ REMOVE_AT = ("(() => { const marks = [...document.querySelectorAll('.manager-chi
 LINE = ("(el => el ? [...el.children].filter(part => !part.classList.contains('q-icon'))"
         ".map(part => part.textContent.trim()).join(' ') : null)"
         "(document.querySelector('.manager-binding-live'))")
+HELP = ("(el => el ? el.textContent.trim().replace(/\\s+/g, ' ') : null)"
+        "(document.querySelector('.manager-binding-send-words'))")
 LISTENING = "((window.__bindingListen || {}).row || '')"
 LISTENING_ROWS = ("[...document.querySelectorAll('.manager-binding-row--listening')]"
                   ".map(row => row.querySelector('.manager-binding-label').textContent.trim())")
@@ -218,6 +220,7 @@ class InputTableDrive(unittest.TestCase):
             await row("Next")
             await listening("Next")
             seen["prompt"] = await browser.evaluate(LINE)
+            seen["prompt_help"] = await browser.evaluate(HELP)
             seen["listening_rows"] = await browser.evaluate(LISTENING_ROWS)
             await browser.click(".manager-bindings .manager-fact-heading")
             await stopped()
@@ -327,6 +330,7 @@ class InputTableDrive(unittest.TestCase):
             await row("Take Picture")
             await listening("Take Picture")
             seen["picture_prompt"] = await browser.evaluate(LINE)
+            seen["picture_help"] = await browser.evaluate(HELP)
             await browser.evaluate(_held(3, True))
             await asyncio.sleep(RING_SHOWN_BY_S)
             seen["picture_ring"] = await browser.evaluate(RINGS)
@@ -423,17 +427,16 @@ class InputTableDrive(unittest.TestCase):
         self.assertEqual(self.seen["heard_nothing"], "Z · Does nothing here")
 
     def test_a_clicked_row_listens_and_the_line_says_what_for_and_how(self) -> None:
+        self.assertEqual(self.seen["prompt"], "Press what should do Next")
         self.assertEqual(
-            self.seen["prompt"],
-            "Press what should do Next · Two together makes a chord, and keeping it down "
-            "makes a hold Click away to stop")
+            self.seen["prompt_help"],
+            "Two together makes a chord, and keeping it down makes a hold. Click away to stop")
         self.assertEqual(self.seen["listening_rows"], ["Next"])
 
     def test_a_row_that_cannot_be_held_offers_only_the_chord(self) -> None:
-        self.assertEqual(
-            self.seen["picture_prompt"],
-            "Press what should do Take Picture · Two together makes a chord "
-            "Click away to stop")
+        self.assertEqual(self.seen["picture_prompt"], "Press what should do Take Picture")
+        self.assertEqual(self.seen["picture_help"],
+                         "Two together makes a chord. Click away to stop")
 
     def test_a_click_on_a_heading_a_gap_or_the_line_stops_the_listening(self) -> None:
         idle = "Press anything to see what it does"

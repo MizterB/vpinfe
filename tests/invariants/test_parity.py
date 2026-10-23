@@ -87,9 +87,9 @@ LEDGER_ALLOWS: dict[str, Any] = {
     # PAR-108: the main menu's two QR codes, renamed from get_managerui_*; master's names
     # still answer, as retired aliases.
     "PAR-108": {"get_remote_link", "get_vpinplay_multi_link"},
-    # PAR-109: the cabinet's controller window reports a button to a Manager on another
-    # device that is listening for one. Core's own call, refused to themes.
-    "PAR-109": {"input_capture"},
+    # PAR-109: the cabinet's controller window reports a button to a Manager Input page, and
+    # says when a held button took them back. Core's own calls, refused to themes.
+    "PAR-109": {"input_capture", "input_capture_release"},
     # New media kinds add theme-payload keys. Additive only: every key master
     # had must still be present and equal.
     "PAR-11": {"InstructionCardImagePath", "TopperPath", "TopperVideoPath",

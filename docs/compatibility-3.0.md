@@ -1556,9 +1556,11 @@ forward to them, so a theme written against master gets its answer.
 VPinPlay multi-player page.
 Covered by `tests/host/test_addresses.py` and `tests/invariants/test_parity.py`.
 
-**PAR-109 - Core relays the cabinet's controller and keys to a Manager.** One WebSocket
-method, `input_capture`, refused to themes like `get_paging_state`. While a Manager listens
-for a button or key, the cabinet's window reports each one through it instead of acting on it.
+**PAR-109 - Core relays the cabinet's controller and keys to a Manager.** Two WebSocket
+methods, `input_capture` and `input_capture_release`, refused to themes like
+`get_paging_state`. While a Manager's Input page sends the buttons to itself, the cabinet's
+window reports each one through the first instead of acting on it, and tells the Manager
+through the second when a button held at the cabinet takes them back.
 *Why:* a browser only hears the controllers and keyboard of its own device, so a Manager
 opened elsewhere cannot hear the cabinet's without the cabinet's window passing them on.
 Covered by `tests/js/input-capture.test.js`, `tests/js/internal-methods.test.js` and

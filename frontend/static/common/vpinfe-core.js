@@ -497,6 +497,7 @@ const INTERNAL_METHODS = new Set([
   "get_player_rating",
   "get_attract_config",
   "input_capture",
+  "input_capture_release",
 ]);
 
 // By the ids `common/host/frontend_browser.py` knows.
@@ -751,6 +752,13 @@ class VPinFECore {
   #recording = null;
   #recordingLine = null;
   #recordingText = null;
+  #capture = null;
+  #captureLine = null;
+  #captureText = null;
+  #captureHint = null;
+  #captureBar = null;
+  #captureFill = null;
+  #captureBarId = "";
 
   // A recording shown for a decision, as core last sent it, and what this window drew.
   #preview = null;
@@ -1632,7 +1640,8 @@ class VPinFECore {
       return;
     }
     if (message.type === "CaptureArm") {
-      this.#armCapture(!!message.armed, Number(message.ttl_ms) || 0);
+      this.#armCapture(!!message.armed, Number(message.ttl_ms) || 0,
+                       { browser: message.browser, device: message.device });
       return;
     }
     if (message.type === "SelectionRequest") {
@@ -2544,6 +2553,7 @@ class VPinFECore {
     window.addEventListener("gamepaddisconnected", (e) => {
       this.call("console_out", `Gamepad disconnected: ${e.gamepad.id} (index ${e.gamepad.index})`);
       delete this.previousButtonStates[e.gamepad.index];
+      this.#dropHeld();
     });
 
     // Check if gamepad is already connected (may have been connected before page load)
@@ -2713,6 +2723,7 @@ class VPinFECore {
 
     if (message.type === "TableLaunching" || message.type === "RemoteLaunching") {
       this._launchInputSuppressedByLifecycle = true;
+      this.#armCapture(false, 0);
       this.#setFrontendInputEnabled(false);
       this.suspendAttract("launch");
     } else if (message.type === "TableLaunchComplete" || message.type === "RemoteLaunchComplete") {
@@ -3215,6 +3226,7 @@ class VPinFECore {
   // A window that loses focus never sees the release, so what was waiting on one is
   // dropped without firing: neither the press nor the hold was asked for.
   #loseFocus() {
+    this.#dropHeld();
     this.#endHold();
     for (const id of [...this._pending.keys()]) this.#cancelHold(id);
   }
@@ -3709,13 +3721,27 @@ class VPinFECore {
     }
   }
 
-  // While a Manager listens for a button or key, the controller's buttons and the keys go to
-  // it and do nothing here. Armed for `ttlMs` and re-armed by each message; buttons already
-  // down when it starts are ignored until let go, as the Manager's own listener does.
-  #armCapture(armed, ttlMs) {
+  // While a Manager page asks for them, the controller's buttons and the keys go to it and
+  // do nothing here, and a line on the controller window says where they went. Armed for
+  // `ttlMs` and re-armed by each message; buttons already down when it starts are ignored
+  // until let go, as the Manager's own listener does. A table playing keeps its buttons, so
+  // an ask that arrives then is not taken, and nor is one that follows a take-back within a
+  // moment, which is the ask already on its way when the person took them.
+  static CAPTURE_TAKE_MS = 5000;
+  static CAPTURE_SHOW_MS = 500;
+  static CAPTURE_SETTLE_MS = 1500;
+
+  #armCapture(armed, ttlMs, who) {
     clearTimeout(this._captureTimer);
+    if (armed && (this._launchInputSuppressedByLifecycle || this.remoteLaunchActive
+        || Date.now() < (this._captureSettleUntil || 0))) {
+      armed = false;
+    }
     if (!armed) {
       this._captureArmed = false;
+      this.#dropHeld();
+      this.#capture = null;
+      this.#drawCapture();
       return;
     }
     if (!this._captureArmed) {
@@ -3728,7 +3754,9 @@ class VPinFECore {
       }));
     }
     this._captureArmed = true;
+    this.#capture = { browser: String(who?.browser || ""), device: String(who?.device || "") };
     this._captureTimer = setTimeout(() => this.#armCapture(false, 0), ttlMs || 6000);
+    this.#drawCapture();
   }
 
   // A key does nothing here while captured. Only the controller window reports it, and a
@@ -3738,6 +3766,7 @@ class VPinFECore {
     if (!this.isController() || this.#isTextEntry(e.target)) return;
     e.preventDefault();
     if (e.repeat || !/^[A-Za-z0-9]{1,32}$/.test(e.code || "")) return;
+    this.#heldForCapture("key:" + e.code, isDown);
     this.callInternal("input_capture", "key:" + e.code, isDown ? "down" : "up").catch(() => {});
   }
 
@@ -3746,7 +3775,49 @@ class VPinFECore {
     const seat = pad + ":" + index;
     if (isPressed ? this._captureIgnored.has(seat) : this._captureIgnored.delete(seat)) return;
     const token = standard ? "pad:standard/button:" + index : "pad:" + pad + "/button:" + index;
+    this.#heldForCapture(seat, isPressed);
     this.callInternal("input_capture", token, isPressed ? "down" : "up").catch(() => {});
+  }
+
+  // Any button or key kept down for five seconds takes them back, from every page.
+  _captureHeld = new Map();
+
+  #heldForCapture(id, isDown) {
+    if (!isDown) {
+      const held = this._captureHeld.get(id);
+      if (held) {
+        clearTimeout(held.timer);
+        clearTimeout(held.show);
+        this._captureHeld.delete(id);
+      }
+      this.#drawCapture();
+      return;
+    }
+    if (this._captureHeld.has(id)) return;
+    this._captureHeld.set(id, {
+      at: Date.now(),
+      timer: setTimeout(() => this.#takeBack(), VPinFECore.CAPTURE_TAKE_MS),
+      show: setTimeout(() => this.#drawCapture(), VPinFECore.CAPTURE_SHOW_MS),
+    });
+    this.#flashCapture();
+    this.#drawCapture();
+  }
+
+  #dropHeld() {
+    this._captureHeld.forEach((held) => {
+      clearTimeout(held.timer);
+      clearTimeout(held.show);
+    });
+    this._captureHeld.clear();
+    this.#drawCapture();
+  }
+
+  #takeBack() {
+    this._captureSettleUntil = Date.now() + VPinFECore.CAPTURE_SETTLE_MS;
+    this.#armCapture(false, 0);
+    // The pages are only told once the call lands, so a failed one is tried again.
+    this.callInternal("input_capture_release").catch(() =>
+      this.callInternal("input_capture_release").catch(() => {}));
   }
 
   #updateGamepads() {
@@ -3905,6 +3976,83 @@ class VPinFECore {
                { at: Number(run.done) + 1, of: run.of })
       : this.t("frontend.recording.line", "Recording “{game}”",
                { game: run.game?.name || "" });
+  }
+
+  // One line at the bottom of the controller window while buttons are going to a Manager,
+  // with what to do to take them back. Hidden, not removed, while a table is up.
+  #drawCapture() {
+    const who = this.#capture;
+    if (!who || !this.isController()) {
+      this.#captureLine?.remove();
+      this.#captureLine = this.#captureText = this.#captureHint = null;
+      this.#captureBar = this.#captureFill = null;
+      this.#captureBarId = "";
+      return;
+    }
+    if (!this.#captureLine) {
+      const line = document.createElement("div");
+      line.className = "vpinfe-capture";
+      const card = document.createElement("div");
+      card.className = "vpinfe-capture-card";
+      const text = document.createElement("p");
+      text.className = "vpinfe-capture-text";
+      const hint = document.createElement("p");
+      hint.className = "vpinfe-capture-hint";
+      const bar = document.createElement("div");
+      bar.className = "vpinfe-capture-bar";
+      const fill = document.createElement("span");
+      bar.appendChild(fill);
+      card.appendChild(text);
+      card.appendChild(hint);
+      card.appendChild(bar);
+      line.appendChild(card);
+      document.body.appendChild(line);
+      this.#captureLine = line;
+      this.#captureText = text;
+      this.#captureHint = hint;
+      this.#captureBar = bar;
+      this.#captureFill = fill;
+    }
+    const line = this.#captureLine;
+    const turn = this.layout.uprightRotation || 0;
+    line.setAttribute("data-upright", String(turn));
+    line.style.transform = `translate(-50%, -50%) rotate(${turn}deg)`;
+    line.hidden = !!this._launchInputSuppressedByLifecycle;
+    const browser = who.browser || this.t("frontend.capture.browser", "a browser");
+    this.#captureText.textContent = who.device
+      ? this.t("frontend.capture.line", "Buttons are going to the Manager in {browser} at {device}",
+               { browser, device: who.device })
+      : this.t("frontend.capture.line_here",
+               "Buttons are going to the Manager in {browser} on this device", { browser });
+    let longest = null;
+    this._captureHeld.forEach((held, id) => {
+      if (!longest || held.at < longest.held.at) longest = { id, held };
+    });
+    const elapsed = longest ? Date.now() - longest.held.at : 0;
+    const holding = !!longest && elapsed >= VPinFECore.CAPTURE_SHOW_MS;
+    this.#captureHint.textContent = holding
+      ? this.t("frontend.capture.holding", "Keep holding to take them back")
+      : this.t("frontend.capture.hint", "Hold any button 5 seconds to take them back");
+    this.#captureBar.hidden = !holding;
+    if (!holding) {
+      this.#captureBarId = "";
+    } else if (this.#captureBarId !== longest.id) {
+      this.#captureBarId = longest.id;
+      const fill = this.#captureFill;
+      fill.style.animation = "none";
+      void fill.offsetWidth;
+      fill.style.animation = `vpinfe-capture-fill ${VPinFECore.CAPTURE_TAKE_MS}ms linear `
+        + `${-elapsed}ms forwards`;
+    }
+  }
+
+  // The dot beside the line flashes on each press that is sent.
+  #flashCapture() {
+    const text = this.#captureText;
+    if (!text) return;
+    text.classList.remove("vpinfe-capture-pressed");
+    void text.offsetWidth;
+    text.classList.add("vpinfe-capture-pressed");
   }
 
   // What each button does while a recording is shown for a decision. Core decides; the

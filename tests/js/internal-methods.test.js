@@ -39,6 +39,7 @@ describe("vpin.call refuses core's own methods", () => {
       "get_paging_state",
       "get_player_rating",
       "input_capture",
+      "input_capture_release",
       "keep_filter_collection",
       "library_waiting",
       "record_media",

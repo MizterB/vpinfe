@@ -42,9 +42,9 @@ async function controller({ mapping = "standard" } = {}) {
   vpin.joyButtonMap = { "0": ["next"] };
   const seen = [];
   vpin.inputHandlers.push((action) => { seen.push(action); });
-  const arm = (armed = true, ttl_ms = 6000) => {
+  const arm = (armed = true, ttl_ms = 6000, who = {}) => {
     stillArmed.push(() => vpin.handleEvent({ type: "CaptureArm", armed: false }));
-    return vpin.handleEvent({ type: "CaptureArm", armed, ttl_ms });
+    return vpin.handleEvent({ type: "CaptureArm", armed, ttl_ms, ...who });
   };
   const hold = async (index, down) => {
     buttons[index].pressed = down;
@@ -59,7 +59,10 @@ async function controller({ mapping = "standard" } = {}) {
   };
   const press = (code, repeat, target) => key("keydown", code, repeat, target);
   const release = (code, target) => key("keyup", code, false, target);
-  return { vpin, browser, reported, seen, arm, hold, buttons, press, release };
+  const line = () => browser.document.body.children.find(el => el.className === "vpinfe-capture");
+  const words = () => line()?.children[0].children.map(el => el.textContent);
+  const card = () => line()?.children[0];
+  return { vpin, browser, listeners, reported, seen, arm, hold, buttons, press, release, line, words, card };
 }
 
 describe("a controller button is reported to a Manager that is listening", () => {
@@ -237,5 +240,217 @@ describe("a key is reported to a Manager that is listening", () => {
     await release("KeyN");
 
     assert.deepEqual(reported, []);
+  });
+});
+
+describe("the line the cabinet shows while buttons go to a Manager", () => {
+  const away = { browser: "Safari on Mac", device: "office-laptop" };
+
+  test("it names the browser and the device", async () => {
+    const { arm, words } = await controller();
+    await arm(true, 6000, away);
+
+    assert.deepEqual(words().slice(0, 2), [
+      "Buttons are going to the Manager in Safari on Mac at office-laptop",
+      "Hold any button 5 seconds to take them back"]);
+  });
+
+  test("a page on the cabinet itself says so", async () => {
+    const { arm, words } = await controller();
+    await arm(true, 6000, { browser: "Chrome on Linux", device: "" });
+
+    assert.equal(words()[0], "Buttons are going to the Manager in Chrome on Linux on this device");
+  });
+
+  test("a holder with no name still has one", async () => {
+    const { arm, words } = await controller();
+    await arm(true, 6000, { device: "office-laptop" });
+
+    assert.equal(words()[0], "Buttons are going to the Manager in a browser at office-laptop");
+  });
+
+  test("it is gone once nothing asks", async () => {
+    const { arm, line } = await controller();
+    await arm(true, 6000, away);
+    await arm(false);
+
+    assert.equal(line(), undefined);
+  });
+
+  test("a window that is not the controller shows none", async () => {
+    const { vpin, arm, line } = await controller();
+    vpin.isController = () => false;
+    await arm(true, 6000, away);
+
+    assert.equal(line(), undefined);
+  });
+
+  test("it is turned to face the player like the recording line", async () => {
+    const { arm, line } = await controller();
+    await arm(true, 6000, away);
+
+    assert.equal(line().attributes["data-upright"], "0");
+  });
+});
+
+describe("a table playing keeps the cabinet's buttons", () => {
+  const away = { browser: "Safari on Mac", device: "office-laptop" };
+
+  test("an ask that arrives while a table starts is not taken", async () => {
+    const { vpin, reported, seen, arm, hold, line } = await controller();
+    await vpin.handleEvent({ type: "TableLaunching" });
+    await arm(true, 6000, away);
+
+    await hold(0, true);
+
+    assert.deepEqual(reported, []);
+    assert.equal(line(), undefined);
+    assert.deepEqual(seen, []);
+  });
+
+  test("a table that starts takes the buttons back from a page that had them", async () => {
+    const { vpin, reported, arm, hold, line } = await controller();
+    await arm(true, 6000, away);
+    await vpin.handleEvent({ type: "TableLaunching" });
+
+    await hold(1, true);
+
+    assert.deepEqual(reported, []);
+    assert.equal(line(), undefined);
+  });
+
+  test("they go to the page again once the table closes and it asks again", async () => {
+    const { vpin, reported, arm, hold } = await controller();
+    await vpin.handleEvent({ type: "TableLaunching" });
+    await vpin.handleEvent({ type: "TableLaunchComplete" });
+    await arm(true, 6000, away);
+
+    await hold(1, true);
+
+    assert.deepEqual(reported, [["pad:standard/button:1", "down"]]);
+  });
+});
+
+describe("a button held at the cabinet takes the buttons back", () => {
+  const away = { browser: "Safari on Mac", device: "office-laptop" };
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  async function quickController() {
+    const made = await controller();
+    made.vpin.constructor.CAPTURE_TAKE_MS = 80;
+    made.vpin.constructor.CAPTURE_SHOW_MS = 20;
+    made.released = [];
+    const was = made.vpin.callInternal;
+    made.vpin.callInternal = (method, ...args) => {
+      if (method === "input_capture_release") made.released.push(true);
+      return was(method, ...args);
+    };
+    return made;
+  }
+
+  test("held long enough, it tells the Manager and stops sending", async () => {
+    const { vpin, released, reported, arm, hold, line } = await quickController();
+    await arm(true, 6000, away);
+
+    await hold(2, true);
+    await wait(140);
+
+    assert.equal(released.length, 1);
+    assert.equal(line(), undefined);
+    await hold(2, false);
+    await hold(1, true);
+    assert.deepEqual(reported.filter(([token]) => token.endsWith("button:1")), []);
+    assert.equal(vpin._captureArmed, false);
+  });
+
+  test("let go in time, nothing is taken", async () => {
+    const { released, arm, hold, line } = await quickController();
+    await arm(true, 6000, away);
+
+    await hold(2, true);
+    await wait(40);
+    await hold(2, false);
+    await wait(100);
+
+    assert.equal(released.length, 0);
+    assert.notEqual(line(), undefined);
+  });
+
+  test("the line says to keep holding, with a bar, once it is held a moment", async () => {
+    const { arm, hold, words, card } = await quickController();
+    await arm(true, 6000, away);
+
+    await hold(2, true);
+    assert.equal(words()[1], "Hold any button 5 seconds to take them back");
+    await wait(40);
+    // Drawn by the timer that shows it, which the next press also reaches.
+    await hold(1, true);
+
+    assert.equal(words()[1], "Keep holding to take them back");
+    assert.equal(card().children[2].hidden, false);
+  });
+
+  test("a key held does the same", async () => {
+    const { released, arm, press, release } = await quickController();
+    await arm(true, 6000, away);
+
+    await press("KeyN");
+    await wait(140);
+    await release("KeyN");
+
+    assert.equal(released.length, 1);
+  });
+
+  test("an ask already on its way does not hand them straight back", async () => {
+    const { reported, released, arm, hold } = await quickController();
+    await arm(true, 6000, away);
+    await hold(2, true);
+    await wait(140);
+    await hold(2, false);
+    assert.equal(released.length, 1);
+
+    await arm(true, 6000, away);
+    await hold(1, true);
+
+    assert.deepEqual(reported.filter(([token]) => token.endsWith("button:1")), []);
+  });
+
+  test("a failed release is tried once more", async () => {
+    const made = await quickController();
+    let calls = 0;
+    const was = made.vpin.callInternal;
+    made.vpin.callInternal = (method, ...args) => {
+      if (method === "input_capture_release" && ++calls === 1) return Promise.reject(new Error("down"));
+      return was(method, ...args);
+    };
+    await made.arm(true, 6000, away);
+
+    await made.hold(2, true);
+    await wait(140);
+
+    assert.equal(calls, 2);
+  });
+
+  test("a window that loses focus while a button is held takes nothing", async () => {
+    const { vpin, listeners, released, arm, hold, line } = await quickController();
+    await arm(true, 6000, away);
+    await hold(2, true);
+
+    assert.equal(vpin._captureHeld.size, 1);
+    for (const fn of listeners.blur) fn();
+    await wait(140);
+
+    assert.equal(released.length, 0);
+    assert.equal(vpin._captureHeld.size, 0);
+    assert.notEqual(line(), undefined);
+  });
+
+  test("a button already held when the buttons come to a page does not count", async () => {
+    const { released, hold, arm } = await quickController();
+    await hold(2, true);
+    await arm(true, 6000, away);
+    await wait(140);
+
+    assert.equal(released.length, 0);
+    await hold(2, false);
   });
 });

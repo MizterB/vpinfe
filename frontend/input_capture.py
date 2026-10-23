@@ -1,7 +1,7 @@
 """Putting this device's controller buttons and keys in front of a Manager.
 
 A browser reads a gamepad and a keyboard only on its own device, so a Manager opened
-elsewhere cannot hear this one's. While one is listening, the window that is the controller
+elsewhere cannot hear this one's. While a page wants them, the window that is the controller
 reports each button and key it sees and `common.events` carries it back, so the Manager
 page hears it as if it had been pressed there.
 
@@ -25,11 +25,13 @@ _registered = False
 _bridge = None
 
 
-def on_armed(*, armed: bool, ttl_ms: int = 0, **_payload: object) -> None:
+def on_armed(*, armed: bool, ttl_ms: int = 0, browser: str = "", device: str = "",
+             **_payload: object) -> None:
     if _bridge is None:
         return
     _bridge.send_event_all_with_iframe({"type": MESSAGE_TYPE, "armed": bool(armed),
-                                        "ttl_ms": int(ttl_ms)})
+                                        "ttl_ms": int(ttl_ms), "browser": str(browser),
+                                        "device": str(device)})
 
 
 def register(ws_bridge: DeviceChannel) -> None:

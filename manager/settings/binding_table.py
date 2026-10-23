@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import time
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -17,14 +18,25 @@ from typing import Any
 from nicegui import ui
 
 from common.config import input_registry
+from common.config.paths import get_ini_config
+from common.devices.install_identity import display_name
+from common.failures import why
+from common.host import peer_name
 from common.i18n import t
-from manager.kit import confirm, panel, verbs
+from common.security import sign_in
+from manager.kit import confirm, offload, panel, verbs
+from manager.kit.api import ApiClient
 from manager.kit.on_page import on_page
 from manager.settings import binding_editor, input_relay
 
 logger = logging.getLogger("vpinfe.manager.settings.binding_table")
 
 Write = Callable[[dict[str, list[str]]], Awaitable[bool]]
+
+# How long the page holds the cabinet's buttons with nothing pressed or touched on it, and how
+# long it waits for the frontend windows it asked to open.
+IDLE_S = 120.0
+OPEN_WAIT_S = 30.0
 
 # How long a binding can be asked to be held, in milliseconds. A length set some other way
 # joins the choices where it falls.
@@ -33,7 +45,9 @@ HOLD_STOPS = (0, 500, 1000, 1500, 2000, 3000)
 # Reports what was pressed to the table, which names it and says what it
 # does. Installed once per document: a table drawn later only repoints it. A press while a
 # question over the table, a menu, a listening row or a text field has the keyboard is not a
-# press to report. A dialog the table is drawn in is not a question over it.
+# press to report. A dialog the table is drawn in is not a question over it. It also tells
+# the table when the page is shown or hidden and, at most every 5 seconds, that the person
+# touched it, and carries a take-back from the cabinet to it.
 _LIVE_JS = """(() => {
   const live = window.__bindingLive = window.__bindingLive || {};
   live.id = %(id)d;
@@ -44,10 +58,32 @@ _LIVE_JS = """(() => {
     || [...document.querySelectorAll('.q-dialog')].some(
          one => !one.contains(document.getElementById('c' + live.id)))
     || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
-  const report = (token) => {
+  const tell = (name, detail) => {
     const target = document.getElementById('c' + live.id);
-    if (target && !busy()) target.dispatchEvent(new CustomEvent('heard', {detail: token}));
+    if (target) target.dispatchEvent(new CustomEvent(name, {detail}));
   };
+  const report = (token) => { if (!busy()) tell('heard', token); };
+  live.relayed = report;
+  live.relay = (token, isDown) => {
+    const listen = window.__bindingListen;
+    if (listen && listen.relay) listen.relay(token, isDown);
+    else if (isDown) report(token);
+  };
+  const allUp = () => {
+    const listen = window.__bindingListen;
+    if (listen && listen.relayAllUp) listen.relayAllUp();
+  };
+  live.taken = () => { allUp(); tell('taken', ''); };
+  const seen = () => { if (document.hidden) allUp(); tell('visible', !document.hidden); };
+  document.addEventListener('visibilitychange', seen);
+  seen();
+  let touched = 0;
+  const touch = () => {
+    const now = Date.now();
+    if (now - touched > 5000) { touched = now; tell('touched', ''); }
+  };
+  ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart']
+    .forEach(name => window.addEventListener(name, touch, true));
   window.addEventListener('keydown', (e) => { if (!e.repeat) report('key:' + e.code); }, true);
   const down = {};
   setInterval(() => {
@@ -189,13 +225,32 @@ def elsewhere(peer: str) -> bool:
     return not (getattr(address, "ipv4_mapped", None) or address).is_loopback
 
 
-def opened_elsewhere() -> bool:
-    """Whether the page being drawn was opened from another device than the one serving it."""
+def _asker() -> tuple[str, str]:
+    """The User-Agent and socket address the page being drawn was asked from."""
     try:
         request = ui.context.client.request
     except RuntimeError:
-        return False
-    return elsewhere(request.client.host if request.client else "")
+        return "", ""
+    return request.headers.get("user-agent", ""), request.client.host if request.client else ""
+
+
+def opened_elsewhere() -> bool:
+    """Whether the page being drawn was opened from another device than the one serving it."""
+    return elsewhere(_asker()[1])
+
+
+def holder_of(agent: str, host: str) -> tuple[str, str]:
+    """The browser a page runs in, named as sign-in names it, and the device it runs on, or
+    "" for this one. Looks the device up by address, which can wait: keep it off the event loop."""
+    browser = sign_in.describe_agent(agent)
+    if not elsewhere(host):
+        return browser, ""
+    name = peer_name.place_of(host)
+    try:
+        ipaddress.ip_address(name)
+    except ValueError:
+        name = name.split(".")[0]
+    return browser, name
 
 
 def _around(key: str, name: str) -> tuple[str, str]:
@@ -251,24 +306,41 @@ class Table:
         self.listening = ""
         self._refocus = ""
         self.elsewhere = opened_elsewhere()
+        self.sending = True
+        self.off_reason = ""
+        self.opening = False
+        self._opening_since = 0.0
+        self._visible = True
+        self._active_at = time.monotonic()
+        self._holder: tuple[str, str] = ("", "")
+        self._playing = input_relay.table_playing()
+        self._frontend_up = input_relay.frontend_up()
+        self._cab = display_name(get_ini_config())
         self._rows: dict[str, ui.element] = {}
         self._labels: dict[str, ui.element] = {}
         self._chips: dict[tuple[str, str], ui.element] = {}
         with ui.element("div").classes("w-full") as self.container:
             self.line = ui.element("div")
+            self.send = ui.element("div").classes("manager-binding-send")
             self.grid = ui.element("div").classes("manager-facts manager-bindings")
+        self._client = ui.context.client
+        self._asker = _asker()
         self.line.on("heard", self._heard, js_handler="(e) => emit(e.detail)")
+        self.line.on("taken", self._taken, js_handler="(e) => emit()")
+        self.line.on("visible", self._shown, js_handler="(e) => emit(e.detail)")
+        self.line.on("touched", self._touched, js_handler="(e) => emit()")
         ui.run_javascript(_LIVE_JS % {"id": self.line.id,
                                       "pad_token": binding_editor.PAD_TOKEN_JS})
         if writable:
             self.line.on("listen", self._listening, js_handler="(e) => emit(e.detail)")
             self.line.on("captured", self._captured, js_handler="(e) => emit(e.detail)")
             ui.run_javascript(binding_editor.listen_js(self.line.id))
-            self._client = ui.context.client
-            self._frontend_up = input_relay.frontend_up()
-            with self.container:
-                ui.timer(input_relay.REFRESH_S, self._keep_listening)
+        input_relay.present(self._client)
+        with self.container:
+            ui.timer(0.2, self._begin, once=True)
+            ui.timer(input_relay.REFRESH_S, self._keep)
         self._draw_live()
+        self._draw_send()
         self.draw()
 
     def label_of(self, name: str) -> str:
@@ -392,9 +464,6 @@ class Table:
             if not live.name:
                 ui.icon(verbs.PRESS)
                 ui.label(t("manager.binding_table.press_anything"))
-                if self.elsewhere:
-                    ui.label(t("manager.binding_table.elsewhere_note")) \
-                        .classes("manager-binding-live-key manager-binding-live-end")
                 return
             ui.icon(verbs.CONTROLLER if live.pad else verbs.KEYBOARD)
             ui.label(live.name).classes("manager-binding-live-name")
@@ -406,9 +475,8 @@ class Table:
                     .classes("manager-binding-live-key")
 
     def _draw_listening(self, row: Row) -> None:
-        """What the row is listening for, and how a chord and a hold are made."""
+        """What the row is listening for."""
         before, after = _around("manager.binding_table.press_for", row.label)
-        self._frontend_up = input_relay.frontend_up()
         with self.line, ui.element("div").classes("manager-binding-live manager-binding-live--on"):
             ui.icon(verbs.LISTEN)
             if before:
@@ -416,15 +484,46 @@ class Table:
             ui.label(row.label).classes("manager-binding-live-name")
             if after:
                 ui.label(after)
-            ui.label("·").classes("manager-binding-live-sep")
-            ui.label(t("manager.binding_table.chord_hold" if row.holds
-                       else "manager.binding_table.chord")).classes("manager-binding-live-hint")
-            ui.label(t("manager.binding_table.click_away")) \
-                .classes("manager-binding-live-key manager-binding-live-end")
-        if self.elsewhere and not self._frontend_up:
-            with self.line:
-                ui.label(t("manager.binding_table.no_frontend")).classes("manager-help")
-                ui.label(t("manager.binding_table.no_frontend_fix")).classes("manager-help")
+
+    def _draw_send(self) -> None:
+        """The switch that sends the cabinet's buttons here, or what stands in its place:
+        the offer to open the frontend windows, or that they are opening."""
+        if self.send.is_deleted:
+            return
+        self.send.clear()
+        words = ""
+        with self.send:
+            if self.opening:
+                ui.spinner(size="16px").classes("shrink-0")
+                words = t("manager.binding_table.opening", device=self._cab)
+            elif self.elsewhere and not self._frontend_up:
+                panel.action(t("action.frontend.start"), self._open_windows, icon=verbs.OPEN_WINDOW,
+                             hint=t("action.frontend.start.help"))()
+                words = t("manager.binding_table.frontend_closed", device=self._cab)
+            else:
+                ui.label(t("manager.binding_table.send_buttons")).classes("manager-fact-label")
+                panel.switch(self.sending, self._switched,
+                             hint=t("manager.binding_table.send_buttons.help",
+                                    device=self._cab))()
+                words = self._words()
+            if words:
+                ui.label(words).classes("manager-help manager-binding-send-words")
+
+    def _words(self) -> str:
+        """What is worth saying beside the switch. Nothing while all is normal."""
+        if self.sending and self._playing:
+            return t("manager.binding_table.paused", device=self._cab)
+        if self.listening:
+            row = self.by_name[self.listening]
+            return t("manager.binding_table.listening_help",
+                     chord=t("manager.binding_table.chord_hold" if row.holds
+                             else "manager.binding_table.chord"),
+                     away=t("manager.binding_table.click_away"))
+        if not self.sending and self.off_reason == "idle":
+            return t("manager.binding_table.off_idle")
+        if not self.sending and self.off_reason == "taken":
+            return t("manager.binding_table.off_taken", device=self._cab)
+        return ""
 
     def _mark(self) -> None:
         """Draw the row that is listening as the one."""
@@ -469,38 +568,134 @@ class Table:
     def _heard(self, event: Any) -> None:
         token = str(event.args or "").strip()
         if token:
+            self._active_at = time.monotonic()
             self._show(token, does=listed(self._does(token)))
 
     def _listening(self, event: Any) -> None:
         """The page started listening for a row, moved to another, or stopped."""
         name = str(event.args or "")
         self.listening = name if name in self.by_name else ""
+        self._active_at = time.monotonic()
         if self.listening:
             self.lit = ""
             self._light()
-            self._ask_cabinet()
         else:
             self.live = Live()
-            input_relay.disarm(self._client)
         self._mark()
         self._draw_live()
+        self._draw_send()
 
-    def _ask_cabinet(self) -> None:
-        """The frontend is asked to report its controller and keys, which a Manager on
-        another device cannot hear. One on the same device hears them too, and the first
-        press wins."""
-        input_relay.arm(self._client)
+    def _touched(self, _event: Any) -> None:
+        self._active_at = time.monotonic()
 
-    async def _keep_listening(self) -> None:
-        """Keeps the ask alive, and redraws when the frontend opens or closes under it."""
+    def _shown(self, event: Any) -> None:
+        """The page came into view or went out of it. Out of view it lets the buttons go."""
+        self._visible = bool(event.args)
+        if self._visible:
+            self._active_at = time.monotonic()
+        self._sync_lease()
+
+    def _taken(self, _event: Any) -> None:
+        """A button was held at the cabinet, which took the buttons from every page."""
+        self._turn_off("taken")
+
+    def _turn_off(self, reason: str) -> None:
+        self.sending = False
+        self.off_reason = reason
+        input_relay.disarm(self._client)
+        self._draw_send()
+
+    def _switched(self, event: Any) -> None:
+        self.sending = bool(event.value)
+        self.off_reason = ""
+        self._active_at = time.monotonic()
+        self._sync_lease(resume=True)
+        self._draw_send()
+
+    def _sync_lease(self, *, resume: bool = False) -> None:
+        """The page holds the cabinet's buttons while its switch is on, it is in view and no
+        table is playing, and asks again every tick to keep them."""
+        if resume and self.sending:
+            input_relay.resume(self._client)
+        if self._client.is_deleted:
+            input_relay.disarm(self._client)
+        elif self.sending and self._visible and not self._playing:
+            browser, device = self._holder
+            input_relay.arm(self._client, browser=browser, device=device)
+        else:
+            input_relay.disarm(self._client)
+
+    async def _begin(self) -> None:
+        """Names who is asking, which needs a lookup, and then asks."""
+        agent, host = self._asker
+        try:
+            self._holder = await offload.io(holder_of, agent, host)
+        except Exception:  # noqa: BLE001 - an unnamed holder is still a holder
+            logger.debug("Could not name the browser this page runs in", exc_info=True)
+        self._sync_lease(resume=True)
+
+    async def _keep(self) -> None:
+        """Keeps the ask alive, and redraws when something under the switch changed: the
+        frontend opened or closed, a table started or ended, or the page went idle."""
         if self.container.is_deleted:
             input_relay.disarm(self._client)
             return
-        if not self.listening:
+        now = time.monotonic()
+        playing = input_relay.table_playing()
+        up = input_relay.frontend_up()
+        changed = (playing, up) != (self._playing, self._frontend_up)
+        self._playing, self._frontend_up = playing, up
+        if self.opening and up:
+            self.opening = False
+            self.sending = True
+            self.off_reason = ""
+            self._active_at = now
+            changed = True
+            self._sync_lease(resume=True)
+        elif self.opening and now - self._opening_since >= OPEN_WAIT_S:
+            self.opening = False
+            ui.notify(t("manager.binding_table.open_failed", device=self._cab), type="warning")
+            changed = True
+        if self.sending and now - self._active_at >= IDLE_S:
+            self._turn_off("idle")
             return
-        self._ask_cabinet()
-        if input_relay.frontend_up() != self._frontend_up:
-            self._draw_live()
+        self._sync_lease()
+        if changed:
+            self._draw_send()
+
+    @on_page
+    async def _open_windows(self) -> None:
+        """Asks to open the frontend windows, so the cabinet's controller can be heard. The
+        two ways to say yes differ in what leaving this page does to the windows."""
+        answer = await confirm.ask(
+            t("manager.binding_table.open_question", device=self._cab),
+            detail=[t("manager.binding_table.open_heard"),
+                    t("manager.binding_table.open_leave_detail")],
+            confirm=t("manager.binding_table.open_page"), icon=verbs.OPEN_WINDOW,
+            danger=False,
+            second=(t("manager.binding_table.open_stay"), verbs.OPEN_WINDOW))
+        if answer == confirm.Answer.CANCEL:
+            return
+        self.opening = True
+        self._opening_since = time.monotonic()
+        self._draw_send()
+        try:
+            done = await offload.io(ApiClient().perform_action, "frontend", "start",
+                                    "asked from the Input page")
+        except Exception as exc:  # noqa: BLE001 - the reason belongs on the page
+            self.opening = False
+            self._draw_send()
+            ui.notify(t("said.action_failed"), caption=why(exc), type="negative")
+            return
+        if not done.get("performed"):
+            self.opening = False
+            self._draw_send()
+            ui.notify(t("manager.binding_table.open_failed", device=self._cab), type="warning")
+            return
+        if answer == confirm.Answer.CONFIRM:
+            input_relay.close_with_the_last_page()
+        else:
+            input_relay.leave_open()
 
     @on_page
     async def _captured(self, event: Any) -> None:
@@ -509,8 +704,9 @@ class Table:
         row = self.by_name.get(str(heard.get("row") or ""))
         token = str(heard.get("token") or "").strip()
         self.listening = ""
-        input_relay.disarm(self._client)
+        self._active_at = time.monotonic()
         self._mark()
+        self._draw_send()
         if row is not None and token:
             # A press that began at the keyboard ends there: the redraw replaces the label
             # that had focus.

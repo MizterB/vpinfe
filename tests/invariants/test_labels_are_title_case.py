@@ -23,6 +23,9 @@ _NAMED_AS_THE_PROGRAM = frozenset({
     for name in ("grim", "nvidia_smi", "nvtop", "wf_recorder", "wtype", "ydotool")
 })
 
+# The frontend's windows are a part, not a title: the verb is capitalized and the part is not.
+_FRONTEND_WINDOWS = frozenset(f"action.frontend.{name}" for name in ("start", "stop", "restart"))
+
 # What the Manager's helpers draw as a button, a menu entry or a link that acts.
 _BUTTONS = frozenset({
     "button", "quiet", "aside", "answer", "cancel", "action", "Verb", "menu_item", "menu_link",
@@ -103,7 +106,8 @@ class LabelsAreTitleCase(unittest.TestCase):
                     drawn.update(_button_keys(trees.tree_for(path)))
         self.assertGreater(len(drawn), 40, "an empty sweep passes and measures nothing")
         self.assertEqual(
-            _off_the_rule(sorted(key for key in drawn if key in CATALOG and key not in _COUNTS)),
+            _off_the_rule(sorted(key for key in drawn if key in CATALOG and key not in _COUNTS
+                                 and key not in _FRONTEND_WINDOWS)),
             {})
 
     def test_every_position_a_button_is_read_from(self) -> None:

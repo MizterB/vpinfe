@@ -36,6 +36,9 @@ NOT_A_REGION: dict[tuple[str, str], str] = {
         "drawn. Fills no region.",
     ("clipboard.py", "_show_to_copy"):
         "Selects the text in a dialog once the dialog has focused itself. Draws nothing.",
+    ("binding_table.py", "Table.__init__"):
+        "Names who is asking, which needs a lookup, and then asks for the cabinet's buttons. "
+        "The table is already drawn and fills no region.",
 }
 
 
