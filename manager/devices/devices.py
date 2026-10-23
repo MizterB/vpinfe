@@ -361,11 +361,11 @@ def acts(library: Any, targets: list[Target], rerender: Callable[[], Any] | None
                 for entry in _menu_entries(one.offered or []) if _pair(entry) == pair]
         if not hits:
             continue
-        verb = _device_verb(hits, (routed or {}).get(pair) if len(hits) == 1 else None,
-                            library)
+        verb = replace(_device_verb(hits, (routed or {}).get(pair) if len(hits) == 1 else None,
+                                    library), group=pair[0])
         if led is not None and pair == led[0]:
             verb = replace(verb, label=t("manager.waiting.menu_lead",
-                                         label=verb.label, note=led[1]))
+                                         label=verb.label, note=led[1]), group="")
             out.insert(0, verb)
         else:
             out.append(verb)

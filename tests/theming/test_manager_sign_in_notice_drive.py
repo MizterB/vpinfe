@@ -16,6 +16,7 @@ from tempfile import TemporaryDirectory
 
 from common.i18n import t
 from common.security import sign_in
+from httpapi import auth
 from manager.security import signed_in_rows
 from tests.support.browser_session import BrowserSession, chromium_path
 from tests.support.live_instance import LiveInstance
@@ -48,8 +49,10 @@ ROWS = f"{LIST} .ag-center-cols-container .ag-row"
 ROW_BOX = f"{LIST} .ag-row .ag-selection-checkbox input"
 CELL_OF = ("(() => { const el = document.querySelector("
            f"'{LIST} .ag-row .ag-cell[col-id=%s]'); return el ? el.innerText : null; }})()")
-SIGN_OUT_HERE = ("[...document.querySelectorAll('.manager-invite')]"
-                 f".some(el => el.innerText.includes({SIGN_OUT_WORD}))")
+POWER_BUTTON = ".manager-nav-mark button"
+POWER_MENU = ("[...document.querySelectorAll('.q-menu .q-item, .q-menu .q-separator')]"
+              ".map(el => el.classList.contains('q-separator') ? '-' "
+              ": el.innerText.trim().split('\\n')[0])")
 FILL = f"getComputedStyle(document.querySelector({json.dumps(SUMMARY)})).backgroundColor"
 CLEAR = "rgba(0, 0, 0, 0)"
 # The longest each column draws: every month's date, the last relative step before the date, an
@@ -130,7 +133,6 @@ class ManagerSignInNoticeDrive(unittest.TestCase):
             await walk.visit("/")
             seen["quiet_before"] = await browser.evaluate(
                 TEXT_OF % json.dumps(DIALOG))
-            seen["sign_out_here"] = await browser.evaluate(SIGN_OUT_HERE)
             asked = _post(instance, "/api/v1/auth/code", {}, first)
             first_asked = time.monotonic()
             await browser.wait_for(f"!!document.querySelector({json.dumps(DIALOG)})", timeout=30)
@@ -184,6 +186,8 @@ class ManagerSignInNoticeDrive(unittest.TestCase):
                 f"document.querySelectorAll({json.dumps(ROWS)}).length")
             seen["first_seen"] = await browser.evaluate(CELL_OF % "created")
             seen["last_used"] = await browser.evaluate(CELL_OF % "last_used")
+            seen["power_menu_signed_in"] = await cls._power_menu_of(binary, instance, second)
+            seen["power_menu_here"] = await cls._power_menu_of(binary, instance, None)
             await browser.evaluate(SHOW_LONGEST)
             await browser.wait_for(ALL_LONGEST_DRAWN)
             seen["longest"] = await browser.evaluate(CUT_OFF_AT_THE_LONGEST)
@@ -204,11 +208,38 @@ class ManagerSignInNoticeDrive(unittest.TestCase):
                 f"!!document.querySelector({json.dumps(LIST)})")
         return seen
 
+    @staticmethod
+    async def _power_menu_of(binary: str, instance: LiveInstance,
+                             signed_in: urllib.request.OpenerDirector | None) -> list:
+        """The Power menu a browser draws, holding the sign-in `signed_in` came away with."""
+        async with BrowserSession(binary) as other:
+            if signed_in is not None:
+                jar = next(one for one in signed_in.handlers
+                           if isinstance(one, urllib.request.HTTPCookieProcessor)).cookiejar
+                cookie = next(one for one in jar if one.name == auth.COOKIE)
+                await other.send("Network.setCookie", {
+                    "name": cookie.name, "value": cookie.value,
+                    "url": instance.manager_url("/")})
+            await ManagerWalk(other, instance).visit("/")
+            await other.wait_for(f"!!document.querySelector({json.dumps(POWER_BUTTON)})")
+            await other.click(POWER_BUTTON)
+            await other.wait_for(f"({POWER_MENU}).length > 0")
+            return await other.evaluate(POWER_MENU)
+
+    def test_the_power_menu_ends_with_sign_out_for_a_browser_signed_in_from_elsewhere(self) -> None:
+        shown = self.seen["power_menu_signed_in"]
+
+        self.assertEqual(shown[-2:], ["-", t("manager.security.sign_out")])
+        self.assertEqual(shown[-3], t("action.system.stop"))
+
+    def test_this_devices_own_browser_has_no_sign_out_in_the_power_menu(self) -> None:
+        shown = self.seen["power_menu_here"]
+
+        self.assertTrue(shown)
+        self.assertNotIn(t("manager.security.sign_out"), shown)
+
     def test_nothing_shows_until_a_device_asks(self) -> None:
         self.assertIsNone(self.seen["quiet_before"])
-
-    def test_this_device_is_not_offered_a_sign_out(self) -> None:
-        self.assertFalse(self.seen["sign_out_here"])
 
     def test_a_request_waits_for_show_and_names_who_asked(self) -> None:
         waiting = str(self.seen["waiting_dialog"])

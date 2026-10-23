@@ -764,7 +764,8 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
 
 
     power_menu = power.Power(library, waiting_bar, state, devices,
-                             str(discovery.get("install_id") or ""))
+                             str(discovery.get("install_id") or ""),
+                             signed_in=bool(security.this_session_id()))
     with ui.left_drawer(value=True).props(
             f"width={NAV_WIDE_PX} breakpoint={NAV_OVERLAY_PX} bordered") as left:
         # A nav header row carrying the collapse control (`manager-nav-header`).
@@ -838,7 +839,6 @@ async def manager_page(view: str = "", game: str = "", table: str = "", section:
             # drawer that is about leaving it.
             remote.invite(labels)
         with foot:
-            security.sign_out_here(labels)
             sign_in_notice.watch()
         with foot:
             # What the install is doing, when it is doing anything. Silent otherwise:

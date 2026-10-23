@@ -58,6 +58,20 @@ def _menu_labels(menu: ui.element) -> list[str]:
             if isinstance(one, ui.label) and not one.is_deleted]
 
 
+def _shape(menu: ui.element) -> list[str]:
+    """The menu top to bottom: each entry's label, and a dash where a rule is drawn."""
+    out: list[str] = []
+    for one in menu.descendants():
+        if one.is_deleted:
+            continue
+        if isinstance(one, ui.separator):
+            out.append("-")
+        elif isinstance(one, ui.menu_item):
+            out.append(next(str(inner.text) for inner in one.descendants()
+                            if isinstance(inner, ui.label)))
+    return out
+
+
 async def _click(menu: ui.element, label: str) -> None:
     """Press the menu item that starts with `label` and wait for what it started."""
     item = next(one for one in menu.descendants()
@@ -95,11 +109,11 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
         self.library.actions.return_value = EVERY
         self.state: dict[str, Any] = {}
 
-    async def _placed(self) -> tuple[power.Power, waiting.Bar]:
+    async def _placed(self, signed_in: bool = False) -> tuple[power.Power, waiting.Bar]:
         with _PAGE:
             bar = waiting.Bar(self.library)
             bar.place()
-            icon = power.Power(self.library, bar, self.state, [THIS], LOCAL)
+            icon = power.Power(self.library, bar, self.state, [THIS], LOCAL, signed_in=signed_in)
             icon.place()
         await press(bar.refresh)
         await press(icon.load)
@@ -116,6 +130,38 @@ class ThePowerIcon(unittest.IsolatedAsyncioTestCase):
         self.assertIn(t("action.vpinfe.restart"), shown)
         self.assertIn(t("action.system.stop"), shown)
         self.assertNotIn(t("word.forget"), shown)
+
+    async def test_a_rule_falls_between_what_each_verb_acts_on(self) -> None:
+        icon, _bar = await self._placed()
+        assert icon._menu is not None
+
+        self.assertEqual(_shape(icon._menu), [
+            "-", t("action.frontend.stop"), t("action.frontend.restart"), "-",
+            t("action.vpinfe.restart"), t("action.vpinfe.stop"), "-",
+            t("action.system.restart"), t("action.system.stop")])
+
+    async def test_a_browser_signed_in_from_elsewhere_ends_it_last_under_its_own_rule(self) -> None:
+        icon, _bar = await self._placed(signed_in=True)
+        assert icon._menu is not None
+
+        shape = _shape(icon._menu)
+
+        self.assertEqual(shape[-2:], ["-", t("manager.security.sign_out")])
+        self.assertEqual(shape[-3], t("action.system.stop"))
+
+    async def test_this_machines_own_browser_has_no_sign_out_to_offer(self) -> None:
+        icon, _bar = await self._placed()
+        assert icon._menu is not None
+
+        self.assertNotIn(t("manager.security.sign_out"), _shape(icon._menu))
+
+    async def test_the_icon_stays_for_a_sign_out_when_the_device_offers_nothing(self) -> None:
+        self.library.actions.return_value = []
+        icon, _bar = await self._placed(signed_in=True)
+        assert icon._menu is not None and icon._button is not None
+
+        self.assertTrue(icon._button.visible)
+        self.assertEqual(_shape(icon._menu), [t("manager.security.sign_out")])
 
     async def test_no_dot_and_a_plain_restart_while_nothing_waits(self) -> None:
         icon, _bar = await self._placed()

@@ -5,6 +5,9 @@ reopen go through the waiting line, so they follow the Manager to a new port, an
 menu with how much is waiting once the line has been dismissed. On an install that owns
 windows the menu also follows them: Close and Reopen while they are up, Open while they
 are not. The dot is up only while changes wait, and the hover then says how many.
+
+A browser another device signed in ends its own sign-in from the foot of the menu, which is
+the one entry about the person and not the device.
 """
 
 from __future__ import annotations
@@ -18,13 +21,16 @@ from common.runtime import lifecycle
 from manager.devices import devices
 from manager.kit import panel, verbs
 from manager.kit.data import Library
+from manager.security.signed_in_rows import SIGN_OUT_HERE
 from manager.settings import waiting
 
 
 class Power:
     def __init__(self, library: Library, bar: waiting.Bar, state: dict[str, Any],
-                 entries: list[dict[str, Any]], local_id: str) -> None:
+                 entries: list[dict[str, Any]], local_id: str,
+                 signed_in: bool = False) -> None:
         self.library = library
+        self.signed_in = signed_in
         self.bar = bar
         self.state = state
         self.local_id = local_id
@@ -100,13 +106,16 @@ class Power:
         acts = devices.acts(
             self.library, [devices.Target(self.device, self.library, offered, False)], None,
             routed=routed, led=lead)
+        tail = [panel.Verb(t("manager.security.sign_out"),
+                           lambda: ui.run_javascript(f"({SIGN_OUT_HERE})()"))] \
+            if self.signed_in else []
         shape = (tuple((one.label, one.run is None, one.hint) for one in acts),
                  lead is not None, closed)
         if shape == self._drawn:
             return
         self._drawn = shape
-        panel.verb_menu(menu, devices.device_label(self.device), acts)
-        button.set_visibility(bool(acts))
+        panel.verb_menu(menu, devices.device_label(self.device), acts, tail)
+        button.set_visibility(bool(acts or tail))
         dot.set_visibility(lead is not None)
         if isinstance(self._tip, ui.tooltip):
             self._tip.set_text(t("manager.page.power_waiting", note=lead[1])

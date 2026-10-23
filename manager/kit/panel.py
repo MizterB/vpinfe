@@ -1830,7 +1830,7 @@ class Verb:
     menu, dimmed and saying so (`for_selection`). `tip` is what a hover adds to the label.
     `block` is the extension an entry comes from: its entries follow core's, each block under
     a rule and its name. `block_mark` draws before that name, for an extension VPinFE did
-    not ship.
+    not ship. `group` names what an entry acts on: a rule is drawn where it changes.
     """
     label: str
     run: Callable[[], Any] | None = None
@@ -1845,6 +1845,7 @@ class Verb:
     tip: str = ""
     block: str = ""
     block_mark: Callable[[], None] | None = None
+    group: str = ""
 
 
 def for_selection(entries: Sequence[Verb], count: int) -> list[Verb]:
@@ -1895,9 +1896,9 @@ def _verb_entry(verb: Verb) -> None:
 
 
 def verb_entries(entries: Sequence[Verb], close: Callable[[], Any] | None = None) -> None:
-    """Into the menu being built. In each block the destructive ones last, under a rule.
-    Core's block is first and each extension's follows under its name. `close` shuts that
-    menu, for the entries that draw their own."""
+    """Into the menu being built. In each block a rule where the group changes, then the
+    destructive ones last, under a rule. Core's block is first and each extension's follows
+    under its name. `close` shuts that menu, for the entries that draw their own."""
     shut = close or (lambda: None)
     blocks: dict[str, list[Verb]] = {"": []}
     marks: dict[str, Callable[[], None] | None] = {}
@@ -1917,7 +1918,11 @@ def verb_entries(entries: Sequence[Verb], close: Callable[[], Any] | None = None
                     ui.label(name)
         safe = [one for one in held if not one.danger]
         risky = [one for one in held if one.danger]
+        last: str | None = None
         for one in safe:
+            if last is not None and one.group != last:
+                ui.separator()
+            last = one.group
             _draw_verb(one, shut)
         if safe and risky:
             ui.separator()
@@ -1932,15 +1937,22 @@ def _draw_verb(verb: Verb, close: Callable[[], Any]) -> None:
         _verb_entry(verb)
 
 
-def verb_menu(menu: Any, name: str, entries: Sequence[Verb]) -> None:
-    """A grid row's context menu: the row's name, then what can be done to it."""
+def verb_menu(menu: Any, name: str, entries: Sequence[Verb],
+              tail: Sequence[Verb] = ()) -> None:
+    """A grid row's context menu: the row's name, then what can be done to it. `tail` is
+    what the person using the menu can do about themselves, last under a rule of its own."""
     menu.clear()
-    if not entries:
+    if not entries and not tail:
         return
     with menu:
-        ui.item_label(name).props("header").classes("manager-menu-header")
-        ui.separator()
-        verb_entries(entries, menu.close)
+        if entries:
+            ui.item_label(name).props("header").classes("manager-menu-header")
+            ui.separator()
+            verb_entries(entries, menu.close)
+        if tail:
+            if entries:
+                ui.separator()
+            verb_entries(tail, menu.close)
     # A menu is filled after the click opened it, and Quasar placed it for the content it
     # had then; one that grew would run off the bottom of the window.
     menu.run_method("updatePosition")

@@ -20,7 +20,7 @@ from common.failures import why
 from common.i18n import t
 from common.security import sign_in
 from httpapi import auth
-from manager.kit import offload, panel, verbs, when
+from manager.kit import offload, panel, when
 from manager.kit.data import Library
 from manager.kit.on_page import on_page
 from manager.security import (
@@ -141,14 +141,3 @@ async def page(library: Library, redraw: Callable[[], None],
 
     drawn = panel.region(parts)
     return drawn
-
-
-def sign_out_here(labels: list) -> None:
-    """The nav's own Sign Out, drawn only for a browser another device signed in. This
-    device is never signed in, so it has nothing to sign out of."""
-    if not this_session_id():
-        return
-    with ui.row().classes("items-center justify-center gap-2 w-full no-wrap "
-                          "manager-invite").on("click", js_handler=signed_in_rows.SIGN_OUT_HERE):
-        ui.icon(verbs.SIGN_OUT).classes("shrink-0")
-        labels.append(ui.label(t("manager.security.sign_out")).classes("text-xs"))
