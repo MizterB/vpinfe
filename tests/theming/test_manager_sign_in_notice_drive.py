@@ -214,7 +214,8 @@ class ManagerSignInNoticeDrive(unittest.TestCase):
         """The Power menu a browser draws, holding the sign-in `signed_in` came away with."""
         async with BrowserSession(binary) as other:
             if signed_in is not None:
-                jar = next(one for one in signed_in.handlers
+                handlers = signed_in.handlers  # type: ignore[attr-defined]
+                jar = next(one for one in handlers
                            if isinstance(one, urllib.request.HTTPCookieProcessor)).cookiejar
                 cookie = next(one for one in jar if one.name == auth.COOKIE)
                 await other.send("Network.setCookie", {
