@@ -248,8 +248,11 @@ def _path_of(game: Game, entry: dict) -> str:
     return os.path.join(game_dir, filename)
 
 
-def _launch_env(launcher: launchers.Launcher) -> dict:
+def _launch_env(launcher: launchers.Launcher, binary: str) -> dict:
     env = bundled_libraries.for_child()
+    app = apps.get(getattr(launcher, "app", "")) or apps.default_app()
+    if app.environment is not None:
+        env.update(app.environment.variables(_settings(launcher, binary)))
     env.update(parse_launch_env_overrides(str(launcher.value("launch_env") or "")))
     return env
 
@@ -642,7 +645,7 @@ def launch_game(game: Game, ini_config: ConfigStore, *, source: str,
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,
                 text=True,
-                env=_launch_env(launcher),
+                env=_launch_env(launcher, binary),
             )
             pause, press = (None, None) if capturing else _pause_of(launcher, binary)
             launch_state.attach(process, press)

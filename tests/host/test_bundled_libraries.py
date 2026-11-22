@@ -65,13 +65,13 @@ class LaunchEnvTests(unittest.TestCase):
         with (linux, frozen,
               mock.patch.dict("os.environ", {"LD_LIBRARY_PATH": BUNDLE,
                                              "LD_LIBRARY_PATH_ORIG": "/usr/lib/mine"})):
-            env = launch._launch_env(_launcher("LD_LIBRARY_PATH=/opt/dof"))
+            env = launch._launch_env(_launcher("LD_LIBRARY_PATH=/opt/dof"), "/opt/vpx")
         self.assertEqual(env["LD_LIBRARY_PATH"], "/opt/dof")
 
     def test_the_bundle_does_not_reach_vpx_when_the_launcher_sets_nothing(self) -> None:
         linux, frozen = _frozen_linux()
         with linux, frozen, mock.patch.dict("os.environ", {"LD_LIBRARY_PATH": BUNDLE}):
-            env = launch._launch_env(_launcher())
+            env = launch._launch_env(_launcher(), "/opt/vpx")
         self.assertNotIn("LD_LIBRARY_PATH", env)
 
 

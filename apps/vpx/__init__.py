@@ -13,6 +13,7 @@ from .capability import VPXCapability
 from .capture import VPXCapture
 from .config import VPXConfig
 from .controls import VPXControls
+from .environment import VPXEnvironment
 from .launch import VPXLaunch
 from .pause import VPXPause
 from .plays import VPXPlays
@@ -50,6 +51,7 @@ VPX = App(
     kinds=Kinds(),
     launch=VPXLaunch(),
     prepare=VPXPrepare(),
+    environment=VPXEnvironment(),
     config=VPXConfig(),
     capability=VPXCapability(),
     capture=VPXCapture(),

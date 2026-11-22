@@ -213,6 +213,14 @@ class Prepare(Protocol):
     def before_launch(self, settings: Mapping[str, Any]) -> None: ...
 
 
+@runtime_checkable
+class Environment(Protocol):
+    """Variables the app wants set in its own process, where it needs any. A launcher's
+    Environment setting is applied after these, so a person's word wins."""
+
+    def variables(self, settings: Mapping[str, Any]) -> Mapping[str, str]: ...
+
+
 # --- config -----------------------------------------------------------------------
 
 # Where a value is written. A person reads these as "everything this launcher plays",
@@ -635,6 +643,7 @@ class App:
     format: Format | None = None
     launch: Launch | None = None
     prepare: Prepare | None = None
+    environment: Environment | None = None
     config: Config | None = None
     capability: Capability | None = None
     capture: Capture | None = None
