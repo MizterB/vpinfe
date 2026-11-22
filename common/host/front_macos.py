@@ -20,7 +20,7 @@ from common.host.front import Window
 # The system's own windows: the menu bar, the Dock, notifications. None of them is a
 # program the person is playing in, and the keyboard is never theirs.
 _SYSTEM_OWNERS = frozenset({"Window Server", "Dock", "SystemUIServer", "Control Center",
-                            "Notification Center", "Spotlight", "loginwindow"})
+                            "Notification Center", "Spotlight", "loginwindow", "MenuBarAgent"})
 _SMALLEST = 64
 _OPEN = "/usr/bin/open"
 _OPEN_SECONDS = 5
@@ -30,6 +30,9 @@ _ROUND_SECONDS = 10.0
 
 class MacBackend:
     name = "macOS"
+    # With full screen Spaces each of the table's windows has a Space of its own, and the
+    # system may name any of them as the holder while the table runs.
+    any_table_window_will_do = True
 
     def __init__(self, quartz: Any = None, appkit: Any = None,
                  clock: Callable[[], float] = time.monotonic) -> None:

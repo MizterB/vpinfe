@@ -317,6 +317,47 @@ class FrontTests(unittest.TestCase):
 
         self.assertEqual(world.handed, [PLAYFIELD])
 
+    def _score_view_holds(self, *, any_window: bool, paused: bool) -> tuple[World, str]:
+        world = World(holder=PLAYFIELD)
+        world.at(2.0, world.take(BACKGLASS))
+        watch = front.Watch(_Backend(world), GAME, titles=TITLES, hand_over_on=True,
+                            paused=lambda: paused, clock=lambda: world.now,
+                            sleep=world.sleep, own_pid=OWN)
+        watch._backend.any_table_window_will_do = any_window  # type: ignore[union-attr]
+        watch.note_startup_done()
+        return world, self._run(watch)
+
+    def test_a_running_table_with_another_of_its_windows_holding_the_keyboard_is_left_alone(
+            self) -> None:
+        world, said = self._score_view_holds(any_window=True, paused=False)
+
+        self.assertEqual(world.handed, [])
+        self.assertNotIn("gave up", said)
+
+    def test_a_paused_table_with_another_of_its_windows_holding_the_keyboard_is_handed_it(
+            self) -> None:
+        world, _ = self._score_view_holds(any_window=True, paused=True)
+
+        self.assertEqual(world.handed, [PLAYFIELD])
+
+    def test_with_the_switch_off_another_table_window_holding_it_is_not_called_the_table(
+            self) -> None:
+        world = World(holder=PLAYFIELD)
+        world.at(2.0, world.take(BACKGLASS))
+        watch = front.Watch(_Backend(world), GAME, titles=TITLES, hand_over_on=False,
+                            clock=lambda: world.now, sleep=world.sleep, own_pid=OWN)
+        watch._backend.any_table_window_will_do = True  # type: ignore[union-attr]
+        watch.note_startup_done()
+
+        said = self._run(watch)
+
+        self.assertIn("switch is off", said)
+
+    def test_a_system_that_needs_the_playfield_hands_it_over_even_while_running(self) -> None:
+        world, _ = self._score_view_holds(any_window=False, paused=False)
+
+        self.assertEqual(world.handed, [PLAYFIELD])
+
     def test_with_the_switch_off_nothing_is_handed_over_but_it_is_said_why(self) -> None:
         world = World(holder=KIOSK)
         appeared = mock.Mock()

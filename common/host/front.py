@@ -155,7 +155,8 @@ class Watch:
     VPinFE and not the table having the keyboard is the person's doing, or the
     system's, and is left alone. Where the system's answer can be wrong (Windows), a
     table that has the keyboard but still says it is paused is given it through one of
-    VPinFE's windows.
+    VPinFE's windows. Where any window of the table will do (macOS), the table's other
+    windows holding the keyboard are left alone while it runs.
     """
 
     def __init__(self, backend: Backend | None, root_pid: int, *,
@@ -396,7 +397,19 @@ class Watch:
             return False
         return self._paused() and not self._pause_asked()
 
+    def _runs_anyway(self, holder: Window | None) -> bool:
+        """Another window of the table has the keyboard and the table says it is running."""
+        if not self._on or holder is None or holder.pid not in self._accepted:
+            return False
+        if not getattr(self._backend, "any_table_window_will_do", False):
+            return False
+        if self._startup_at is None or self._clock() - self._startup_at < STUCK_SECONDS:
+            return False
+        return not self._paused()
+
     def _fine(self, holder: Window | None) -> bool:
+        if self._runs_anyway(holder):
+            return True
         return self._passes(holder) and not self._stuck(holder)
 
     def _who(self, holder: Window | None) -> str:

@@ -97,6 +97,7 @@ class WindowsTests(unittest.TestCase):
                                _info(2, 51, owner="Dock"),
                                _info(3, 52, width=40, height=22),
                                _info(4, 53, alpha=0.0),
+                               _info(6, 54, owner="MenuBarAgent"),
                                _info(5, 100, name="Table")])
 
         self.assertEqual([one.handle for one in found], [5])
@@ -125,7 +126,8 @@ class HolderTests(unittest.TestCase):
         self.assertEqual(held, Window(7, 100, "Player"))
 
     def test_a_menu_bar_or_dock_in_front_does_not_hold_the_keyboard(self) -> None:
-        held = self._holder([_info(1, 50, owner="Dock"), _info(7, 100, name="Player")])
+        held = self._holder([_info(1, 50, owner="Dock"), _info(8, 51, owner="MenuBarAgent"),
+                             _info(7, 100, name="Player")])
 
         self.assertEqual(held, Window(7, 100, "Player"))
 
